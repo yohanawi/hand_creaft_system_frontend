@@ -1,13 +1,42 @@
+
 import PageShell from '@/components/PageShell';
 import { useCart } from '@/context/CartContext';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Animated, Dimensions, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const API_BASE = 'http://localhost:5000';
+
+// Font families (assume loaded globally or via expo-font)
+const SERIF_FONT = 'PlayfairDisplay_700Bold';
+const SANS_FONT = 'PlusJakartaSans_400Regular';
+
+// Colors
+const BROWN = '#8B4513';
+const CREAM = '#FCFAF8';
+const ACCENT_ORANGE = '#F6A96B';
+const SLATE = '#64748B';
+const SHADOW = Platform.OS === 'ios' ? {
+    shadowColor: '#C2B6A0',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+} : {
+    elevation: 8,
+};
+
+// Glassmorphism style for header
+const GLASS = {
+    backgroundColor: 'rgba(252,250,248,0.7)',
+    borderRadius: 32,
+    ...SHADOW,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    backdropFilter: 'blur(12px)', // web only, ignored on native
+};
 
 export default function CartScreen() {
     const router = useRouter();
@@ -22,31 +51,50 @@ export default function CartScreen() {
             Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
             Animated.spring(slideAnim, { toValue: 0, tension: 60, friction: 8, useNativeDriver: true }),
         ]).start();
-    }, []);
+    }, [fadeAnim, slideAnim]);
 
     const imageUri = (img: string) => (img?.startsWith('http') ? img : `${API_BASE}/${img}`);
     const unitPrice = (item: (typeof items)[number]) =>
         item.salePrice !== null && item.salePrice < item.price ? item.salePrice : item.price;
+    const cartItemKey = (item: (typeof items)[number]) => `${item.product}:${item.selectedVariant?.variantId || 'base'}`;
+
+    // Sale badge logic
+    const showSale = (item: (typeof items)[number]) => item.salePrice !== null && item.salePrice < item.price;
+
+    // Trust badges (Jewellery themed)
+    const trustBadges = [
+        { icon: 'shield', text: 'Secure & Encrypted Checkout' },
+        { icon: 'gem', text: 'Certified Artisan Jewellery' },
+        { icon: 'heart', text: '30-Day Sparkle Guarantee' },
+    ];
 
     return (
-        <View className="flex-1 bg-white">
+        <View style={{ flex: 1, backgroundColor: CREAM }}>
             <ScrollView showsVerticalScrollIndicator={false}>
                 <PageShell>
                     <Animated.View
-                        style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
-                        className="py-14 px-4 bg-craft-50"
+                        style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }], paddingHorizontal: 16, paddingTop: 32, paddingBottom: 32, backgroundColor: 'transparent' }}
                     >
-                        <View className="max-w-6xl mx-auto w-full">
-                            {/* Heading */}
-                            <View className="flex-row items-center mb-8">
-                                <Feather name="shopping-cart" size={28} color="#8B4513" />
-                                <Text className={`text-brown-primary font-bold ml-3 ${isMobile ? 'text-3xl' : 'text-4xl'}`}>
-                                    My Cart
+                        <View style={{ width: '100%', maxWidth: 1200, alignSelf: 'center' }}>
+                            {/* Header with glassmorphism */}
+                            <View style={[{
+                                flexDirection: 'row', alignItems: 'center', marginBottom: 32, padding: 24, gap: 16,
+                            }, GLASS]}
+                            >
+                                <Feather name="shopping-cart" size={32} color={BROWN} />
+                                <Text style={{
+                                    color: BROWN,
+                                    fontFamily: SERIF_FONT,
+                                    fontWeight: '700',
+                                    fontSize: isMobile ? 28 : 36,
+                                    letterSpacing: 1,
+                                }}>
+                                    Your Jewellery Box
                                 </Text>
                                 {cartCount > 0 && (
-                                    <View className="ml-3 bg-brown-primary rounded-full px-3 py-1">
-                                        <Text className="text-white text-xs font-bold">
-                                            {cartCount} item{cartCount !== 1 ? 's' : ''}
+                                    <View style={{ paddingHorizontal: 16, paddingVertical: 4, marginLeft: 12, borderRadius: 999, backgroundColor: BROWN }}>
+                                        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#fff', fontFamily: SANS_FONT }}>
+                                            {cartCount} piece{cartCount !== 1 ? 's' : ''}
                                         </Text>
                                     </View>
                                 )}
@@ -54,173 +102,242 @@ export default function CartScreen() {
 
                             {/* Empty State */}
                             {items.length === 0 ? (
-                                <View className="bg-white rounded-3xl p-12 items-center shadow-md">
-                                    <Feather name="shopping-cart" size={80} color="#D1D5DB" />
-                                    <Text className="text-gray-900 text-2xl font-bold mt-6 mb-2">Your cart is empty</Text>
-                                    <Text className="text-gray-500 text-center text-base mb-8">
-                                        Add some handcrafted items to get started.
+                                <View style={{ alignItems: 'center', padding: 48, backgroundColor: '#fff', borderRadius: 40, ...SHADOW }}>
+                                    <Feather name="gem" size={80} color={ACCENT_ORANGE} />
+                                    <Text style={{ marginTop: 24, marginBottom: 8, fontSize: 28, fontFamily: SERIF_FONT, color: BROWN, fontWeight: '700', letterSpacing: 1 }}>
+                                        Your jewellery box is empty
+                                    </Text>
+                                    <Text style={{ marginBottom: 32, fontSize: 16, color: SLATE, textAlign: 'center', fontFamily: SANS_FONT }}>
+                                        Add artisan-crafted rings, necklaces, and more to begin your collection.
                                     </Text>
                                     <TouchableOpacity
                                         onPress={() => router.push('/shop' as any)}
-                                        className="bg-brown-primary rounded-full px-10 py-4"
-                                        activeOpacity={0.8}
+                                        style={{ paddingHorizontal: 40, paddingVertical: 16, borderRadius: 999, backgroundColor: BROWN, ...SHADOW }}
+                                        activeOpacity={0.85}
                                     >
-                                        <Text className="text-white font-bold text-base">Browse Shop</Text>
+                                        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#fff', fontFamily: SANS_FONT }}>Browse Jewellery</Text>
                                     </TouchableOpacity>
                                 </View>
                             ) : (
-                                <View className={`${isMobile ? 'flex-col' : 'flex-row'} gap-6`}>
-                                    {/* Items */}
-                                    <View className={isMobile ? 'w-full' : 'flex-1'}>
+                                <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 32, alignItems: 'flex-start' }}>
+                                    {/* Items List */}
+                                    <View style={{ width: isMobile ? '100%' : '70%', maxWidth: isMobile ? '100%' : 700 }}>
                                         {items.map(item => (
-                                            <View key={item.product} className="bg-white rounded-2xl p-5 mb-4 shadow-sm">
-                                                <View className="flex-row">
-                                                    {/* Thumbnail */}
+                                            <Animated.View
+                                                key={cartItemKey(item)}
+                                                style={{
+                                                    marginBottom: 32,
+                                                    backgroundColor: '#fff',
+                                                    borderRadius: 40,
+                                                    flexDirection: 'row',
+                                                    alignItems: 'stretch',
+                                                    borderWidth: 1.5,
+                                                    borderColor: '#EFE2D1', // Soft champagne border
+                                                    ...SHADOW,
+                                                    padding: 0,
+                                                    overflow: 'hidden',
+                                                    position: 'relative',
+                                                }}
+                                            >
+                                                {/* Decorative Corner Element */}
+                                                <View style={{
+                                                    position: 'absolute',
+                                                    right: -10,
+                                                    top: -10,
+                                                    width: 60,
+                                                    height: 60,
+                                                    borderRadius: 30,
+                                                    backgroundColor: '#FDF6ED',
+                                                    opacity: 0.5,
+                                                    zIndex: 0,
+                                                }} />
+
+                                                {/* Image Section with "Jewel-box" feel */}
+                                                <View style={{
+                                                    width: 140,
+                                                    height: 150,
+                                                    position: 'relative',
+                                                    justifyContent: 'center',
+                                                    alignItems: 'center',
+                                                    backgroundColor: '#F9F1EB',
+                                                    borderRightWidth: 1,
+                                                    borderRightColor: '#F3E8DC',
+                                                    zIndex: 1
+                                                }}>
                                                     {item.thumbnailImage ? (
-                                                        <Image
-                                                            source={{ uri: imageUri(item.thumbnailImage) }}
-                                                            style={{ width: 90, height: 90, borderRadius: 12, backgroundColor: '#F3E8DC' }}
-                                                            contentFit="cover"
-                                                        />
+                                                        <View style={{
+                                                            width: 110,
+                                                            height: 110,
+                                                            borderRadius: 55, // Circular for a "locket" look
+                                                            borderWidth: 3,
+                                                            borderColor: '#D4AF37',
+                                                            padding: 4,
+                                                            backgroundColor: '#fff',
+                                                            ...SHADOW
+                                                        }}>
+                                                            <Image
+                                                                source={{ uri: imageUri(item.thumbnailImage) }}
+                                                                style={{ flex: 1, borderRadius: 50 }}
+                                                                contentFit="cover"
+                                                            />
+                                                        </View>
                                                     ) : (
-                                                        <View className="rounded-xl items-center justify-center"
-                                                            style={{ width: 90, height: 90, backgroundColor: '#F3E8DC' }}>
-                                                            <Feather name="package" size={36} color="#C1622F" />
+                                                        <View style={{ width: 110, height: 110, borderRadius: 55, backgroundColor: '#F3E8DC', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#D4AF37' }}>
+                                                            <Feather name="package" size={44} color={ACCENT_ORANGE} />
                                                         </View>
                                                     )}
 
-                                                    {/* Info */}
-                                                    <View className="flex-1 ml-4 justify-between">
-                                                        <View>
-                                                            <Text className="text-gray-900 font-semibold text-base" numberOfLines={2}>
+                                                    {/* Floating Sale Tag */}
+                                                    {showSale(item) && (
+                                                        <View style={{
+                                                            position: 'absolute',
+                                                            bottom: 12,
+                                                            backgroundColor: '#D4AF37',
+                                                            borderRadius: 8,
+                                                            paddingHorizontal: 8,
+                                                            paddingVertical: 4,
+                                                            zIndex: 2,
+                                                            flexDirection: 'row',
+                                                            alignItems: 'center',
+                                                            gap: 4,
+                                                            transform: [{ rotate: '-5deg' }]
+                                                        }}>
+                                                            <Feather name="star" size={10} color="#fff" />
+                                                            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 10, fontFamily: SANS_FONT, letterSpacing: 1 }}>OFFER</Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+
+                                                {/* Info Section */}
+                                                <View style={{ flex: 1, padding: 24, justifyContent: 'space-between', zIndex: 1 }}>
+                                                    <View>
+                                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                            <Text style={{ flex: 1, fontSize: 18, fontFamily: SERIF_FONT, color: BROWN, fontWeight: '700', lineHeight: 24 }} numberOfLines={2}>
                                                                 {item.name}
                                                             </Text>
-                                                            <Text className="text-gray-400 text-xs mt-1">SKU: {item.sku}</Text>
+                                                            <TouchableOpacity
+                                                                onPress={() => removeFromCart(item.product, item.selectedVariant?.variantId)}
+                                                                style={{ marginLeft: 10 }}
+                                                            >
+                                                                <Feather name="x" size={20} color={SLATE} />
+                                                            </TouchableOpacity>
                                                         </View>
 
-                                                        <View className="flex-row items-center mt-2">
-                                                            <Text className="text-brown-primary font-bold text-lg">
-                                                                ${unitPrice(item).toFixed(2)}
-                                                            </Text>
-                                                            {item.salePrice !== null && item.salePrice < item.price && (
-                                                                <Text className="text-gray-400 text-sm line-through ml-2">
-                                                                    ${item.price.toFixed(2)}
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 12 }}>
+                                                            <View style={{ backgroundColor: '#F0EAD6', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                                                                <Text style={{ fontSize: 11, color: BROWN, fontFamily: SANS_FONT, fontWeight: '600' }}>SKU: {item.sku}</Text>
+                                                            </View>
+                                                            {item.selectedVariant?.label && (
+                                                                <Text style={{ fontSize: 13, color: SLATE, fontFamily: SANS_FONT, fontStyle: 'italic' }}>
+                                                                    {item.selectedVariant.label}
                                                                 </Text>
                                                             )}
                                                         </View>
+                                                    </View>
 
-                                                        {/* Qty + remove */}
-                                                        <View className="flex-row items-center justify-between mt-3">
-                                                            <View className="flex-row items-center bg-craft-100 rounded-xl">
-                                                                <TouchableOpacity
-                                                                    onPress={() => updateQty(item.product, item.quantity - 1)}
-                                                                    className="px-3 py-2"
-                                                                >
-                                                                    <Feather name="minus" size={16} color="#8B4513" />
-                                                                </TouchableOpacity>
-                                                                <Text className="text-gray-900 font-bold px-3">{item.quantity}</Text>
-                                                                <TouchableOpacity
-                                                                    onPress={() => updateQty(item.product, item.quantity + 1)}
-                                                                    className="px-3 py-2"
-                                                                >
-                                                                    <Feather name="plus" size={16} color="#8B4513" />
-                                                                </TouchableOpacity>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 16 }}>
+                                                        <View>
+                                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                                <Text style={{ fontSize: 20, fontFamily: SERIF_FONT, color: BROWN, fontWeight: '700' }}>
+                                                                    ${unitPrice(item).toFixed(2)}
+                                                                </Text>
+                                                                {showSale(item) && (
+                                                                    <Text style={{ marginLeft: 8, fontSize: 14, color: SLATE, textDecorationLine: 'line-through', fontFamily: SANS_FONT }}>
+                                                                        ${item.price.toFixed(2)}
+                                                                    </Text>
+                                                                )}
                                                             </View>
+                                                            <Text style={{ fontSize: 11, color: ACCENT_ORANGE, fontFamily: SANS_FONT, marginTop: 2, fontWeight: '600' }}>
+                                                                Handcrafted Piece
+                                                            </Text>
+                                                        </View>
+
+                                                        {/* Modern Quantity Selector */}
+                                                        <View style={{
+                                                            flexDirection: 'row',
+                                                            alignItems: 'center',
+                                                            backgroundColor: '#fff',
+                                                            borderRadius: 12,
+                                                            borderWidth: 1,
+                                                            borderColor: '#F3E8DC',
+                                                            ...SHADOW
+                                                        }}>
                                                             <TouchableOpacity
-                                                                onPress={() => removeFromCart(item.product)}
-                                                                className="bg-red-50 p-2 rounded-xl"
+                                                                onPress={() => item.quantity > 1 && updateQty(item.product, item.quantity - 1, item.selectedVariant?.variantId)}
+                                                                style={{ padding: 8, opacity: item.quantity === 1 ? 0.3 : 1 }}
+                                                                disabled={item.quantity === 1}
                                                             >
-                                                                <Feather name="trash-2" size={18} color="#EF4444" />
+                                                                <Feather name="minus" size={16} color={BROWN} />
+                                                            </TouchableOpacity>
+                                                            <Text style={{ width: 30, textAlign: 'center', fontWeight: 'bold', fontSize: 14, color: BROWN, fontFamily: SANS_FONT }}>{item.quantity}</Text>
+                                                            <TouchableOpacity
+                                                                onPress={() => updateQty(item.product, item.quantity + 1, item.selectedVariant?.variantId)}
+                                                                style={{ padding: 8 }}
+                                                            >
+                                                                <Feather name="plus" size={16} color={BROWN} />
                                                             </TouchableOpacity>
                                                         </View>
                                                     </View>
-
-                                                    {/* Line total (desktop) */}
-                                                    {!isMobile && (
-                                                        <View className="items-end justify-center ml-4 w-24">
-                                                            <Text className="text-gray-400 text-xs mb-1">Line total</Text>
-                                                            <Text className="text-brown-primary font-bold text-lg">
-                                                                ${(unitPrice(item) * item.quantity).toFixed(2)}
-                                                            </Text>
-                                                        </View>
-                                                    )}
                                                 </View>
-                                            </View>
+                                            </Animated.View>
                                         ))}
                                     </View>
-
-                                    {/* Order Summary */}
-                                    <View className={isMobile ? 'w-full' : 'w-80'}>
-                                        <View className="bg-white rounded-2xl p-6 shadow-md">
-                                            <Text className="text-gray-900 text-xl font-bold mb-5">Order Summary</Text>
-
-                                            <View className="border-t border-b border-gray-100 py-4 mb-4 gap-y-3">
-                                                <View className="flex-row justify-between">
-                                                    <Text className="text-gray-500">Subtotal</Text>
-                                                    <Text className="text-gray-800 font-semibold">${subtotal.toFixed(2)}</Text>
+                                    {/* Sticky Order Summary Sidebar */}
+                                    <View style={{ width: isMobile ? '100%' : '30%', maxWidth: 400, position: isMobile ? 'relative' : 'sticky', top: isMobile ? undefined : 32, alignSelf: isMobile ? 'auto' : 'flex-start' }}>
+                                        <View style={{ backgroundColor: '#fff', borderRadius: 32, padding: 32, ...SHADOW, position: 'relative' }}>
+                                            <Text style={{ fontSize: 24, fontFamily: SERIF_FONT, color: BROWN, fontWeight: '700', marginBottom: 24 }}>Order Details</Text>
+                                            <View style={{ borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#F3E8DC', paddingVertical: 20, marginBottom: 20, gap: 12 }}>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <Text style={{ color: SLATE, fontFamily: SANS_FONT }}>Jewellery Subtotal</Text>
+                                                    <Text style={{ color: BROWN, fontWeight: '600', fontFamily: SANS_FONT }}>${subtotal.toFixed(2)}</Text>
                                                 </View>
-                                                <View className="flex-row justify-between items-center">
-                                                    <View className="flex-row items-center">
-                                                        <Text className="text-gray-500">Shipping</Text>
-                                                        {shippingCost === 0 && (
-                                                            <View className="ml-2 bg-green-100 rounded-full px-2 py-0.5">
-                                                                <Text className="text-green-600 text-xs font-semibold">FREE</Text>
-                                                            </View>
-                                                        )}
-                                                    </View>
-                                                    <Text className="text-gray-800 font-semibold">
-                                                        {shippingCost === 0 ? '$0.00' : `$${shippingCost.toFixed(2)}`}
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <Text style={{ color: SLATE, fontFamily: SANS_FONT }}>Shipping</Text>
+                                                    <Text style={{ color: BROWN, fontWeight: '600', fontFamily: SANS_FONT }}>
+                                                        {shippingCost === 0 ? 'FREE' : `$${shippingCost.toFixed(2)}`}
                                                     </Text>
                                                 </View>
-                                                <View className="flex-row justify-between">
-                                                    <Text className="text-gray-500">Tax (10%)</Text>
-                                                    <Text className="text-gray-800 font-semibold">${tax.toFixed(2)}</Text>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <Text style={{ color: SLATE, fontFamily: SANS_FONT }}>Tax (10%)</Text>
+                                                    <Text style={{ color: BROWN, fontWeight: '600', fontFamily: SANS_FONT }}>${tax.toFixed(2)}</Text>
                                                 </View>
                                             </View>
-
-                                            <View className="flex-row justify-between mb-5">
-                                                <Text className="text-gray-900 text-lg font-bold">Total</Text>
-                                                <Text className="text-brown-primary text-2xl font-extrabold">${total.toFixed(2)}</Text>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                                                <Text style={{ fontSize: 20, fontFamily: SERIF_FONT, color: BROWN, fontWeight: '700' }}>Total</Text>
+                                                <Text style={{ fontSize: 28, fontFamily: SERIF_FONT, color: BROWN, fontWeight: '900' }}>${total.toFixed(2)}</Text>
                                             </View>
-
+                                            {/* Upsell: Progress to Free Shipping */}
                                             {subtotal < 100 && (
-                                                <View className="bg-amber-50 rounded-xl px-4 py-3 mb-5 flex-row items-center">
-                                                    <Feather name="truck" size={16} color="#D97706" />
-                                                    <Text className="text-amber-700 text-xs ml-2 flex-1">
-                                                        Add <Text className="font-bold">${(100 - subtotal).toFixed(2)}</Text> more for free shipping!
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF7E6', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 24 }}>
+                                                    <Feather name="truck" size={18} color={ACCENT_ORANGE} />
+                                                    <Text style={{ marginLeft: 10, color: ACCENT_ORANGE, fontFamily: SANS_FONT, fontSize: 14 }}>
+                                                        Add <Text style={{ fontWeight: 'bold' }}>${(100 - subtotal).toFixed(2)}</Text> more to unlock free shipping for your precious jewels!
                                                     </Text>
                                                 </View>
                                             )}
-
                                             <TouchableOpacity
                                                 onPress={() => router.push('/checkout' as any)}
-                                                className="bg-brown-primary rounded-xl py-4 mb-3"
+                                                style={{ paddingVertical: 18, backgroundColor: BROWN, borderRadius: 999, marginBottom: 16, alignItems: 'center', ...SHADOW }}
                                                 activeOpacity={0.85}
                                             >
-                                                <View className="flex-row items-center justify-center">
-                                                    <Text className="text-white font-bold text-base mr-2">Proceed to Checkout</Text>
-                                                    <Feather name="arrow-right" size={18} color="#fff" />
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Text style={{ marginRight: 8, fontSize: 18, fontWeight: 'bold', color: '#fff', fontFamily: SANS_FONT }}>Secure My Jewels</Text>
+                                                    <Feather name="arrow-right" size={20} color="#fff" />
                                                 </View>
                                             </TouchableOpacity>
-
                                             <TouchableOpacity
                                                 onPress={() => router.push('/shop' as any)}
-                                                className="border border-brown-primary rounded-xl py-4"
+                                                style={{ paddingVertical: 18, borderWidth: 2, borderColor: BROWN, borderRadius: 999, alignItems: 'center' }}
                                                 activeOpacity={0.8}
                                             >
-                                                <Text className="text-brown-primary text-center font-semibold">Continue Shopping</Text>
+                                                <Text style={{ fontWeight: '600', color: BROWN, fontFamily: SANS_FONT, fontSize: 16 }}>Browse More Gems</Text>
                                             </TouchableOpacity>
-
                                             {/* Trust badges */}
-                                            <View className="mt-5 pt-5 border-t border-gray-100 gap-y-3">
-                                                {[
-                                                    { icon: 'shield', text: 'Secure & encrypted checkout' },
-                                                    { icon: 'truck', text: 'Free shipping on orders over $100' },
-                                                    { icon: 'rotate-ccw', text: 'Easy 30-day returns' },
-                                                ].map(({ icon, text }) => (
-                                                    <View key={icon} className="flex-row items-center">
-                                                        <Feather name={icon as any} size={16} color="#10B981" />
-                                                        <Text className="text-gray-500 text-xs ml-2 flex-1">{text}</Text>
+                                            <View style={{ borderTopWidth: 1, borderColor: '#F3E8DC', marginTop: 32, paddingTop: 20, gap: 16 }}>
+                                                {trustBadges.map(({ icon, text }) => (
+                                                    <View key={icon} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                        <Feather name={icon as any} size={18} color={BROWN} />
+                                                        <Text style={{ color: SLATE, fontFamily: SANS_FONT, fontSize: 14 }}>{text}</Text>
                                                     </View>
                                                 ))}
                                             </View>

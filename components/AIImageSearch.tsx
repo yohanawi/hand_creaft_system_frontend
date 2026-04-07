@@ -7,7 +7,7 @@
  * Used inside: app/ai-search.tsx
  */
 
-import api from "@/services/api";
+import { searchProductsByImage } from "@/services/api";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -64,8 +64,12 @@ type SimilarProduct = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getImageUri(product: SimilarProduct["product"]): string {
-    if (product.thumbnailImage) return product.thumbnailImage;
-    if (product.images && product.images.length > 0) return product.images[0];
+    const raw = product.thumbnailImage || (product.images && product.images.length > 0 ? product.images[0] : "");
+    if (raw) {
+        if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+        const normalized = raw.startsWith("/") ? raw : `/${raw}`;
+        return `http://localhost:5000${normalized}`;
+    }
     return "https://via.placeholder.com/300x300?text=No+Image";
 }
 
@@ -93,7 +97,7 @@ export default function AIImageSearch() {
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState<SimilarProduct[]>([]);
     const [searchDone, setSearchDone] = useState(false);
-    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null); 
     const [searchTime, setSearchTime] = useState<number | null>(null);
 
     // ── Image Picker ──────────────────────────────────────────────────────────
@@ -175,10 +179,7 @@ export default function AIImageSearch() {
                 type: mimeType,
             } as any);
 
-            const response = await api.post("/ai-search/search", formData, {
-                headers: { "Content-Type": "multipart/form-data" },
-                timeout: 60000, // allow up to 60 s for slow connections / model cold start
-            });
+            const response = await searchProductsByImage(formData);
 
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
             setSearchTime(parseFloat(elapsed));

@@ -613,7 +613,7 @@ const s = StyleSheet.create({
     fields:   { gap: 12, marginBottom: 16 },
     inputWrap:{ flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 15, height: 54, shadowColor: T.fern, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
     input:    { flex: 1, fontSize: 15, color: T.charcoal, height: '100%' },
-
+ 
     // Strength
     strengthWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: -4, marginBottom: 4 },
     strengthBars: { flexDirection: 'row', gap: 4, flex: 1 },

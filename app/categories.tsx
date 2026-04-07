@@ -159,7 +159,7 @@ const CategoryCard = ({ category, index }: { category: any; index: number }) => 
 
                     {/* Stitch divider */}
                     <StitchDivider />
-
+ 
                     {/* Subcategory tags */}
                     {category.subcategories.length > 0 && (
                         <View style={styles.tagRow}>

@@ -12,103 +12,32 @@ const HERO_HEIGHT = isMobile ? 580 : isTablet ? 540 : 600;
 // ─── Slide data ───────────────────────────────────────────────────────────────
 const slides = [
     {
-        id: 0,
-        subtitle: 'New Arrivals',
-        title: 'Summer\nCollection\n2026',
-        description: 'Discover the latest trends with up to 50% off on handpicked styles.',
-        buttonText: 'Shop Now',
-        buttonRoute: '/shop',
-        imageUri: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=1400&q=85',
-        overlayColor: 'rgba(139,69,19,0.52)',
-        accentColor: '#CD853F',
-        icon: 'sun' as const,
-        badge: '⚡ Limited Offer',
+        id: 'aurora-collection-2026',
+        subtitle: 'Ethically Sourced',
+        title: 'The Aurora\nHand-Cut\nSeries',
+        description: 'AI-curated selections based on your style profile. Sustainable gems meeting master craftsmanship.',
+        buttonText: 'View Your Matches', // AI-centric CTA
+        buttonRoute: '/curated-for-you',
+        imageUri: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1400&q=85',
+        overlayColor: 'rgba(44, 24, 16, 0.45)', // Warm amber tones
+        accentColor: '#D4AF37', // Gold
+        icon: 'sparkles' as const,
+        badge: '✨ AI Recommended',
     },
     {
-        id: 1,
-        subtitle: 'Tech Deals',
-        title: 'Electronics\nSale Up To\n60% Off',
-        description: 'Get the latest gadgets at unbeatable prices. Upgrade your life today.',
-        buttonText: 'Explore Deals',
-        buttonRoute: '/shop',
-        imageUri: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1400&q=85',
-        overlayColor: 'rgba(15,40,80,0.60)',
-        accentColor: '#3B82F6',
-        icon: 'smartphone' as const,
-        badge: '🔥 Best Sellers',
-    },
-    {
-        id: 2,
-        subtitle: 'Comfort Zone',
-        title: 'Home &\nLiving\nRedefined',
-        description: 'Transform your space with our curated home décor and furniture.',
-        buttonText: 'Browse Collection',
-        buttonRoute: '/shop',
-        imageUri: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1400&q=85',
-        overlayColor: 'rgba(20,83,45,0.52)',
-        accentColor: '#10B981',
-        icon: 'home' as const,
-        badge: '🌿 Eco Friendly',
+        id: 'bespoke-silver-01',
+        subtitle: 'Artisan Spotlight',
+        title: 'Sterling\nSilver & \nTurquoise',
+        description: 'Hand-hammered pieces by local silversmiths. Each piece carries a unique digital certificate.',
+        buttonText: 'Explore Artistry',
+        buttonRoute: '/shop/artisan-made',
+        imageUri: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=1400&q=85',
+        overlayColor: 'rgba(15, 45, 55, 0.55)', // Deep teal
+        accentColor: '#4FD1C5', // Turquoise
+        icon: 'hammer' as const,
+        badge: '🔨 Hand-Forged',
     },
 ];
-
-// ─── Floating stat badge ──────────────────────────────────────────────────────
-function StatBadge({
-    icon,
-    value,
-    label,
-    delay,
-    style,
-}: {
-    icon: keyof typeof Feather.glyphMap;
-    value: string;
-    label: string;
-    delay: number;
-    style?: object;
-}) {
-    const fadeIn = useRef(new Animated.Value(0)).current;
-    const slideUp = useRef(new Animated.Value(20)).current;
-
-    useEffect(() => {
-        Animated.parallel([
-            Animated.timing(fadeIn, { toValue: 1, duration: 500, delay, useNativeDriver: true }),
-            Animated.spring(slideUp, { toValue: 0, delay, tension: 60, friction: 8, useNativeDriver: true }),
-        ]).start();
-    }, []);
-
-    return (
-        <Animated.View
-            style={[{
-                opacity: fadeIn,
-                transform: [{ translateY: slideUp }],
-                backgroundColor: 'rgba(255,255,255,0.14)',
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.22)',
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-            }, style]}
-        >
-            <View style={{
-                width: 32,
-                height: 32,
-                borderRadius: 10,
-                backgroundColor: 'rgba(255,255,255,0.18)',
-                alignItems: 'center',
-                justifyContent: 'center',
-            }}>
-                <Feather name={icon} size={15} color="#fff" />
-            </View>
-            <View>
-                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800', letterSpacing: -0.3 }}>{value}</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.70)', fontSize: 10, fontWeight: '500' }}>{label}</Text>
-            </View>
-        </Animated.View>
-    );
-}
 
 // ─── Single slide ─────────────────────────────────────────────────────────────
 function SlideView({
@@ -341,43 +270,6 @@ export default function HeroSection() {
                     globalFloat={floatAnim}
                 />
             ))}
-
-            {/* ── Desktop floating icon orb (top-right) ── */}
-            {!isMobile && (
-                <Animated.View style={{
-                    position: 'absolute',
-                    top: isMobile ? 40 : 60,
-                    right: isMobile ? 20 : 56,
-                    transform: [{ translateY: floatAnim }],
-                    pointerEvents: 'none',
-                }}>
-                    <View style={{
-                        width: isTablet ? 160 : 200,
-                        height: isTablet ? 160 : 200,
-                        borderRadius: isTablet ? 80 : 100,
-                        backgroundColor: 'rgba(255,255,255,0.10)',
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.18)',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                    }}>
-                        <View style={{
-                            width: isTablet ? 110 : 140,
-                            height: isTablet ? 110 : 140,
-                            borderRadius: isTablet ? 55 : 70,
-                            backgroundColor: 'rgba(255,255,255,0.14)',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}>
-                            <Feather
-                                name={slides[currentSlide].icon}
-                                size={isTablet ? 50 : 64}
-                                color="rgba(255,255,255,0.90)"
-                            />
-                        </View>
-                    </View>
-                </Animated.View>
-            )}
 
             {/* ── Navigation arrows (desktop) ── */}
             {!isMobile && (

@@ -30,6 +30,8 @@ const T = {
 };
 
 const STATUS_CONFIG: Record<string, { color: string; icon: string; label: string }> = {
+    awaiting_payment: { color: T.blue, icon: 'credit-card', label: 'Awaiting Payment' },
+    payment_failed: { color: T.red, icon: 'alert-circle', label: 'Payment Failed' },
     pending: { color: T.yellow, icon: 'clock', label: 'Pending' },
     confirmed: { color: T.blue, icon: 'check', label: 'Confirmed' },
     processing: { color: T.blue, icon: 'settings', label: 'Processing' },
@@ -40,7 +42,16 @@ const STATUS_CONFIG: Record<string, { color: string; icon: string; label: string
     returned: { color: T.muted, icon: 'rotate-ccw', label: 'Returned' },
 };
 
-const FILTERS = ['all', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+const FILTERS = ['all', 'awaiting_payment', 'payment_failed', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+
+const PAYMENT_STATUS_COLORS: Record<string, string> = {
+    awaiting_payment: T.blue,
+    cod_due: T.yellow,
+    paid: T.green,
+    failed: T.red,
+    cancelled: T.red,
+    refunded: T.muted,
+};
 
 export default function OrdersScreen() {
     const auth = useContext(AuthContext);
@@ -114,7 +125,8 @@ export default function OrdersScreen() {
 
     const renderOrder = ({ item }: { item: any }) => {
         const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pending;
-        const canCancel = item.status === 'pending' || item.status === 'confirmed';
+        const canCancel = ['awaiting_payment', 'payment_failed', 'pending', 'confirmed'].includes(item.status);
+        const canRetryPayment = item.paymentMethod === 'payhere' && ['awaiting_payment', 'payment_failed'].includes(item.status);
         return (
             <View style={s.card}>
                 {/* Header */}
@@ -149,9 +161,14 @@ export default function OrdersScreen() {
                 {/* Footer */}
                 <View style={s.divider} />
                 <View style={s.cardFooter}>
-                    <Text style={s.totalLabel}>
-                        Total: <Text style={s.totalValue}>${item.total?.toFixed(2)}</Text>
-                    </Text>
+                    <View>
+                        <Text style={s.totalLabel}>
+                            Total: <Text style={s.totalValue}>${item.total?.toFixed(2)}</Text>
+                        </Text>
+                        <Text style={[s.paymentText, { color: PAYMENT_STATUS_COLORS[item.paymentStatus] ?? T.muted }]}>
+                            Payment: {String(item.paymentStatus || 'unknown').replace(/_/g, ' ')}
+                        </Text>
+                    </View>
                     <View style={s.actionRow}>
                         <TouchableOpacity
                             style={s.btnTrack}
@@ -165,6 +182,16 @@ export default function OrdersScreen() {
                             <Feather name="map-pin" size={14} color={T.active} />
                             <Text style={s.btnTrackText}>Track</Text>
                         </TouchableOpacity>
+                        {canRetryPayment && (
+                            <TouchableOpacity
+                                style={s.btnTrack}
+                                onPress={() => navRouter.push(`/payment-failure?orderId=${item._id}` as any)}
+                                activeOpacity={0.8}
+                            >
+                                <Feather name="refresh-cw" size={14} color={T.active} />
+                                <Text style={s.btnTrackText}>Pay Now</Text>
+                            </TouchableOpacity>
+                        )}
                         {canCancel && (
                             <TouchableOpacity
                                 style={s.btnCancel}
@@ -300,6 +327,7 @@ const s = StyleSheet.create({
     },
     totalLabel: { fontSize: 14, color: T.muted },
     totalValue: { color: T.active, fontWeight: '700', fontSize: 15 },
+    paymentText: { fontSize: 12, marginTop: 4, textTransform: 'capitalize' },
     actionRow: { flexDirection: 'row', gap: 8 },
     btnTrack: {
         flexDirection: 'row', alignItems: 'center', gap: 5,

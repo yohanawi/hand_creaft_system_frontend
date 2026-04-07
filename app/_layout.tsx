@@ -53,9 +53,12 @@ export default function RootLayout() {
                 <Stack.Screen name="login" />
                 <Stack.Screen name="register" />
                 <Stack.Screen name="profile" />
+                <Stack.Screen name="support-tickets" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="ai-search" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="orders" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="order-tracking" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="payment-success" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="payment-failure" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="admin" />
               </Stack>
               <StatusBar style="auto" />

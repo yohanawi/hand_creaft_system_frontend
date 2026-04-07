@@ -1,4 +1,4 @@
-import { resetPassword } from '@/services/api';
+﻿import { resetPassword } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -24,7 +24,7 @@ export default function ResetPasswordScreen() {
       return;
     }
 
-    setSubmitting(true);
+    setSubmitting(true); 
     try {
       await resetPassword({ token: token.trim(), newPassword: newPassword.trim() });
       Alert.alert('Success', 'Password reset successfully.', [
@@ -39,7 +39,7 @@ export default function ResetPasswordScreen() {
 
   return (
     <View className="flex-1 bg-[#F8F2EA] px-6 justify-center">
-      <TouchableOpacity onPress={() => router.back()} className="mb-8 flex-row items-center">
+      <TouchableOpacity onPress={() => router.back()} className="flex-row items-center mb-8">
         <Feather name="arrow-left" size={18} color="#8B4513" />
         <Text className="ml-2 text-[#8B4513] font-semibold">Back</Text>
       </TouchableOpacity>
@@ -72,7 +72,7 @@ export default function ResetPasswordScreen() {
         disabled={submitting}
         className="bg-[#8B4513] rounded-xl py-4 items-center"
       >
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold">Reset Password</Text>}
+        {submitting ? <ActivityIndicator color="#fff" /> : <Text className="font-bold text-white">Reset Password</Text>}
       </TouchableOpacity>
     </View>
   );

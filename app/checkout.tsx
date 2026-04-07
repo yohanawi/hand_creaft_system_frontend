@@ -1,19 +1,22 @@
 import PageShell from '@/components/PageShell';
-import AuthContext from '@/context/AuthContext';
+import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
-import { getAddresses, placeOrder, validateCoupon } from '@/services/api';
+import { getAddresses, initiatePayHerePayment, placeOrder, validateCoupon } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import React, { useContext, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     Animated,
     Dimensions,
+    Platform,
     ScrollView,
     Text,
     TextInput,
-    TouchableOpacity,
+    TouchableOpacity, 
     View,
 } from 'react-native';
 
@@ -39,11 +42,12 @@ const EMPTY_FORM: ShippingForm = {
 export default function CheckoutScreen() {
     const router = useRouter();
     const auth = useContext(AuthContext);
-    const { items, subtotal, shippingCost, tax, total, clearCart } = useCart();
+    const { items, subtotal, shippingCost, clearCart } = useCart();
+    const authUser = auth?.user;
 
     const [step, setStep] = useState(1);
     const [form, setForm] = useState<ShippingForm>(EMPTY_FORM);
-    const [paymentMethod, setPaymentMethod] = useState<'card' | 'paypal' | 'cod'>('card');
+    const [paymentMethod, setPaymentMethod] = useState<'payhere' | 'cod'>('payhere');
     const [customerNote, setCustomerNote] = useState('');
     const [loading, setLoading] = useState(false);
     const [addresses, setAddresses] = useState<any[]>([]);
@@ -58,10 +62,10 @@ export default function CheckoutScreen() {
     useEffect(() => {
         Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }).start();
         // Pre-fill from auth user
-        if (auth?.user?.email && !form.email) {
-            setForm(prev => ({ ...prev, email: auth.user!.email, fullName: auth.user!.name ?? '' }));
+        if (authUser?.email && !form.email) {
+            setForm(prev => ({ ...prev, email: authUser.email, fullName: authUser.name ?? '' }));
         }
-    }, []);
+    }, [authUser, fadeAnim, form.email]);
 
     useEffect(() => {
         if (!auth?.userToken) return;
@@ -94,7 +98,7 @@ export default function CheckoutScreen() {
     // Guard: cart must have items
     useEffect(() => {
         if (items.length === 0) router.replace('/cart' as any);
-    }, [items]);
+    }, [items.length, router]);
 
     const setField = (key: keyof ShippingForm, val: string) =>
         setForm(prev => ({ ...prev, [key]: val }));
@@ -146,7 +150,12 @@ export default function CheckoutScreen() {
         setLoading(true);
         try {
             const payload = {
-                items: items.map(i => ({ product: i.product, quantity: i.quantity })),
+                items: items.map((item) => ({
+                    product: item.product,
+                    quantity: item.quantity,
+                    variantId: item.selectedVariant?.variantId,
+                    selectedVariant: item.selectedVariant,
+                })),
                 shippingAddress: selectedAddressId ? undefined : form,
                 addressId: selectedAddressId || undefined,
                 paymentMethod,
@@ -154,8 +163,33 @@ export default function CheckoutScreen() {
                 couponCode: couponDiscount > 0 ? couponCode.trim() : undefined,
             };
             const { data } = await placeOrder(payload);
-            clearCart();
-            router.replace(`/order-tracking?orderNumber=${data.order.orderNumber}` as any);
+            const order = data.order;
+            await clearCart();
+
+            if (paymentMethod === 'payhere') {
+                const returnUrl = Linking.createURL('/payment-success', {
+                    queryParams: { orderId: order._id, orderNumber: order.orderNumber },
+                });
+                const cancelUrl = Linking.createURL('/payment-failure', {
+                    queryParams: { orderId: order._id, orderNumber: order.orderNumber },
+                });
+                const sessionRes = await initiatePayHerePayment({
+                    orderId: order._id,
+                    returnUrl,
+                    cancelUrl,
+                });
+                const checkoutUrl = sessionRes.data.checkoutUrl;
+
+                if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                    window.location.assign(checkoutUrl);
+                    return;
+                }
+
+                await WebBrowser.openBrowserAsync(checkoutUrl);
+                return;
+            }
+
+            router.replace(`/payment-success?orderId=${order._id}&orderNumber=${order.orderNumber}&mode=cod` as any);
         } catch (err: any) {
             Alert.alert('Order Failed', err?.response?.data?.message ?? 'Please try again.');
         } finally {
@@ -176,8 +210,8 @@ export default function CheckoutScreen() {
         <View className="flex-1 bg-white">
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 <PageShell>
-                    <Animated.View style={{ opacity: fadeAnim }} className="py-12 px-4 bg-craft-50">
-                        <View className="max-w-7xl mx-auto w-full">
+                    <Animated.View style={{ opacity: fadeAnim }} className="px-4 py-12 bg-craft-50">
+                        <View className="w-full mx-auto max-w-7xl">
                             {/* Heading */}
                             <Text className={`text-brown-primary font-bold mb-8 ${isMobile ? 'text-3xl' : 'text-5xl'}`}>
                                 Checkout
@@ -208,12 +242,12 @@ export default function CheckoutScreen() {
 
                                     {/* STEP 1 — Shipping */}
                                     {step === 1 && (
-                                        <View className="bg-white rounded-2xl p-6 shadow-md">
-                                            <Text className="text-gray-900 text-xl font-bold mb-5">Shipping Information</Text>
+                                        <View className="p-6 bg-white shadow-md rounded-2xl">
+                                            <Text className="mb-5 text-xl font-bold text-gray-900">Shipping Information</Text>
 
                                             {addresses.length > 0 && (
                                                 <View className="mb-6">
-                                                    <Text className="text-gray-700 font-semibold mb-2 text-sm">Saved Addresses</Text>
+                                                    <Text className="mb-2 text-sm font-semibold text-gray-700">Saved Addresses</Text>
                                                     <View className="gap-3">
                                                         {addresses.map((address: any) => (
                                                             <TouchableOpacity
@@ -234,16 +268,16 @@ export default function CheckoutScreen() {
                                                                 className={`rounded-xl border p-4 ${selectedAddressId === address._id ? 'border-brown-primary bg-craft-50' : 'border-gray-200 bg-white'}`}
                                                             >
                                                                 <View className="flex-row items-center justify-between">
-                                                                    <Text className="text-gray-900 font-semibold">{address.label || 'Address'}</Text>
-                                                                    {address.isDefault ? <Text className="text-green-700 text-xs font-bold">Default</Text> : null}
+                                                                    <Text className="font-semibold text-gray-900">{address.label || 'Address'}</Text>
+                                                                    {address.isDefault ? <Text className="text-xs font-bold text-green-700">Default</Text> : null}
                                                                 </View>
-                                                                <Text className="text-gray-700 mt-1">{address.fullName}</Text>
-                                                                <Text className="text-gray-500 text-sm mt-1">{address.addressLine1}</Text>
-                                                                <Text className="text-gray-500 text-sm">{address.city}, {address.state} {address.zipCode}</Text>
+                                                                <Text className="mt-1 text-gray-700">{address.fullName}</Text>
+                                                                <Text className="mt-1 text-sm text-gray-500">{address.addressLine1}</Text>
+                                                                <Text className="text-sm text-gray-500">{address.city}, {address.state} {address.zipCode}</Text>
                                                             </TouchableOpacity>
                                                         ))}
                                                         <TouchableOpacity onPress={() => setSelectedAddressId(null)}>
-                                                            <Text className="text-brown-primary font-semibold">Use manual address entry instead</Text>
+                                                            <Text className="font-semibold text-brown-primary">Use manual address entry instead</Text>
                                                         </TouchableOpacity>
                                                     </View>
                                                 </View>
@@ -256,14 +290,14 @@ export default function CheckoutScreen() {
                                                 { label: 'Street Address *', key: 'address', placeholder: '123 Main St, Apt 4B' },
                                             ].map(({ label, key, placeholder, kbd }) => (
                                                 <View key={key} className="mb-4">
-                                                    <Text className="text-gray-700 font-semibold mb-1 text-sm">{label}</Text>
+                                                    <Text className="mb-1 text-sm font-semibold text-gray-700">{label}</Text>
                                                     <TextInput
                                                         value={form[key as keyof ShippingForm]}
                                                         onChangeText={v => setField(key as keyof ShippingForm, v)}
                                                         placeholder={placeholder}
                                                         keyboardType={kbd as any}
                                                         editable={!selectedAddressId || key === 'email'}
-                                                        className="bg-craft-50 rounded-xl px-4 py-3 text-base border border-gray-200"
+                                                        className="px-4 py-3 text-base border border-gray-200 bg-craft-50 rounded-xl"
                                                         placeholderTextColor="#aaa"
                                                     />
                                                 </View>
@@ -271,54 +305,54 @@ export default function CheckoutScreen() {
 
                                             <View className={`${isMobile ? 'flex-col' : 'flex-row'} gap-3 mb-4`}>
                                                 <View className="flex-1">
-                                                    <Text className="text-gray-700 font-semibold mb-1 text-sm">City *</Text>
+                                                    <Text className="mb-1 text-sm font-semibold text-gray-700">City *</Text>
                                                     <TextInput
                                                         value={form.city} onChangeText={v => setField('city', v)}
                                                         placeholder="New York"
                                                         editable={!selectedAddressId}
-                                                        className="bg-craft-50 rounded-xl px-4 py-3 text-base border border-gray-200"
+                                                        className="px-4 py-3 text-base border border-gray-200 bg-craft-50 rounded-xl"
                                                         placeholderTextColor="#aaa"
                                                     />
                                                 </View>
                                                 <View className="flex-1">
-                                                    <Text className="text-gray-700 font-semibold mb-1 text-sm">State</Text>
+                                                    <Text className="mb-1 text-sm font-semibold text-gray-700">State</Text>
                                                     <TextInput
                                                         value={form.state} onChangeText={v => setField('state', v)}
                                                         placeholder="NY"
                                                         editable={!selectedAddressId}
-                                                        className="bg-craft-50 rounded-xl px-4 py-3 text-base border border-gray-200"
+                                                        className="px-4 py-3 text-base border border-gray-200 bg-craft-50 rounded-xl"
                                                         placeholderTextColor="#aaa"
                                                     />
                                                 </View>
                                                 <View className="flex-1">
-                                                    <Text className="text-gray-700 font-semibold mb-1 text-sm">ZIP *</Text>
+                                                    <Text className="mb-1 text-sm font-semibold text-gray-700">ZIP *</Text>
                                                     <TextInput
                                                         value={form.zipCode} onChangeText={v => setField('zipCode', v)}
                                                         placeholder="10001" keyboardType="number-pad"
                                                         editable={!selectedAddressId}
-                                                        className="bg-craft-50 rounded-xl px-4 py-3 text-base border border-gray-200"
+                                                        className="px-4 py-3 text-base border border-gray-200 bg-craft-50 rounded-xl"
                                                         placeholderTextColor="#aaa"
                                                     />
                                                 </View>
                                             </View>
 
                                             <View className="mb-6">
-                                                <Text className="text-gray-700 font-semibold mb-1 text-sm">Country</Text>
+                                                <Text className="mb-1 text-sm font-semibold text-gray-700">Country</Text>
                                                 <TextInput
                                                     value={form.country} onChangeText={v => setField('country', v)}
                                                     placeholder="United States"
                                                     editable={!selectedAddressId}
-                                                    className="bg-craft-50 rounded-xl px-4 py-3 text-base border border-gray-200"
+                                                    className="px-4 py-3 text-base border border-gray-200 bg-craft-50 rounded-xl"
                                                     placeholderTextColor="#aaa"
                                                 />
                                             </View>
 
                                             <TouchableOpacity
                                                 onPress={() => validateStep1() && setStep(2)}
-                                                className="bg-brown-primary rounded-xl py-4 flex-row items-center justify-center"
+                                                className="flex-row items-center justify-center py-4 bg-brown-primary rounded-xl"
                                                 activeOpacity={0.85}
                                             >
-                                                <Text className="text-white font-bold text-base mr-2">Continue to Payment</Text>
+                                                <Text className="mr-2 text-base font-bold text-white">Continue to Payment</Text>
                                                 <Feather name="arrow-right" size={18} color="#fff" />
                                             </TouchableOpacity>
                                         </View>
@@ -326,12 +360,11 @@ export default function CheckoutScreen() {
 
                                     {/* STEP 2 — Payment */}
                                     {step === 2 && (
-                                        <View className="bg-white rounded-2xl p-6 shadow-md">
-                                            <Text className="text-gray-900 text-xl font-bold mb-5">Payment Method</Text>
+                                        <View className="p-6 bg-white shadow-md rounded-2xl">
+                                            <Text className="mb-5 text-xl font-bold text-gray-900">Payment Method</Text>
 
                                             {([
-                                                { id: 'card', icon: 'credit-card', label: 'Credit / Debit Card' },
-                                                { id: 'paypal', icon: 'dollar-sign', label: 'PayPal' },
+                                                { id: 'payhere', icon: 'shield', label: 'PayHere Secure Payment' },
                                                 { id: 'cod', icon: 'package', label: 'Cash on Delivery' },
                                             ] as const).map(opt => (
                                                 <TouchableOpacity
@@ -346,81 +379,70 @@ export default function CheckoutScreen() {
                                                         )}
                                                     </View>
                                                     <Feather name={opt.icon} size={22} color="#8B4513" />
-                                                    <Text className="text-gray-900 font-semibold ml-3">{opt.label}</Text>
+                                                    <Text className="ml-3 font-semibold text-gray-900">{opt.label}</Text>
                                                 </TouchableOpacity>
                                             ))}
 
-                                            {paymentMethod === 'card' && (
-                                                <View className="bg-craft-50 rounded-xl p-4 mt-2 mb-4">
+                                            {paymentMethod === 'payhere' && (
+                                                <View className="p-4 mt-2 mb-4 bg-craft-50 rounded-xl">
                                                     <View className="flex-row items-center mb-3">
                                                         <Feather name="lock" size={14} color="#10B981" />
-                                                        <Text className="text-green-600 text-xs ml-1 font-semibold">
-                                                            256-bit SSL encrypted
+                                                        <Text className="ml-1 text-xs font-semibold text-green-600">
+                                                            Redirects to PayHere for secure card and wallet payments
                                                         </Text>
                                                     </View>
-                                                    <TextInput placeholder="1234  5678  9012  3456" keyboardType="number-pad"
-                                                        className="bg-white rounded-xl px-4 py-3 text-base border border-gray-200 mb-3"
-                                                        placeholderTextColor="#aaa" />
-                                                    <TextInput placeholder="Cardholder Name"
-                                                        className="bg-white rounded-xl px-4 py-3 text-base border border-gray-200 mb-3"
-                                                        placeholderTextColor="#aaa" />
-                                                    <View className="flex-row gap-3">
-                                                        <TextInput placeholder="MM / YY"
-                                                            className="flex-1 bg-white rounded-xl px-4 py-3 text-base border border-gray-200"
-                                                            placeholderTextColor="#aaa" />
-                                                        <TextInput placeholder="CVV" keyboardType="number-pad" secureTextEntry
-                                                            className="w-24 bg-white rounded-xl px-4 py-3 text-base border border-gray-200"
-                                                            placeholderTextColor="#aaa" />
-                                                    </View>
+                                                    <Text className="text-sm leading-6 text-gray-600">
+                                                        You will be redirected to PayHere after order creation. The order will stay in awaiting payment until PayHere confirms the payment on the backend.
+                                                    </Text>
                                                 </View>
                                             )}
 
                                             {paymentMethod === 'cod' && (
-                                                <View className="bg-amber-50 rounded-xl p-4 mt-2 mb-4 flex-row items-start">
+                                                <View className="flex-row items-start p-4 mt-2 mb-4 bg-amber-50 rounded-xl">
                                                     <Feather name="info" size={16} color="#D97706" />
-                                                    <Text className="text-amber-700 text-xs ml-2 flex-1">
+                                                    <Text className="flex-1 ml-2 text-xs text-amber-700">
                                                         Pay with cash when your order is delivered. Our courier will collect payment at the door.
                                                     </Text>
                                                 </View>
                                             )}
 
                                             <View className="mb-5">
-                                                <Text className="text-gray-700 font-semibold mb-1 text-sm">Order Note (optional)</Text>
+                                                <Text className="mb-1 text-sm font-semibold text-gray-700">Order Note (optional)</Text>
                                                 <TextInput
                                                     value={customerNote} onChangeText={setCustomerNote}
                                                     placeholder="Any special instructions..."
                                                     multiline numberOfLines={3}
-                                                    className="bg-craft-50 rounded-xl px-4 py-3 text-base border border-gray-200"
+                                                    className="px-4 py-3 text-base border border-gray-200 bg-craft-50 rounded-xl"
                                                     placeholderTextColor="#aaa"
                                                     style={{ minHeight: 72, textAlignVertical: 'top' }}
                                                 />
                                             </View>
 
                                             <View className="mb-5">
-                                                <Text className="text-gray-700 font-semibold mb-1 text-sm">Coupon Code</Text>
+                                                <Text className="mb-1 text-sm font-semibold text-gray-700">Coupon Code</Text>
                                                 <View className="flex-row gap-3">
                                                     <TextInput
                                                         value={couponCode}
                                                         onChangeText={setCouponCode}
                                                         placeholder="Enter coupon code"
                                                         autoCapitalize="characters"
-                                                        className="flex-1 bg-craft-50 rounded-xl px-4 py-3 text-base border border-gray-200"
+                                                        className="flex-1 px-4 py-3 text-base border border-gray-200 bg-craft-50 rounded-xl"
                                                         placeholderTextColor="#aaa"
                                                     />
-                                                    <TouchableOpacity onPress={handleApplyCoupon} className="bg-brown-primary rounded-xl px-4 items-center justify-center" disabled={couponLoading}>
-                                                        {couponLoading ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold">Apply</Text>}
+                                                    <TouchableOpacity onPress={handleApplyCoupon} className="items-center justify-center px-4 bg-brown-primary rounded-xl" disabled={couponLoading}>
+                                                        {couponLoading ? <ActivityIndicator color="#fff" /> : <Text className="font-bold text-white">Apply</Text>}
                                                     </TouchableOpacity>
                                                 </View>
                                             </View>
 
                                             <View className="flex-row gap-3">
                                                 <TouchableOpacity onPress={() => setStep(1)}
-                                                    className="flex-1 border border-brown-primary rounded-xl py-4 items-center">
-                                                    <Text className="text-brown-primary font-bold">Back</Text>
+                                                    className="items-center flex-1 py-4 border border-brown-primary rounded-xl">
+                                                    <Text className="font-bold text-brown-primary">Back</Text>
                                                 </TouchableOpacity>
                                                 <TouchableOpacity onPress={() => setStep(3)}
-                                                    className="flex-1 bg-brown-primary rounded-xl py-4 items-center">
-                                                    <Text className="text-white font-bold">Review Order</Text>
+                                                    className="items-center flex-1 py-4 bg-brown-primary rounded-xl">
+                                                    <Text className="font-bold text-white">Review Order</Text>
                                                 </TouchableOpacity>
                                             </View>
                                         </View>
@@ -428,68 +450,68 @@ export default function CheckoutScreen() {
 
                                     {/* STEP 3 — Review */}
                                     {step === 3 && (
-                                        <View className="bg-white rounded-2xl p-6 shadow-md">
-                                            <Text className="text-gray-900 text-xl font-bold mb-5">Review Your Order</Text>
+                                        <View className="p-6 bg-white shadow-md rounded-2xl">
+                                            <Text className="mb-5 text-xl font-bold text-gray-900">Review Your Order</Text>
 
                                             {/* Shipping summary */}
                                             <View className="mb-5">
                                                 <View className="flex-row items-center justify-between mb-2">
-                                                    <Text className="text-gray-700 font-bold text-sm">Shipping To</Text>
+                                                    <Text className="text-sm font-bold text-gray-700">Shipping To</Text>
                                                     <TouchableOpacity onPress={() => setStep(1)}>
-                                                        <Text className="text-brown-primary text-xs font-semibold">Edit</Text>
+                                                        <Text className="text-xs font-semibold text-brown-primary">Edit</Text>
                                                     </TouchableOpacity>
                                                 </View>
-                                                <View className="bg-craft-50 rounded-xl p-4">
-                                                    <Text className="text-gray-900 font-semibold">{form.fullName}</Text>
-                                                    <Text className="text-gray-600 text-sm mt-1">{form.address}</Text>
-                                                    <Text className="text-gray-600 text-sm">{form.city}, {form.state} {form.zipCode}</Text>
-                                                    <Text className="text-gray-600 text-sm">{form.country}</Text>
-                                                    <Text className="text-gray-600 text-sm mt-1">{form.phone}</Text>
+                                                <View className="p-4 bg-craft-50 rounded-xl">
+                                                    <Text className="font-semibold text-gray-900">{form.fullName}</Text>
+                                                    <Text className="mt-1 text-sm text-gray-600">{form.address}</Text>
+                                                    <Text className="text-sm text-gray-600">{form.city}, {form.state} {form.zipCode}</Text>
+                                                    <Text className="text-sm text-gray-600">{form.country}</Text>
+                                                    <Text className="mt-1 text-sm text-gray-600">{form.phone}</Text>
                                                 </View>
                                             </View>
 
                                             {/* Payment summary */}
                                             <View className="mb-5">
                                                 <View className="flex-row items-center justify-between mb-2">
-                                                    <Text className="text-gray-700 font-bold text-sm">Payment Method</Text>
+                                                    <Text className="text-sm font-bold text-gray-700">Payment Method</Text>
                                                     <TouchableOpacity onPress={() => setStep(2)}>
-                                                        <Text className="text-brown-primary text-xs font-semibold">Edit</Text>
+                                                        <Text className="text-xs font-semibold text-brown-primary">Edit</Text>
                                                     </TouchableOpacity>
                                                 </View>
-                                                <View className="bg-craft-50 rounded-xl p-4 flex-row items-center">
+                                                <View className="flex-row items-center p-4 bg-craft-50 rounded-xl">
                                                     <Feather
-                                                        name={paymentMethod === 'card' ? 'credit-card' : paymentMethod === 'paypal' ? 'dollar-sign' : 'package'}
+                                                        name={paymentMethod === 'payhere' ? 'shield' : 'package'}
                                                         size={20} color="#8B4513"
                                                     />
-                                                    <Text className="text-gray-900 ml-3 font-semibold">
-                                                        {paymentMethod === 'card' ? 'Credit / Debit Card' : paymentMethod === 'paypal' ? 'PayPal' : 'Cash on Delivery'}
+                                                    <Text className="ml-3 font-semibold text-gray-900">
+                                                        {paymentMethod === 'payhere' ? 'PayHere Secure Payment' : 'Cash on Delivery'}
                                                     </Text>
                                                 </View>
                                             </View>
 
                                             {customerNote.trim() && (
                                                 <View className="mb-5">
-                                                    <Text className="text-gray-700 font-bold text-sm mb-2">Order Note</Text>
-                                                    <View className="bg-craft-50 rounded-xl p-4">
-                                                        <Text className="text-gray-600 text-sm">{customerNote}</Text>
+                                                    <Text className="mb-2 text-sm font-bold text-gray-700">Order Note</Text>
+                                                    <View className="p-4 bg-craft-50 rounded-xl">
+                                                        <Text className="text-sm text-gray-600">{customerNote}</Text>
                                                     </View>
                                                 </View>
                                             )}
 
                                             {couponDiscount > 0 && (
                                                 <View className="mb-5">
-                                                    <Text className="text-gray-700 font-bold text-sm mb-2">Coupon</Text>
-                                                    <View className="bg-green-50 rounded-xl p-4 flex-row items-center justify-between">
-                                                        <Text className="text-green-800 font-semibold">{couponCode.toUpperCase()}</Text>
-                                                        <Text className="text-green-800 font-bold">-${couponDiscount.toFixed(2)}</Text>
+                                                    <Text className="mb-2 text-sm font-bold text-gray-700">Coupon</Text>
+                                                    <View className="flex-row items-center justify-between p-4 bg-green-50 rounded-xl">
+                                                        <Text className="font-semibold text-green-800">{couponCode.toUpperCase()}</Text>
+                                                        <Text className="font-bold text-green-800">-${couponDiscount.toFixed(2)}</Text>
                                                     </View>
                                                 </View>
                                             )}
 
                                             <View className="flex-row gap-3">
                                                 <TouchableOpacity onPress={() => setStep(2)}
-                                                    className="flex-1 border border-brown-primary rounded-xl py-4 items-center">
-                                                    <Text className="text-brown-primary font-bold">Back</Text>
+                                                    className="items-center flex-1 py-4 border border-brown-primary rounded-xl">
+                                                    <Text className="font-bold text-brown-primary">Back</Text>
                                                 </TouchableOpacity>
                                                 <TouchableOpacity
                                                     onPress={handlePlaceOrder}
@@ -502,7 +524,7 @@ export default function CheckoutScreen() {
                                                         <ActivityIndicator color="#fff" size="small" />
                                                     ) : (
                                                         <>
-                                                            <Text className="text-white font-bold mr-2">Place Order</Text>
+                                                            <Text className="mr-2 font-bold text-white">Place Order</Text>
                                                             <Feather name="check" size={18} color="#fff" />
                                                         </>
                                                     )}
@@ -514,16 +536,19 @@ export default function CheckoutScreen() {
 
                                 {/* ── ORDER SUMMARY SIDEBAR ────────────────────── */}
                                 <View className={isMobile ? 'w-full' : 'w-80'}>
-                                    <View className="bg-white rounded-2xl p-6 shadow-md">
-                                        <Text className="text-gray-900 text-lg font-bold mb-4">Order Summary</Text>
+                                    <View className="p-6 bg-white shadow-md rounded-2xl">
+                                        <Text className="mb-4 text-lg font-bold text-gray-900">Order Summary</Text>
 
                                         {items.map(item => (
-                                            <View key={item.product} className="flex-row justify-between mb-3 pb-3 border-b border-gray-100">
+                                            <View key={`${item.product}:${item.selectedVariant?.variantId || 'base'}`} className="flex-row justify-between pb-3 mb-3 border-b border-gray-100">
                                                 <View className="flex-1 pr-2">
-                                                    <Text className="text-gray-900 font-semibold text-sm" numberOfLines={1}>{item.name}</Text>
+                                                    <Text className="text-sm font-semibold text-gray-900" numberOfLines={1}>{item.name}</Text>
+                                                    {item.selectedVariant?.label ? (
+                                                        <Text className="text-brown-primary text-xs mt-0.5 font-semibold">{item.selectedVariant.label}</Text>
+                                                    ) : null}
                                                     <Text className="text-gray-400 text-xs mt-0.5">Qty: {item.quantity}</Text>
                                                 </View>
-                                                <Text className="text-gray-800 font-semibold text-sm">
+                                                <Text className="text-sm font-semibold text-gray-800">
                                                     ${(unitPrice(item) * item.quantity).toFixed(2)}
                                                 </Text>
                                             </View>
@@ -531,44 +556,44 @@ export default function CheckoutScreen() {
 
                                         <View className="mt-2 gap-y-2">
                                             <View className="mb-2">
-                                                <Text className="text-gray-500 text-sm mb-2">Promo Code</Text>
+                                                <Text className="mb-2 text-sm text-gray-500">Promo Code</Text>
                                                 <View className="flex-row gap-2">
                                                     <TextInput
                                                         value={couponCode}
                                                         onChangeText={setCouponCode}
                                                         placeholder="Coupon code"
                                                         autoCapitalize="characters"
-                                                        className="flex-1 bg-craft-50 rounded-xl px-3 py-3 text-sm border border-gray-200"
+                                                        className="flex-1 px-3 py-3 text-sm border border-gray-200 bg-craft-50 rounded-xl"
                                                         placeholderTextColor="#aaa"
                                                     />
-                                                    <TouchableOpacity onPress={handleApplyCoupon} className="bg-brown-primary rounded-xl px-4 items-center justify-center" disabled={couponLoading}>
-                                                        {couponLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text className="text-white font-bold text-sm">Apply</Text>}
+                                                    <TouchableOpacity onPress={handleApplyCoupon} className="items-center justify-center px-4 bg-brown-primary rounded-xl" disabled={couponLoading}>
+                                                        {couponLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text className="text-sm font-bold text-white">Apply</Text>}
                                                     </TouchableOpacity>
                                                 </View>
                                             </View>
                                             <View className="flex-row justify-between">
-                                                <Text className="text-gray-500 text-sm">Subtotal</Text>
-                                                <Text className="text-gray-800 font-semibold text-sm">${subtotal.toFixed(2)}</Text>
+                                                <Text className="text-sm text-gray-500">Subtotal</Text>
+                                                <Text className="text-sm font-semibold text-gray-800">${subtotal.toFixed(2)}</Text>
                                             </View>
                                             {couponDiscount > 0 && (
                                                 <View className="flex-row justify-between">
-                                                    <Text className="text-green-700 text-sm">Discount</Text>
-                                                    <Text className="text-green-700 font-semibold text-sm">-${couponDiscount.toFixed(2)}</Text>
+                                                    <Text className="text-sm text-green-700">Discount</Text>
+                                                    <Text className="text-sm font-semibold text-green-700">-${couponDiscount.toFixed(2)}</Text>
                                                 </View>
                                             )}
                                             <View className="flex-row justify-between">
-                                                <Text className="text-gray-500 text-sm">Shipping</Text>
-                                                <Text className="text-gray-800 font-semibold text-sm">
+                                                <Text className="text-sm text-gray-500">Shipping</Text>
+                                                <Text className="text-sm font-semibold text-gray-800">
                                                     {shippingCost === 0 ? 'FREE' : `$${shippingCost.toFixed(2)}`}
                                                 </Text>
                                             </View>
                                             <View className="flex-row justify-between">
-                                                <Text className="text-gray-500 text-sm">Tax (10%)</Text>
-                                                <Text className="text-gray-800 font-semibold text-sm">${recalculatedTax.toFixed(2)}</Text>
+                                                <Text className="text-sm text-gray-500">Tax (10%)</Text>
+                                                <Text className="text-sm font-semibold text-gray-800">${recalculatedTax.toFixed(2)}</Text>
                                             </View>
                                             <View className="flex-row justify-between pt-3 mt-1 border-t border-gray-100">
-                                                <Text className="text-gray-900 font-bold">Total</Text>
-                                                <Text className="text-brown-primary font-extrabold text-lg">${recalculatedTotal.toFixed(2)}</Text>
+                                                <Text className="font-bold text-gray-900">Total</Text>
+                                                <Text className="text-lg font-extrabold text-brown-primary">${recalculatedTotal.toFixed(2)}</Text>
                                             </View>
                                         </View>
                                     </View>

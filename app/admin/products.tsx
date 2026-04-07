@@ -37,11 +37,30 @@ const T = {
     yellow: '#D69E2E',
 };
 
+const EMPTY_VARIANT = {
+    _id: '',
+    label: '',
+    size: '',
+    color: '',
+    style: '',
+    sku: '',
+    quantity: '',
+    price: '',
+    salePrice: '',
+    thumbnailImage: '',
+    isDefault: false,
+};
+
 const EMPTY_FORM = {
     name: '', sku: '', price: '', salePrice: '', quantity: '', description: '',
     color: '', material: '', weight: '', tags: '',
     status: 'active', availabilityStatus: 'in_stock', isFeatured: false,
-    category: '', subcategory: '',
+    category: '', subcategory: '', lowStockThreshold: '5', stockNote: '',
+    thumbnailImage: '', images: '',
+    deliveryMinDays: '', deliveryMaxDays: '', deliveryLabel: '', shipsFrom: '',
+    videoUrls: '', view360Images: '',
+    returnPolicy: '', warrantyPolicy: '', shippingPolicy: '',
+    variants: [] as any[],
 };
 
 function Field({ label, value, onChange, placeholder, keyboardType, multiline }: any) {
@@ -78,6 +97,15 @@ function SelectField({ label, options, value, onChange }: any) {
                     </TouchableOpacity>
                 ))}
             </View>
+        </View>
+    );
+}
+
+function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
+    return (
+        <View style={s.sectionHeading}>
+            <Text style={s.sectionHeadingTitle}>{title}</Text>
+            {subtitle ? <Text style={s.sectionHeadingSubtitle}>{subtitle}</Text> : null}
         </View>
     );
 }
@@ -140,6 +168,34 @@ export default function AdminProducts() {
             isFeatured: product.isFeatured ?? false,
             category: product.category?._id ?? product.category ?? '',
             subcategory: product.subcategory?._id ?? product.subcategory ?? '',
+            lowStockThreshold: String(product.lowStockThreshold ?? 5),
+            stockNote: '',
+            thumbnailImage: product.thumbnailImage ?? '',
+            images: Array.isArray(product.images) ? product.images.join(', ') : '',
+            deliveryMinDays: String(product.deliveryEstimate?.minDays ?? ''),
+            deliveryMaxDays: String(product.deliveryEstimate?.maxDays ?? ''),
+            deliveryLabel: product.deliveryEstimate?.label ?? '',
+            shipsFrom: product.deliveryEstimate?.shipsFrom ?? '',
+            videoUrls: Array.isArray(product.richMedia?.videos) ? product.richMedia.videos.join(', ') : '',
+            view360Images: Array.isArray(product.richMedia?.view360Images) ? product.richMedia.view360Images.join(', ') : '',
+            returnPolicy: product.policySurfaces?.returnPolicy ?? '',
+            warrantyPolicy: product.policySurfaces?.warrantyPolicy ?? '',
+            shippingPolicy: product.policySurfaces?.shippingPolicy ?? '',
+            variants: Array.isArray(product.variants) && product.variants.length > 0
+                ? product.variants.map((variant: any) => ({
+                    _id: variant._id ?? '',
+                    label: variant.label ?? '',
+                    size: variant.size ?? '',
+                    color: variant.color ?? '',
+                    style: variant.style ?? '',
+                    sku: variant.sku ?? '',
+                    quantity: String(variant.quantity ?? ''),
+                    price: String(variant.price ?? ''),
+                    salePrice: String(variant.salePrice ?? ''),
+                    thumbnailImage: variant.thumbnailImage ?? '',
+                    isDefault: Boolean(variant.isDefault),
+                }))
+                : [],
         });
         setEditId(product._id);
         loadSubcategories(product.category?._id ?? product.category ?? '');
@@ -153,6 +209,26 @@ export default function AdminProducts() {
         if (!form.category) return Alert.alert('Validation', 'Category is required');
         setSaving(true);
         try {
+            const variants = Array.isArray(form.variants)
+                ? form.variants
+                    .map((variant: any) => ({
+                        ...(variant._id ? { _id: variant._id } : {}),
+                        label: String(variant.label || '').trim(),
+                        size: String(variant.size || '').trim(),
+                        color: String(variant.color || '').trim(),
+                        style: String(variant.style || '').trim(),
+                        sku: String(variant.sku || '').trim(),
+                        quantity: variant.quantity !== '' ? Number(variant.quantity) : 0,
+                        price: variant.price !== '' ? Number(variant.price) : undefined,
+                        salePrice: variant.salePrice !== '' ? Number(variant.salePrice) : undefined,
+                        thumbnailImage: String(variant.thumbnailImage || '').trim(),
+                        isDefault: Boolean(variant.isDefault),
+                    }))
+                    .filter((variant: any) => (
+                        variant.label || variant.size || variant.color || variant.style || variant.sku || variant.quantity > 0
+                    ))
+                : [];
+
             const payload = {
                 name: form.name.trim(),
                 sku: form.sku.trim(),
@@ -169,6 +245,26 @@ export default function AdminProducts() {
                 isFeatured: form.isFeatured,
                 category: form.category,
                 subcategory: form.subcategory || undefined,
+                lowStockThreshold: form.lowStockThreshold ? Number(form.lowStockThreshold) : undefined,
+                stockNote: form.stockNote || undefined,
+                thumbnailImage: form.thumbnailImage || undefined,
+                images: form.images || undefined,
+                variants,
+                deliveryEstimate: {
+                    minDays: form.deliveryMinDays ? Number(form.deliveryMinDays) : 0,
+                    maxDays: form.deliveryMaxDays ? Number(form.deliveryMaxDays) : 0,
+                    label: form.deliveryLabel || '',
+                    shipsFrom: form.shipsFrom || '',
+                },
+                richMedia: {
+                    videos: form.videoUrls,
+                    view360Images: form.view360Images,
+                },
+                policySurfaces: {
+                    returnPolicy: form.returnPolicy || '',
+                    warrantyPolicy: form.warrantyPolicy || '',
+                    shippingPolicy: form.shippingPolicy || '',
+                },
             };
             if (modal === 'create') {
                 await createProduct(payload);
@@ -268,6 +364,8 @@ export default function AdminProducts() {
                                         ${item.salePrice ? `${item.salePrice} (was $${item.price})` : item.price}
                                     </Text>
                                     <Text style={s.metaText}>Qty: {item.quantity}</Text>
+                                    <Text style={s.metaText}>Low-stock threshold: {item.lowStockThreshold ?? 5}</Text>
+                                    <Text style={s.metaText}>Variants: {Array.isArray(item.variants) ? item.variants.length : 0}</Text>
                                 </View>
                                 <Text style={s.metaText}>{item.category?.name ?? '—'}</Text>
                             </View>
@@ -311,6 +409,199 @@ export default function AdminProducts() {
                             <Field label="Quantity" value={form.quantity}
                                 onChange={(v: string) => setForm((f: any) => ({ ...f, quantity: v }))}
                                 keyboardType="numeric" />
+                            <Field label="Low Stock Threshold" value={form.lowStockThreshold}
+                                onChange={(v: string) => setForm((f: any) => ({ ...f, lowStockThreshold: v }))}
+                                keyboardType="numeric" />
+                            <Field label="Thumbnail Image URL or uploads path" value={form.thumbnailImage}
+                                onChange={(v: string) => setForm((f: any) => ({ ...f, thumbnailImage: v }))}
+                                placeholder="https://... or uploads/filename.jpg" />
+                            <Field label="Additional Image URLs or paths" value={form.images}
+                                onChange={(v: string) => setForm((f: any) => ({ ...f, images: v }))}
+                                placeholder="Comma-separated values"
+                                multiline />
+                            <Field label="Stock Change Note" value={form.stockNote}
+                                onChange={(v: string) => setForm((f: any) => ({ ...f, stockNote: v }))} />
+
+                            <SectionHeading
+                                title="Delivery"
+                                subtitle="Show ETA messaging directly on the product page."
+                            />
+                            <Field label="Delivery ETA Label" value={form.deliveryLabel}
+                                onChange={(v: string) => setForm((f: any) => ({ ...f, deliveryLabel: v }))}
+                                placeholder="Made to order, dispatches in 2-3 days" />
+                            <View style={{ flexDirection: 'row' }}>
+                                <View style={{ flex: 1 }}>
+                                    <Field label="Min Delivery Days" value={form.deliveryMinDays}
+                                        onChange={(v: string) => setForm((f: any) => ({ ...f, deliveryMinDays: v }))}
+                                        keyboardType="numeric" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Field label="Max Delivery Days" value={form.deliveryMaxDays}
+                                        onChange={(v: string) => setForm((f: any) => ({ ...f, deliveryMaxDays: v }))}
+                                        keyboardType="numeric" />
+                                </View>
+                            </View>
+                            <Field label="Ships From" value={form.shipsFrom}
+                                onChange={(v: string) => setForm((f: any) => ({ ...f, shipsFrom: v }))}
+                                placeholder="Colombo warehouse" />
+
+                            <SectionHeading
+                                title="Variants"
+                                subtitle="Add size, color, and style combinations with per-variant stock."
+                            />
+                            <View style={s.field}>
+                                <View style={s.variantHeaderRow}>
+                                    <Text style={s.fieldLabel}>Variant combinations</Text>
+                                    <TouchableOpacity
+                                        style={s.variantAddBtn}
+                                        onPress={() => setForm((f: any) => ({ ...f, variants: [...(f.variants || []), { ...EMPTY_VARIANT }] }))}
+                                    >
+                                        <Feather name="plus" size={14} color={T.white} />
+                                        <Text style={s.variantAddBtnText}>Add Variant</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {(form.variants || []).length === 0 ? (
+                                    <View style={s.variantEmptyState}>
+                                        <Text style={s.variantEmptyText}>No variants added. Base product stock and price will be used.</Text>
+                                    </View>
+                                ) : (
+                                    <View style={{ gap: 12 }}>
+                                        {(form.variants || []).map((variant: any, index: number) => (
+                                            <View key={`variant-${index}`} style={s.variantCard}>
+                                                <View style={s.variantCardTop}>
+                                                    <Text style={s.variantCardTitle}>Variant {index + 1}</Text>
+                                                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                        <TouchableOpacity
+                                                            style={[s.variantChipBtn, variant.isDefault && s.variantChipBtnActive]}
+                                                            onPress={() => setForm((f: any) => ({
+                                                                ...f,
+                                                                variants: (f.variants || []).map((entry: any, entryIndex: number) => ({
+                                                                    ...entry,
+                                                                    isDefault: entryIndex === index,
+                                                                })),
+                                                            }))}
+                                                        >
+                                                            <Text style={[s.variantChipBtnText, variant.isDefault && s.variantChipBtnTextActive]}>Default</Text>
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity
+                                                            style={[s.variantChipBtn, { borderColor: T.red + '55' }]}
+                                                            onPress={() => setForm((f: any) => ({
+                                                                ...f,
+                                                                variants: (f.variants || []).filter((_: any, entryIndex: number) => entryIndex !== index),
+                                                            }))}
+                                                        >
+                                                            <Feather name="trash-2" size={13} color={T.red} />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+
+                                                <Field label="Label" value={variant.label}
+                                                    onChange={(v: string) => setForm((f: any) => ({
+                                                        ...f,
+                                                        variants: (f.variants || []).map((entry: any, entryIndex: number) => entryIndex === index ? { ...entry, label: v } : entry),
+                                                    }))}
+                                                    placeholder="Large / Walnut / Slim" />
+                                                <View style={{ flexDirection: 'row' }}>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Field label="Size" value={variant.size}
+                                                            onChange={(v: string) => setForm((f: any) => ({
+                                                                ...f,
+                                                                variants: (f.variants || []).map((entry: any, entryIndex: number) => entryIndex === index ? { ...entry, size: v } : entry),
+                                                            }))} />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Field label="Color" value={variant.color}
+                                                            onChange={(v: string) => setForm((f: any) => ({
+                                                                ...f,
+                                                                variants: (f.variants || []).map((entry: any, entryIndex: number) => entryIndex === index ? { ...entry, color: v } : entry),
+                                                            }))} />
+                                                    </View>
+                                                </View>
+                                                <View style={{ flexDirection: 'row' }}>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Field label="Style" value={variant.style}
+                                                            onChange={(v: string) => setForm((f: any) => ({
+                                                                ...f,
+                                                                variants: (f.variants || []).map((entry: any, entryIndex: number) => entryIndex === index ? { ...entry, style: v } : entry),
+                                                            }))} />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Field label="Variant SKU" value={variant.sku}
+                                                            onChange={(v: string) => setForm((f: any) => ({
+                                                                ...f,
+                                                                variants: (f.variants || []).map((entry: any, entryIndex: number) => entryIndex === index ? { ...entry, sku: v } : entry),
+                                                            }))} />
+                                                    </View>
+                                                </View>
+                                                <View style={{ flexDirection: 'row' }}>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Field label="Variant Stock" value={variant.quantity}
+                                                            onChange={(v: string) => setForm((f: any) => ({
+                                                                ...f,
+                                                                variants: (f.variants || []).map((entry: any, entryIndex: number) => entryIndex === index ? { ...entry, quantity: v } : entry),
+                                                            }))}
+                                                            keyboardType="numeric" />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Field label="Variant Price" value={variant.price}
+                                                            onChange={(v: string) => setForm((f: any) => ({
+                                                                ...f,
+                                                                variants: (f.variants || []).map((entry: any, entryIndex: number) => entryIndex === index ? { ...entry, price: v } : entry),
+                                                            }))}
+                                                            keyboardType="numeric" />
+                                                    </View>
+                                                </View>
+                                                <View style={{ flexDirection: 'row' }}>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Field label="Variant Sale Price" value={variant.salePrice}
+                                                            onChange={(v: string) => setForm((f: any) => ({
+                                                                ...f,
+                                                                variants: (f.variants || []).map((entry: any, entryIndex: number) => entryIndex === index ? { ...entry, salePrice: v } : entry),
+                                                            }))}
+                                                            keyboardType="numeric" />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Field label="Variant Image" value={variant.thumbnailImage}
+                                                            onChange={(v: string) => setForm((f: any) => ({
+                                                                ...f,
+                                                                variants: (f.variants || []).map((entry: any, entryIndex: number) => entryIndex === index ? { ...entry, thumbnailImage: v } : entry),
+                                                            }))}
+                                                            placeholder="https://... or uploads/..." />
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+
+                            <SectionHeading
+                                title="Rich Media"
+                                subtitle="Add inline product videos and 360° image frame URLs."
+                            />
+                            <Field label="Product Video URLs" value={form.videoUrls}
+                                onChange={(v: string) => setForm((f: any) => ({ ...f, videoUrls: v }))}
+                                placeholder="Comma-separated MP4 or stream URLs"
+                                multiline />
+                            <Field label="360° View Frame URLs" value={form.view360Images}
+                                onChange={(v: string) => setForm((f: any) => ({ ...f, view360Images: v }))}
+                                placeholder="Comma-separated image URLs or uploads paths"
+                                multiline />
+
+                            <SectionHeading
+                                title="Policy Surfaces"
+                                subtitle="These appear directly on the product detail page."
+                            />
+                            <Field label="Return Policy" value={form.returnPolicy}
+                                onChange={(v: string) => setForm((f: any) => ({ ...f, returnPolicy: v }))}
+                                multiline />
+                            <Field label="Warranty Policy" value={form.warrantyPolicy}
+                                onChange={(v: string) => setForm((f: any) => ({ ...f, warrantyPolicy: v }))}
+                                multiline />
+                            <Field label="Shipping Policy" value={form.shippingPolicy}
+                                onChange={(v: string) => setForm((f: any) => ({ ...f, shippingPolicy: v }))}
+                                multiline />
 
                             {/* Category selector */}
                             <View style={s.field}>
@@ -504,6 +795,10 @@ const s = StyleSheet.create({
     },
     saveText: { color: T.white, fontSize: 15, fontWeight: '700' },
 
+    sectionHeading: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 12 },
+    sectionHeadingTitle: { color: T.text, fontSize: 15, fontWeight: '700' },
+    sectionHeadingSubtitle: { color: T.muted, fontSize: 12, marginTop: 4 },
+
     // Form fields
     field: { paddingHorizontal: 20, paddingBottom: 14 },
     fieldLabel: { color: T.muted, fontSize: 11, fontWeight: '600', letterSpacing: 0.8, marginBottom: 6 },
@@ -530,4 +825,37 @@ const s = StyleSheet.create({
     toggleActive: { backgroundColor: T.active + '33', borderColor: T.active },
     toggleText: { color: T.muted, fontSize: 13 },
     toggleTextActive: { color: T.active, fontWeight: '600' },
+    variantHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    variantAddBtn: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        backgroundColor: T.active, borderRadius: 999,
+        paddingHorizontal: 12, paddingVertical: 7,
+    },
+    variantAddBtnText: { color: T.white, fontSize: 12, fontWeight: '700' },
+    variantEmptyState: {
+        backgroundColor: T.input, borderRadius: 12,
+        borderWidth: 1, borderColor: T.inputBorder,
+        padding: 14,
+    },
+    variantEmptyText: { color: T.muted, fontSize: 12, lineHeight: 18 },
+    variantCard: {
+        backgroundColor: T.input, borderRadius: 14,
+        borderWidth: 1, borderColor: T.inputBorder,
+        paddingTop: 14, paddingBottom: 6,
+    },
+    variantCardTop: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        paddingHorizontal: 20, marginBottom: 6,
+    },
+    variantCardTitle: { color: T.text, fontSize: 13, fontWeight: '700' },
+    variantChipBtn: {
+        minWidth: 34,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        paddingHorizontal: 10, paddingVertical: 6,
+        borderRadius: 999, borderWidth: 1, borderColor: T.inputBorder,
+        backgroundColor: T.card,
+    },
+    variantChipBtnActive: { borderColor: T.active, backgroundColor: T.active + '33' },
+    variantChipBtnText: { color: T.muted, fontSize: 11, fontWeight: '700' },
+    variantChipBtnTextActive: { color: T.active },
 });

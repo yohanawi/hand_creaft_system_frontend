@@ -11,9 +11,7 @@ const api = axios.create({
 });
 
 // Attach token to every request if available
-let _token: string | null = null;
 export const setAuthToken = (token: string | null) => {
-  _token = token;
   if (token) {
     api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
   } else {
@@ -58,6 +56,56 @@ export const setDefaultAddress = (id: string) =>
 
 // ─── Admin: Stats ────────────────────────────────────────────────────────────
 export const getAdminStats = () => api.get("/admin/stats");
+export const getAdminInventoryOverview = () =>
+  api.get("/admin/inventory/overview");
+export const getAdminStockMovements = (params?: {
+  page?: number;
+  limit?: number;
+  productId?: string;
+  type?: string;
+  search?: string;
+}) => api.get("/admin/inventory/movements", { params });
+export const restockAdminProduct = (
+  id: string,
+  data: { quantity: number; note?: string },
+) => api.post(`/admin/inventory/products/${id}/restock`, data);
+export const adjustAdminProductStock = (
+  id: string,
+  data: { quantityDelta: number; reason?: string; note?: string },
+) => api.post(`/admin/inventory/products/${id}/adjust`, data);
+export const getAdminPaymentOverview = () =>
+  api.get("/admin/payments/overview");
+export const getAdminSupportTickets = (params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  priority?: string;
+  category?: string;
+  search?: string;
+}) => api.get("/admin/support/tickets", { params });
+export const getAdminSupportTicketStats = () =>
+  api.get("/admin/support/tickets/stats");
+export const getAdminSupportTicketById = (id: string) =>
+  api.get(`/admin/support/tickets/${id}`);
+export const updateAdminSupportTicket = (
+  id: string,
+  data: {
+    status?: string;
+    priority?: string;
+    category?: string;
+    adminAssigneeId?: string;
+    tags?: string[];
+  },
+) => api.put(`/admin/support/tickets/${id}`, data);
+export const replyAdminSupportTicket = (
+  id: string,
+  data: {
+    message: string;
+    status?: string;
+  },
+) => api.post(`/admin/support/tickets/${id}/reply`, data);
+export const getAdminWishlistInsights = () =>
+  api.get("/admin/wishlist/insights");
 
 // ─── Admin: Users ────────────────────────────────────────────────────────────
 export const getAdminUsers = (params?: {
@@ -111,10 +159,33 @@ export const updateBlog = (id: string, data: FormData) =>
   });
 export const deleteBlog = (id: string) => api.delete(`/blogs/${id}`);
 
+// ─── Blogs (public) ─────────────────────────────────────────────────────────
+export const getBlogBySlug = (slug: string) => api.get(`/blogs/${slug}`);
+export const getBlogComments = (blogId: string) =>
+  api.get(`/blogs/${blogId}/comments`);
+export const createBlogComment = (blogId: string, data: { comment: string }) =>
+  api.post(`/blogs/${blogId}/comments`, data);
+export const toggleLikeBlogComment = (blogId: string, commentId: string) =>
+  api.post(`/blogs/${blogId}/comments/${commentId}/like`);
+export const deleteBlogComment = (blogId: string, commentId: string) =>
+  api.delete(`/blogs/${blogId}/comments/${commentId}`);
+
 // ─── Orders: User ─────────────────────────────────────────────────────────────
 export const placeOrder = (data: {
-  items: Array<{ product: string; quantity: number }>;
-  shippingAddress: {
+  items: {
+    product: string;
+    quantity: number;
+    variantId?: string;
+    selectedVariant?: {
+      variantId?: string;
+      label?: string;
+      size?: string;
+      color?: string;
+      style?: string;
+      sku?: string;
+    };
+  }[];
+  shippingAddress?: {
     fullName: string;
     email: string;
     phone: string;
@@ -125,9 +196,11 @@ export const placeOrder = (data: {
     country: string;
   };
   addressId?: string;
-  paymentMethod: "card" | "paypal" | "cod";
+  paymentMethod: "payhere" | "cod";
   customerNote?: string;
   couponCode?: string;
+  returnUrl?: string;
+  cancelUrl?: string;
 }) => api.post("/orders", data);
 
 export const getMyOrders = (params?: {
@@ -144,14 +217,72 @@ export const trackOrder = (orderNumber: string) =>
 export const cancelMyOrder = (id: string) =>
   api.patch(`/orders/my/${id}/cancel`);
 
+export const initiatePayHerePayment = (data: {
+  orderId: string;
+  returnUrl: string;
+  cancelUrl: string;
+}) => api.post("/payments/payhere/initiate", data);
+
+export const cancelPayHereOrder = (orderId: string) =>
+  api.post(`/payments/payhere/orders/${orderId}/cancel`);
+
+// ─── Support: Customer / Public ─────────────────────────────────────────────
+export const createSupportTicket = (data: {
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  subject: string;
+  message: string;
+  category?:
+    | "order"
+    | "payment"
+    | "shipping"
+    | "product"
+    | "technical"
+    | "account"
+    | "general";
+  priority?: "low" | "normal" | "high" | "urgent";
+  source?: "contact_form" | "profile" | "order_help" | "admin_created";
+}) => api.post("/support/tickets", data);
+
+export const getMySupportTickets = (params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+}) => api.get("/support/my", { params });
+
+export const getMySupportTicketById = (id: string) =>
+  api.get(`/support/my/${id}`);
+
+export const replyMySupportTicket = (id: string, data: { message: string }) =>
+  api.post(`/support/my/${id}/messages`, data);
+
+// ─── AI Search ───────────────────────────────────────────────────────────────
+export const getAiServiceHealth = () => api.get("/ai-search/health");
+export const searchProductsByImage = (data: FormData) =>
+  api.post("/ai-search/search", data, {
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: 60000,
+  });
+export const getAiIndexStatus = () => api.get("/ai-search/index-status");
+export const indexAiProduct = (id: string) =>
+  api.post(`/ai-search/index/${id}`);
+export const indexAllAiProducts = () => api.post("/ai-search/index-all");
+
 // ─── Cart ─────────────────────────────────────────────────────────────────────
 export const getCart = () => api.get("/cart");
-export const addToCartAPI = (productId: string, quantity: number = 1) =>
-  api.post("/cart", { productId, quantity });
-export const updateCartItemAPI = (productId: string, quantity: number) =>
-  api.put(`/cart/${productId}`, { quantity });
-export const removeFromCartAPI = (productId: string) =>
-  api.delete(`/cart/${productId}`);
+export const addToCartAPI = (
+  productId: string,
+  quantity: number = 1,
+  variantId?: string,
+) => api.post("/cart", { productId, quantity, variantId });
+export const updateCartItemAPI = (
+  productId: string,
+  quantity: number,
+  variantId?: string,
+) => api.put(`/cart/${productId}`, { quantity, variantId });
+export const removeFromCartAPI = (productId: string, variantId?: string) =>
+  api.delete(`/cart/${productId}`, { params: { variantId } });
 export const clearCartAPI = () => api.delete("/cart");
 
 // ─── Wishlist ─────────────────────────────────────────────────────────────────
@@ -204,11 +335,13 @@ export const adminUpdateOrderStatus = (
   id: string,
   data: {
     status: string;
+    paymentStatus?: string;
     message?: string;
     location?: string;
     trackingNumber?: string;
     courier?: string;
     estimatedDelivery?: string;
+    adminNote?: string;
   },
 ) => api.put(`/admin/orders/${id}/status`, data);
 

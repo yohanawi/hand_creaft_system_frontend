@@ -110,8 +110,25 @@ const saleProducts = [
     },
 ];
 
+type SaleProduct = (typeof saleProducts)[number];
+
+type DigitBlockProps = {
+    value: number;
+    label: string;
+};
+
+type ProductCardProps = {
+    item: SaleProduct;
+    index: number;
+    isActive: boolean;
+};
+
+type SwiperProps = {
+    items: SaleProduct[];
+};
+
 // ─── Digit Block ─────────────────────────────────────────────────────────────
-const DigitBlock = ({ value, label }) => {
+const DigitBlock = ({ value, label }: DigitBlockProps) => {
     const [prevVal, setPrevVal] = useState(value);
     const [flipping, setFlipping] = useState(false);
 
@@ -170,7 +187,7 @@ const DigitBlock = ({ value, label }) => {
 };
 
 // ─── Product Card ─────────────────────────────────────────────────────────────
-const ProductCard = ({ item, index, isActive }) => {
+const ProductCard = ({ item, index, isActive }: ProductCardProps) => {
     const [inCart, setInCart] = useState(false);
     const [visible, setVisible] = useState(false);
     const stockPct = Math.max(8, (item.stock / item.maxStock) * 100);
@@ -322,26 +339,26 @@ const ProductCard = ({ item, index, isActive }) => {
 };
 
 // ─── Swiper ───────────────────────────────────────────────────────────────────
-const Swiper = ({ items }) => {
+const Swiper = ({ items }: SwiperProps) => {
     const [current, setCurrent] = useState(0);
-    const [dragStart, setDragStart] = useState(null);
+    const [dragStart, setDragStart] = useState<number | null>(null);
     const [dragOffset, setDragOffset] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
-    const trackRef = useRef(null);
+    const trackRef = useRef<HTMLDivElement | null>(null);
     const CARD_WIDTH = 320;
     const GAP = 24;
     const STEP = CARD_WIDTH + GAP;
     const max = items.length - 1;
 
-    const clamp = (v) => Math.max(0, Math.min(v, max));
-    const goTo = useCallback((idx) => { setCurrent(clamp(idx)); setDragOffset(0); }, [max]);
+    const clamp = (value: number) => Math.max(0, Math.min(value, max));
+    const goTo = useCallback((idx: number) => { setCurrent(clamp(idx)); setDragOffset(0); }, [max]);
 
-    const onPointerDown = (e) => {
+    const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         setDragStart(e.clientX);
         setIsDragging(true);
         e.currentTarget.setPointerCapture(e.pointerId);
     };
-    const onPointerMove = (e) => {
+    const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!isDragging || dragStart === null) return;
         setDragOffset(e.clientX - dragStart);
     };
@@ -356,7 +373,7 @@ const Swiper = ({ items }) => {
 
     // Arrow key support
     useEffect(() => {
-        const handler = (e) => {
+        const handler = (e: KeyboardEvent) => {
             if (e.key === 'ArrowRight') goTo(current + 1);
             if (e.key === 'ArrowLeft') goTo(current - 1);
         };
@@ -384,7 +401,7 @@ const Swiper = ({ items }) => {
                         willChange: 'transform',
                     }}
                 >
-                    {items.map((item, i) => (
+                    {items.map((item: SaleProduct, i: number) => (
                         <ProductCard key={item.id} item={item} index={i} isActive={i === current} />
                     ))}
                 </div>
@@ -394,7 +411,7 @@ const Swiper = ({ items }) => {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
                 {/* Dots */}
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    {items.map((_, i) => (
+                    {items.map((_: SaleProduct, i: number) => (
                         <button
                             key={i}
                             onClick={() => goTo(i)}

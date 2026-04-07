@@ -15,6 +15,15 @@ import React, {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export interface CartVariantSelection {
+    variantId?: string;
+    label?: string;
+    size?: string;
+    color?: string;
+    style?: string;
+    sku?: string;
+}
+
 export interface CartItem {
     product: string;       // MongoDB _id
     name: string;
@@ -23,6 +32,7 @@ export interface CartItem {
     salePrice: number | null;
     quantity: number;
     sku: string;
+    selectedVariant?: CartVariantSelection;
 }
 
 interface CartContextType {
@@ -33,8 +43,8 @@ interface CartContextType {
     tax: number;
     total: number;
     addToCart: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => Promise<void>;
-    removeFromCart: (productId: string) => Promise<void>;
-    updateQty: (productId: string, qty: number) => Promise<void>;
+    removeFromCart: (productId: string, variantId?: string) => Promise<void>;
+    updateQty: (productId: string, qty: number, variantId?: string) => Promise<void>;
     clearCart: () => Promise<void>;
     loadFromServer: () => Promise<void>;
     clearLocalCart: () => void;
@@ -44,17 +54,22 @@ interface CartContextType {
 
 const isLoggedIn = () => !!api.defaults.headers.common['Authorization'];
 
+const cartItemKey = (item: Pick<CartItem, 'product' | 'selectedVariant'>) => (
+    `${item.product}:${item.selectedVariant?.variantId || 'base'}`
+);
+
 /** Maps a populated server cart item to our CartItem type */
 const serverItemToCartItem = (serverItem: any): CartItem => {
     const p = serverItem.product;
     return {
         product: p._id,
-        name: p.name,
-        thumbnailImage: p.thumbnailImage || '',
-        price: p.price,
-        salePrice: p.salePrice ?? null,
+        name: serverItem.name || p.name,
+        thumbnailImage: serverItem.thumbnailImage || p.thumbnailImage || '',
+        price: Number(typeof serverItem.price !== 'undefined' ? serverItem.price : p.price),
+        salePrice: typeof serverItem.salePrice !== 'undefined' ? serverItem.salePrice : (p.salePrice ?? null),
         quantity: serverItem.quantity,
-        sku: p.sku || '',
+        sku: serverItem.sku || serverItem.selectedVariant?.sku || p.sku || '',
+        selectedVariant: serverItem.selectedVariant || undefined,
     };
 };
 
@@ -86,7 +101,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Optimistic local update first
             setItems(prev => {
-                const idx = prev.findIndex(i => i.product === incoming.product);
+                const idx = prev.findIndex(i => cartItemKey(i) === cartItemKey(incoming));
                 if (idx !== -1) {
                     const updated = [...prev];
                     updated[idx] = { ...updated[idx], quantity: updated[idx].quantity + qty };
@@ -98,7 +113,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Server sync
             if (isLoggedIn()) {
                 try {
-                    const res = await addToCartAPI(incoming.product, qty);
+                    const res = await addToCartAPI(incoming.product, qty, incoming.selectedVariant?.variantId);
                     setItems((res.data || []).map(serverItemToCartItem));
                 } catch { /* keep optimistic */ }
             }
@@ -106,26 +121,30 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         [],
     );
 
-    const removeFromCart = useCallback(async (productId: string) => {
+    const removeFromCart = useCallback(async (productId: string, variantId?: string) => {
         // Optimistic
-        setItems(prev => prev.filter(i => i.product !== productId));
+        setItems(prev => prev.filter(i => !(i.product === productId && (i.selectedVariant?.variantId || '') === (variantId || ''))));
         if (isLoggedIn()) {
             try {
-                const res = await removeFromCartAPI(productId);
+                const res = await removeFromCartAPI(productId, variantId);
                 setItems((res.data || []).map(serverItemToCartItem));
             } catch { /* keep optimistic */ }
         }
     }, []);
 
-    const updateQty = useCallback(async (productId: string, qty: number) => {
+    const updateQty = useCallback(async (productId: string, qty: number, variantId?: string) => {
         if (qty < 1) return;
         // Optimistic
         setItems(prev =>
-            prev.map(i => (i.product === productId ? { ...i, quantity: qty } : i)),
+            prev.map(i => (
+                i.product === productId && (i.selectedVariant?.variantId || '') === (variantId || '')
+                    ? { ...i, quantity: qty }
+                    : i
+            )),
         );
         if (isLoggedIn()) {
             try {
-                const res = await updateCartItemAPI(productId, qty);
+                const res = await updateCartItemAPI(productId, qty, variantId);
                 setItems((res.data || []).map(serverItemToCartItem));
             } catch { /* keep optimistic */ }
         }

@@ -94,6 +94,8 @@ interface Feature {
     glowColor: string;
 }
 
+type CardMouseEvent = React.MouseEvent<HTMLDivElement>;
+
 const FeatureCard = ({ feature, index }: { feature: Feature; index: number }) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
@@ -105,7 +107,7 @@ const FeatureCard = ({ feature, index }: { feature: Feature; index: number }) =>
         return () => clearTimeout(timer);
     }, [index]);
 
-    const handleMouseMove = (e) => {
+    const handleMouseMove = (e: CardMouseEvent) => {
         if (!cardRef.current) return;
         const rect = cardRef.current.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;

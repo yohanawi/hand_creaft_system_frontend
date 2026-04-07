@@ -1,8 +1,8 @@
-import AuthContext from '@/context/AuthContext';
+import { AuthContext } from '@/context/AuthContext';
 import { trackOrder } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     RefreshControl,
@@ -40,6 +40,8 @@ type TrackingEvent = {
 };
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; icon: string; label: string }> = {
+    awaiting_payment: { color: T.blue, bg: T.blueBg, icon: 'credit-card', label: 'Awaiting Payment' },
+    payment_failed: { color: T.red, bg: 'rgba(229,62,62,0.12)', icon: 'alert-circle', label: 'Payment Failed' },
     pending: { color: T.yellow, bg: 'rgba(245,166,35,0.12)', icon: 'clock', label: 'Order Placed' },
     confirmed: { color: T.blue, bg: T.blueBg, icon: 'check', label: 'Confirmed' },
     processing: { color: T.blue, bg: T.blueBg, icon: 'settings', label: 'Processing' },
@@ -51,6 +53,7 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; icon: string; l
 };
 
 const ORDER_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered'];
+const PAYHERE_ORDER_STEPS = ['awaiting_payment', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered'];
 
 export default function OrderTrackingScreen() {
     const { orderNumber } = useLocalSearchParams<{ orderNumber: string }>();
@@ -62,7 +65,7 @@ export default function OrderTrackingScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState('');
 
-    const fetchOrder = async () => {
+    const fetchOrder = useCallback(async () => {
         if (!orderNumber) { setLoading(false); return; }
         try {
             const { data } = await trackOrder(orderNumber);
@@ -74,16 +77,20 @@ export default function OrderTrackingScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [orderNumber]);
 
     useEffect(() => {
         if (!auth?.userToken) { router.replace('/login' as any); return; }
         fetchOrder();
-    }, [orderNumber]);
+    }, [auth?.userToken, fetchOrder, router]);
 
-    const onRefresh = () => { setRefreshing(true); fetchOrder(); };
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        fetchOrder();
+    }, [fetchOrder]);
 
-    const currentStepIdx = order ? ORDER_STEPS.indexOf(order.status) : -1;
+    const activeSteps = order?.paymentMethod === 'payhere' ? PAYHERE_ORDER_STEPS : ORDER_STEPS;
+    const currentStepIdx = order ? activeSteps.indexOf(order.status) : -1;
     const isCancelled = order?.status === 'cancelled' || order?.status === 'returned';
     const cfg = order ? (STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending) : null;
 
@@ -142,9 +149,13 @@ export default function OrderTrackingScreen() {
                     <Text style={s.heroSub}>
                         {isCancelled
                             ? 'This order has been ' + order.status + '.'
-                            : order.status === 'delivered'
-                                ? 'Your order has been delivered successfully!'
-                                : 'Your order is on its way. Stay updated below.'}
+                            : order.status === 'awaiting_payment'
+                                ? 'Your order is created. The system is waiting for PayHere to confirm payment securely.'
+                                : order.status === 'payment_failed'
+                                    ? 'Payment did not complete. Retry payment from your payment failure page or orders list.'
+                                    : order.status === 'delivered'
+                                        ? 'Your order has been delivered successfully!'
+                                        : 'Your order is on its way. Stay updated below.'}
                     </Text>
                 </View>
 
@@ -153,7 +164,7 @@ export default function OrderTrackingScreen() {
                     <View style={s.progressCard}>
                         <Text style={s.sectionTitle}>Progress</Text>
                         <View style={s.stepsRow}>
-                            {ORDER_STEPS.map((step, idx) => {
+                            {activeSteps.map((step, idx) => {
                                 const done = idx <= currentStepIdx;
                                 const stepCfg = STATUS_CONFIG[step];
                                 return (
@@ -170,7 +181,7 @@ export default function OrderTrackingScreen() {
                                                 {stepCfg.label}
                                             </Text>
                                         </View>
-                                        {idx < ORDER_STEPS.length - 1 && (
+                                        {idx < activeSteps.length - 1 && (
                                             <View style={[s.stepLine, idx < currentStepIdx && { backgroundColor: T.active }]} />
                                         )}
                                     </React.Fragment>
@@ -179,6 +190,36 @@ export default function OrderTrackingScreen() {
                         </View>
                     </View>
                 )}
+
+                <View style={s.infoCard}>
+                    <Text style={s.sectionTitle}>Payment Info</Text>
+                    <View style={s.infoRow}>
+                        <Feather name="credit-card" size={16} color={T.muted} />
+                        <Text style={s.infoLabel}>Method</Text>
+                        <Text style={s.infoValue}>{String(order.paymentMethod || '').replace(/_/g, ' ')}</Text>
+                    </View>
+                    <View style={s.infoRow}>
+                        <Feather name="shield" size={16} color={T.muted} />
+                        <Text style={s.infoLabel}>Payment Status</Text>
+                        <Text style={s.infoValue}>{String(order.paymentStatus || '').replace(/_/g, ' ')}</Text>
+                    </View>
+                    {order.paymentReference ? (
+                        <View style={s.infoRow}>
+                            <Feather name="hash" size={16} color={T.muted} />
+                            <Text style={s.infoLabel}>Reference</Text>
+                            <Text style={s.infoValue}>{order.paymentReference}</Text>
+                        </View>
+                    ) : null}
+                    {order.paymentMethod === 'payhere' && ['awaiting_payment', 'failed'].includes(order.paymentStatus) ? (
+                        <TouchableOpacity
+                            style={[s.primaryBtn, { marginTop: 8, marginBottom: 0 }]}
+                            onPress={() => router.push(`/payment-failure?orderId=${order._id}` as any)}
+                            activeOpacity={0.85}
+                        >
+                            <Text style={s.primaryBtnText}>Complete Payment</Text>
+                        </TouchableOpacity>
+                    ) : null}
+                </View>
 
                 {/* Courier & Tracking Info */}
                 {(order.courier || order.trackingNumber || order.estimatedDelivery) && (
@@ -284,6 +325,9 @@ export default function OrderTrackingScreen() {
                         <View key={it._id} style={s.orderItemRow}>
                             <View style={s.orderItemInfo}>
                                 <Text style={s.orderItemName} numberOfLines={1}>{it.name}</Text>
+                                {it.selectedVariant?.label ? (
+                                    <Text style={[s.orderItemSku, { color: '#8B4513' }]}>{it.selectedVariant.label}</Text>
+                                ) : null}
                                 <Text style={s.orderItemSku}>SKU: {it.sku} · Qty: {it.quantity}</Text>
                             </View>
                             <Text style={s.orderItemPrice}>

@@ -9,3 +9,4 @@ import AIImageSearch from "@/components/AIImageSearch";
 export default function AISearchScreen() {
     return <AIImageSearch />;
 }
+ 

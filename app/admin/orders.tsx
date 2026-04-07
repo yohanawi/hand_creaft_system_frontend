@@ -1,7 +1,6 @@
-import AuthContext from '@/context/AuthContext';
 import { adminGetOrderById, adminGetOrders, adminUpdateOrderStatus } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -34,6 +33,8 @@ const T = {
 };
 
 const STATUS_CONFIG: Record<string, { color: string; icon: string; label: string }> = {
+    awaiting_payment: { color: T.blue, icon: 'credit-card', label: 'Awaiting Payment' },
+    payment_failed: { color: T.red, icon: 'alert-circle', label: 'Payment Failed' },
     pending: { color: T.yellow, icon: 'clock', label: 'Pending' },
     confirmed: { color: T.blue, icon: 'check', label: 'Confirmed' },
     processing: { color: T.blue, icon: 'settings', label: 'Processing' },
@@ -46,10 +47,10 @@ const STATUS_CONFIG: Record<string, { color: string; icon: string; label: string
 
 const ALL_STATUSES = Object.keys(STATUS_CONFIG);
 const FILTERS = ['all', ...ALL_STATUSES];
+const EDITABLE_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'returned'];
+const PAYMENT_STATUSES = ['awaiting_payment', 'cod_due', 'paid', 'failed', 'cancelled', 'refunded'];
 
 export default function AdminOrdersScreen() {
-    const auth = useContext(AuthContext);
-
     // ── List State ─────────────────────────────────────────────────────────────
     const [orders, setOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -74,6 +75,8 @@ export default function AdminOrdersScreen() {
     const [estDelivery, setEstDelivery] = useState('');
     const [updating, setUpdating] = useState(false);
     const [showStatusPicker, setShowStatusPicker] = useState(false);
+    const [paymentState, setPaymentState] = useState('');
+    const [showPaymentPicker, setShowPaymentPicker] = useState(false);
 
     // ── Fetch ──────────────────────────────────────────────────────────────────
     const fetchOrders = useCallback(
@@ -100,7 +103,7 @@ export default function AdminOrdersScreen() {
         setLoading(true);
         setPage(1);
         fetchOrders(1, filter, search);
-    }, [filter, search]);
+    }, [fetchOrders, filter, search]);
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -127,10 +130,12 @@ export default function AdminOrdersScreen() {
         setCourier('');
         setEstDelivery('');
         setShowStatusPicker(false);
+        setShowPaymentPicker(false);
         try {
             const { data } = await adminGetOrderById(id);
             setSelected(data.order);
             setNewStatus(data.order.status);
+            setPaymentState(data.order.paymentStatus);
             setTrackingNum(data.order.trackingNumber ?? '');
             setCourier(data.order.courier ?? '');
         } catch {
@@ -147,6 +152,7 @@ export default function AdminOrdersScreen() {
         setUpdating(true);
         try {
             const payload: any = { status: newStatus };
+            if (paymentState) payload.paymentStatus = paymentState;
             if (statusMsg.trim()) payload.message = statusMsg.trim();
             if (location.trim()) payload.location = location.trim();
             if (trackingNum.trim()) payload.trackingNumber = trackingNum.trim();
@@ -186,6 +192,7 @@ export default function AdminOrdersScreen() {
                         <Feather name={cfg.icon as any} size={10} color={cfg.color} />
                         <Text style={[s.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
                     </View>
+                    <Text style={s.paymentBadge}>{String(item.paymentStatus || '').replace(/_/g, ' ')}</Text>
                     <Feather name="chevron-right" size={16} color={T.muted} />
                 </View>
             </TouchableOpacity>
@@ -288,6 +295,9 @@ export default function AdminOrdersScreen() {
                                     <Text style={s.sectionTitle}>Customer</Text>
                                     <Text style={s.sectionVal}>{selected.user?.name}</Text>
                                     <Text style={s.sectionMuted}>{selected.user?.email}</Text>
+                                    <Text style={s.sectionMuted}>Payment: {String(selected.paymentStatus || '').replace(/_/g, ' ')}</Text>
+                                    <Text style={s.sectionMuted}>Method: {String(selected.paymentMethod || '').replace(/_/g, ' ')}</Text>
+                                    {selected.paymentReference ? <Text style={s.sectionMuted}>Reference: {selected.paymentReference}</Text> : null}
                                 </View>
 
                                 {/* Shipping */}
@@ -306,7 +316,10 @@ export default function AdminOrdersScreen() {
                                     <Text style={s.sectionTitle}>Items ({selected.items.length})</Text>
                                     {selected.items.map((it: any) => (
                                         <View key={it._id} style={s.itemRow}>
-                                            <Text style={s.itemName} numberOfLines={1}>{it.name}</Text>
+                                            <View style={{ flex: 1.8, paddingRight: 8 }}>
+                                                <Text style={s.itemName} numberOfLines={1}>{it.name}</Text>
+                                                {it.selectedVariant?.label ? <Text style={s.sectionMuted}>{it.selectedVariant.label}</Text> : null}
+                                            </View>
                                             <Text style={s.itemQty}>×{it.quantity}</Text>
                                             <Text style={s.itemPrice}>
                                                 ${((it.salePrice ?? it.price) * it.quantity).toFixed(2)}
@@ -347,7 +360,7 @@ export default function AdminOrdersScreen() {
 
                                     {showStatusPicker && (
                                         <View style={s.pickerDropdown}>
-                                            {ALL_STATUSES.map(st => {
+                                            {EDITABLE_STATUSES.map(st => {
                                                 const sc = STATUS_CONFIG[st];
                                                 return (
                                                     <TouchableOpacity
@@ -362,6 +375,33 @@ export default function AdminOrdersScreen() {
                                                     </TouchableOpacity>
                                                 );
                                             })}
+                                        </View>
+                                    )}
+
+                                    <TouchableOpacity
+                                        style={s.statusSelector}
+                                        onPress={() => setShowPaymentPicker(v => !v)}
+                                        activeOpacity={0.85}
+                                    >
+                                        <View style={[s.statusDot, { backgroundColor: T.active }]} />
+                                        <Text style={s.statusSelectorText}>Payment: {paymentState.replace(/_/g, ' ')}</Text>
+                                        <Feather name={showPaymentPicker ? 'chevron-up' : 'chevron-down'} size={16} color={T.muted} />
+                                    </TouchableOpacity>
+
+                                    {showPaymentPicker && (
+                                        <View style={s.pickerDropdown}>
+                                            {PAYMENT_STATUSES.map(st => (
+                                                <TouchableOpacity
+                                                    key={st}
+                                                    style={[s.pickerOption, paymentState === st && s.pickerOptionActive]}
+                                                    onPress={() => { setPaymentState(st); setShowPaymentPicker(false); }}
+                                                    activeOpacity={0.8}
+                                                >
+                                                    <View style={[s.statusDot, { backgroundColor: st === 'paid' ? T.green : st === 'failed' || st === 'cancelled' ? T.red : st === 'cod_due' ? T.yellow : T.active }]} />
+                                                    <Text style={s.pickerOptionText}>{st.replace(/_/g, ' ')}</Text>
+                                                    {paymentState === st && <Feather name="check" size={14} color={T.active} />}
+                                                </TouchableOpacity>
+                                            ))}
                                         </View>
                                     )}
 
@@ -486,6 +526,7 @@ const s = StyleSheet.create({
     rowDate: { fontSize: 11, color: T.muted, marginTop: 2 },
     rowRight: { alignItems: 'flex-end', gap: 6 },
     rowTotal: { fontSize: 15, fontWeight: '700' },
+    paymentBadge: { color: T.muted, fontSize: 11, textTransform: 'capitalize' },
     badge: {
         flexDirection: 'row', alignItems: 'center', gap: 4,
         paddingHorizontal: 8, paddingVertical: 4, borderRadius: 14, borderWidth: 1,

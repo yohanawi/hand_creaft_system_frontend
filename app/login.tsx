@@ -217,7 +217,7 @@ export default function LoginScreen() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[s.formScroll, isMobile && s.formScrollMobile]}
             keyboardShouldPersistTaps="handled"
-        >
+        > 
             <View style={[s.formInner, isMobile && s.formInnerMobile]}>
 
                 {/* Mobile-only logo strip */}

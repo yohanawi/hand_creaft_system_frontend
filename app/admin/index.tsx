@@ -109,6 +109,9 @@ export default function AdminDashboard() {
                 <StatCard icon="star" label="Featured Products" value={stats.featuredProducts} color={T.yellow} />
                 <StatCard icon="alert-circle" label="Out of Stock" value={stats.outOfStock} color={T.red} />
                 <StatCard icon="alert-triangle" label="Low Stock" value={stats.lowStockProducts} color="#F97316" />
+                <StatCard icon="credit-card" label="Payments Pending" value={stats.paymentAwaiting} color={T.blue} />
+                <StatCard icon="check-circle" label="Payments Captured" value={stats.paymentPaid} color={T.green} />
+                <StatCard icon="x-circle" label="Payments Failed" value={stats.paymentFailed} color={T.red} />
             </View>
 
             {/* Quick Actions */}
@@ -116,6 +119,8 @@ export default function AdminDashboard() {
             <View style={s.quickActions}>
                 {[
                     { label: 'Add Product', icon: 'plus-circle', path: '/admin/products' },
+                    { label: 'Inventory', icon: 'archive', path: '/admin/inventory' },
+                    { label: 'Payments', icon: 'credit-card', path: '/admin/payments' },
                     { label: 'Manage Coupons', icon: 'percent', path: '/admin/coupons' },
                     { label: 'Add Category', icon: 'tag', path: '/admin/categories' },
                     { label: 'Add Blog', icon: 'edit-3', path: '/admin/blogs' },
@@ -181,6 +186,27 @@ export default function AdminDashboard() {
                                 </Text>
                             </View>
                         </View>
+                    </View>
+                ))}
+            </View>
+
+            <SectionHeader title="Recent Stock Movements" />
+            <View style={[s.tableWrap, { marginBottom: 40 }]}>
+                <View style={[s.tableRow, s.tableHead]}>
+                    <Text style={[s.th, { flex: 2 }]}>Product</Text>
+                    <Text style={s.th}>Reason</Text>
+                    <Text style={s.th}>Change</Text>
+                </View>
+                {(data?.recentStockMovements ?? []).length === 0 && (
+                    <Text style={s.emptyRow}>No stock activity yet</Text>
+                )}
+                {(data?.recentStockMovements ?? []).map((movement: any) => (
+                    <View key={movement._id} style={s.tableRow}>
+                        <Text style={[s.td, { flex: 2 }]} numberOfLines={1}>{movement.productName || movement.product?.name}</Text>
+                        <Text style={s.td} numberOfLines={1}>{movement.reason}</Text>
+                        <Text style={[s.td, { color: movement.quantityChange > 0 ? T.green : T.red }]}>
+                            {movement.quantityChange > 0 ? '+' : ''}{movement.quantityChange}
+                        </Text>
                     </View>
                 ))}
             </View>

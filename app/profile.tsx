@@ -269,6 +269,20 @@ export default function ProfileScreen() {
         </View>
 
         <View className="bg-white rounded-2xl p-5 gap-4">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-[#2C1810] text-xl font-bold">Support</Text>
+            <TouchableOpacity onPress={() => router.push('/support-tickets' as any)} className="bg-[#F8F2EA] rounded-xl px-4 py-2 flex-row items-center">
+              <Feather name="message-square" size={16} color="#8B4513" />
+              <Text className="ml-2 text-[#8B4513] font-semibold">My Tickets</Text>
+            </TouchableOpacity>
+          </View>
+          <Text className="text-[#6B7280]">Need help with an order, payment, or product issue? Create and track support tickets here.</Text>
+          <TouchableOpacity onPress={() => router.push('/contact' as any)} className="bg-[#2C1810] rounded-xl py-4 items-center">
+            <Text className="text-white font-bold">Create Support Ticket</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View className="bg-white rounded-2xl p-5 gap-4">
           <Text className="text-[#2C1810] text-xl font-bold">Change Password</Text>
 
           <TextInput

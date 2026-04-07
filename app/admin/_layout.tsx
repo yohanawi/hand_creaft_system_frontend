@@ -28,8 +28,13 @@ const T = {
 
 const NAV_ITEMS = [
     { label: 'Dashboard', icon: 'grid', path: '/admin' },
+    { label: 'AI Search', icon: 'cpu', path: '/admin/ai-search' },
     { label: 'Orders', icon: 'shopping-bag', path: '/admin/orders' },
+    { label: 'Support', icon: 'message-square', path: '/admin/support' },
+    { label: 'Payments', icon: 'credit-card', path: '/admin/payments' },
+    { label: 'Wishlist', icon: 'heart', path: '/admin/wishlist-insights' },
     { label: 'Products', icon: 'package', path: '/admin/products' },
+    { label: 'Inventory', icon: 'archive', path: '/admin/inventory' },
     { label: 'Coupons', icon: 'percent', path: '/admin/coupons' },
     { label: 'Categories', icon: 'tag', path: '/admin/categories' },
     { label: 'Subcategories', icon: 'layers', path: '/admin/subcategories' },
@@ -41,8 +46,9 @@ export default function AdminLayout() {
     const auth = useContext(AuthContext);
     const pathname = usePathname();
 
-    // Guard: redirect non-admins
+    // Guard: redirect non-admins (skip while auth is still loading from storage)
     useEffect(() => {
+        if (auth?.isLoading) return;
         if (!auth?.userToken) {
             router.replace('/login');
         } else if (auth?.user && auth.user.role !== 'admin') {

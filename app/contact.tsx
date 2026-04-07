@@ -1,18 +1,24 @@
 import PageShell from '@/components/PageShell';
+import AuthContext from '@/context/AuthContext';
+import { createSupportTicket } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useContext, useEffect, useState } from 'react';
 import { Animated, Dimensions, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function ContactUsScreen() {
+    const auth = useContext(AuthContext);
+    const router = useRouter();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [subject, setSubject] = useState('');
     const [message, setMessage] = useState('');
     const [focusedField, setFocusedField] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
     const fadeAnim = useState(new Animated.Value(0))[0];
     const slideLeftAnim = useState(new Animated.Value(-50))[0];
@@ -37,6 +43,14 @@ export default function ContactUsScreen() {
             }),
         ]).start();
     }, []);
+
+    useEffect(() => {
+        if (auth?.user) {
+            setName((prev) => prev || auth.user?.name || '');
+            setEmail((prev) => prev || auth.user?.email || '');
+            setPhone((prev) => prev || auth.user?.phone || '');
+        }
+    }, [auth?.user]);
 
     const isMobile = SCREEN_WIDTH < 768;
     const isTablet = SCREEN_WIDTH >= 768 && SCREEN_WIDTH < 1024;
@@ -87,16 +101,38 @@ export default function ContactUsScreen() {
         },
     ];
 
-    const handleSubmit = () => {
-        if (name && email && subject && message) {
-            alert('Thank you! We\'ll get back to you soon.');
-            setName('');
-            setEmail('');
-            setPhone('');
+    const handleSubmit = async () => {
+        if (!name || !email || !subject || !message) {
+            alert('Please fill in all required fields');
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            await createSupportTicket({
+                customerName: name,
+                customerEmail: email,
+                customerPhone: phone,
+                subject,
+                message,
+                category: 'general',
+                priority: 'normal',
+                source: 'contact_form',
+            });
+            alert('Support ticket created successfully.');
             setSubject('');
             setMessage('');
-        } else {
-            alert('Please fill in all required fields');
+            if (!auth?.userToken) {
+                setName('');
+                setEmail('');
+                setPhone('');
+            } else {
+                router.push('/support-tickets' as any);
+            }
+        } catch (error: any) {
+            alert(error?.response?.data?.message ?? 'Failed to create support ticket.');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -265,10 +301,11 @@ export default function ContactUsScreen() {
 
                                     <TouchableOpacity
                                         onPress={handleSubmit}
+                                        disabled={submitting}
                                         className="bg-brown-primary rounded-xl py-4 flex-row items-center justify-center"
                                     >
                                         <Feather name="send" size={20} color="#FFF" />
-                                        <Text className="text-white font-bold text-base ml-2">Send Message</Text>
+                                        <Text className="text-white font-bold text-base ml-2">{submitting ? 'Submitting...' : 'Send Message'}</Text>
                                     </TouchableOpacity>
                                 </Animated.View>
 

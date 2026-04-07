@@ -1,4 +1,5 @@
 import { setAuthToken } from '@/services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 export type AuthUser = {
@@ -15,6 +16,7 @@ type AuthContextValue = {
     userToken: string | null;
     user: AuthUser | null;
     isAdmin: boolean;
+    isLoading: boolean;
     login: (token: string, user: AuthUser) => void;
     updateUser: (user: Partial<AuthUser>) => void;
     logout: () => void;
@@ -22,33 +24,63 @@ type AuthContextValue = {
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
+const TOKEN_KEY = 'auth_token';
+const USER_KEY = 'auth_user';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [userToken, setUserToken] = useState<string | null>(null);
     const [user, setUser] = useState<AuthUser | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Sync token to axios whenever it changes
+    // Restore session from AsyncStorage on first mount
+    useEffect(() => {
+        (async () => {
+            try {
+                const [[, token], [, raw]] = await AsyncStorage.multiGet([TOKEN_KEY, USER_KEY]);
+                if (token && raw) {
+                    const stored = JSON.parse(raw) as AuthUser;
+                    setUserToken(token);
+                    setUser(stored);
+                    setAuthToken(token);
+                }
+            } catch {
+                // Storage read failed — stay logged out
+            } finally {
+                setIsLoading(false);
+            }
+        })();
+    }, []);
+
+    // Keep axios in sync whenever the token changes
     useEffect(() => {
         setAuthToken(userToken);
     }, [userToken]);
 
-    const value = useMemo<AuthContextValue>(() => {
-        return {
-            userToken,
-            user,
-            isAdmin: user?.role === 'admin',
-            login: (token: string, userData: AuthUser) => {
-                setUserToken(token);
-                setUser(userData);
-            },
-            updateUser: (nextUser: Partial<AuthUser>) => {
-                setUser((prev) => (prev ? { ...prev, ...nextUser } : prev));
-            },
-            logout: () => {
-                setUserToken(null);
-                setUser(null);
-            },
-        };
-    }, [userToken, user]);
+    const value = useMemo<AuthContextValue>(() => ({
+        userToken,
+        user,
+        isAdmin: user?.role === 'admin',
+        isLoading,
+        login: (token: string, userData: AuthUser) => {
+            setUserToken(token);
+            setUser(userData);
+            AsyncStorage.setItem(TOKEN_KEY, token).catch(() => { });
+            AsyncStorage.setItem(USER_KEY, JSON.stringify(userData)).catch(() => { });
+        },
+        updateUser: (nextUser: Partial<AuthUser>) => {
+            setUser((prev) => {
+                if (!prev) return prev;
+                const updated = { ...prev, ...nextUser };
+                AsyncStorage.setItem(USER_KEY, JSON.stringify(updated)).catch(() => { });
+                return updated;
+            });
+        },
+        logout: () => {
+            setUserToken(null);
+            setUser(null);
+            AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]).catch(() => { });
+        },
+    }), [userToken, user, isLoading]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

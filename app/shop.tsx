@@ -727,7 +727,7 @@ export default function ShopScreen() {
                                                 backgroundColor: COLORS.primary,
                                                 borderRadius: 20,
                                                 paddingHorizontal: 14,
-                                                paddingVertical: 8,
+                                                paddingVertical: 8, 
                                                 gap: 6,
                                             }}
                                         >
