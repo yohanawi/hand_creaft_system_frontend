@@ -16,6 +16,7 @@ import PageShell from '@/components/PageShell';
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/context/ToastContext';
 import { useWishlist } from '@/context/WishlistContext';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
 import api from '@/services/api';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -514,6 +515,7 @@ const sectionTitle = {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ShopScreen() {
+    const { scrollY, onScroll } = useHeaderScroll();
     const { search: searchParam } = useLocalSearchParams<{ search?: string }>();
 
     const [categories, setCategories] = useState<ApiCategory[]>([]);
@@ -646,8 +648,13 @@ export default function ShopScreen() {
         <View style={{ flex: 1, backgroundColor: COLORS.cream }}>
             <StatusBar barStyle="dark-content" />
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-                <PageShell>
+            <Animated.ScrollView
+                showsVerticalScrollIndicator={false}
+                style={{ flex: 1 }}
+                onScroll={onScroll}
+                scrollEventThrottle={16}
+            >
+                <PageShell scrollY={scrollY}>
                     {/* ── Body ── */}
                     <View style={{ flex: 1, flexDirection: isMobile ? 'column' : 'row' }}>
 
@@ -727,7 +734,7 @@ export default function ShopScreen() {
                                                 backgroundColor: COLORS.primary,
                                                 borderRadius: 20,
                                                 paddingHorizontal: 14,
-                                                paddingVertical: 8, 
+                                                paddingVertical: 8,
                                                 gap: 6,
                                             }}
                                         >
@@ -899,7 +906,7 @@ export default function ShopScreen() {
                     </View>
 
                 </PageShell>
-            </ScrollView>
+            </Animated.ScrollView>
 
             {/* ── Filter Modal (mobile) ── */}
             <Modal

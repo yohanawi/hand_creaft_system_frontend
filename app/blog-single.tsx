@@ -1,11 +1,12 @@
 ﻿import PageShell from '@/components/PageShell';
 import { useAuth } from '@/context/AuthContext';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
 import { createBlogComment, getBlogBySlug, getBlogComments, getBlogs } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const API_BASE = 'http://localhost:5000';
 
@@ -87,6 +88,7 @@ const GoldDivider = () => (
 );
 
 export default function BlogSingleScreen() {
+    const { scrollY, onScroll } = useHeaderScroll();
     const router = useRouter();
     const { slug } = useLocalSearchParams<{ slug: string }>();
     const auth = useAuth();
@@ -174,8 +176,8 @@ export default function BlogSingleScreen() {
 
     return (
         <View style={styles.root}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <PageShell>
+            <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
+                <PageShell scrollY={scrollY}>
                     <Animated.View style={{ opacity: fadeAnim }}>
 
                         {/* ── Hero Banner ──────────────────────────────────── */}
@@ -353,7 +355,7 @@ export default function BlogSingleScreen() {
 
                     </Animated.View>
                 </PageShell>
-            </ScrollView>
+            </Animated.ScrollView>
         </View>
     );
 }

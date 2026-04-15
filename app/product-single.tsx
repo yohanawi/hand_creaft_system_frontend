@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { CartVariantSelection, useCart } from '@/context/CartContext';
 import { useToast } from '@/context/ToastContext';
 import { useWishlist } from '@/context/WishlistContext';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
 import {
     createProductReview,
     deleteProductReview,
@@ -11,8 +12,8 @@ import {
 } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useVideoPlayer, VideoView } from 'expo-video';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -189,6 +190,7 @@ const isLikelyColorValue = (value?: string) => {
 };
 
 export default function ProductSingleScreen() {
+    const { scrollY, onScroll } = useHeaderScroll();
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -270,9 +272,9 @@ export default function ProductSingleScreen() {
     const selectedVariant = useMemo(
         () => (hasVariants
             ? productVariants.find((variant) => String(variant._id) === selectedVariantId)
-                || productVariants.find((variant) => variant.isDefault)
-                || productVariants.find((variant) => Number(variant.quantity || 0) > 0)
-                || productVariants[0]
+            || productVariants.find((variant) => variant.isDefault)
+            || productVariants.find((variant) => Number(variant.quantity || 0) > 0)
+            || productVariants[0]
             : null),
         [hasVariants, productVariants, selectedVariantId],
     );
@@ -607,8 +609,8 @@ export default function ProductSingleScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: '#fff' }}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <PageShell>
+            <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
+                <PageShell scrollY={scrollY}>
                     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
                         <View style={{ paddingVertical: 32, paddingHorizontal: 16 }}>
                             <View style={{ maxWidth: 1200, width: '100%', alignSelf: 'center' }}>
@@ -1299,7 +1301,7 @@ export default function ProductSingleScreen() {
                         </View>
                     </Animated.View>
                 </PageShell>
-            </ScrollView>
+            </Animated.ScrollView>
 
             <Modal visible={zoomVisible} animationType="fade" transparent onRequestClose={() => setZoomVisible(false)}>
                 <View style={{ flex: 1, backgroundColor: 'rgba(17,24,39,0.95)', padding: 20, justifyContent: 'center' }}>

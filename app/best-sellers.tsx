@@ -1,4 +1,5 @@
 ﻿import PageShell from '@/components/PageShell';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
 import { getProducts } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,7 +15,7 @@ const productImageUri = (img?: string) =>
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Product = {
-    _id: string; 
+    _id: string;
     name: string;
     price: number;
     salePrice?: number;
@@ -33,6 +34,7 @@ const RANK_COLORS: [string, string][] = [
 ];
 
 export default function BestSellersScreen() {
+    const { scrollY, onScroll } = useHeaderScroll();
     const router = useRouter();
     const [selectedFilter, setSelectedFilter] = useState('weekly');
     const [selectedCategory, setSelectedCategory] = useState('all');
@@ -94,8 +96,8 @@ export default function BestSellersScreen() {
 
     return (
         <View className="flex-1 bg-gray-50">
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <PageShell>
+            <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
+                <PageShell scrollY={scrollY}>
                     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
                         {/* Hero Section */}
                         <LinearGradient
@@ -341,7 +343,7 @@ export default function BestSellersScreen() {
                         </View>
                     </Animated.View>
                 </PageShell>
-            </ScrollView>
+            </Animated.ScrollView>
         </View>
     );
 }

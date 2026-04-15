@@ -1,14 +1,7 @@
 ﻿import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef } from 'react';
-import {
-    Animated,
-    Dimensions,
-    Image,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { Animated, Dimensions, Image, Text, TouchableOpacity, View, } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isMobile = SCREEN_WIDTH < 768;
@@ -48,68 +41,22 @@ const values = [
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 function StatCard({ stat, anim }: { stat: typeof stats[0]; anim: Animated.Value }) {
+
     const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] });
 
     return (
-        <Animated.View style={{
-            opacity: anim,
-            transform: [{ translateY }],
-            flex: isMobile ? undefined : 1,
-            minWidth: isMobile ? '44%' : undefined,
-        }}>
-            <View style={{
-                backgroundColor: '#fff',
-                borderRadius: 22,
-                padding: 20,
-                alignItems: 'center',
-                borderWidth: 1.5,
-                borderColor: '#F0E8E0',
-                shadowColor: stat.color,
-                shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 0.10,
-                shadowRadius: 14,
-                elevation: 4,
-            }}>
-                {/* Icon tile */}
-                <View style={{
-                    width: 50,
-                    height: 50,
-                    borderRadius: 16,
-                    backgroundColor: stat.bg,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: 12,
-                }}>
+        <Animated.View style={{ opacity: anim, transform: [{ translateY }], flex: isMobile ? undefined : 1, minWidth: isMobile ? '44%' : undefined }}>
+            <View className="bg-white rounded-[22px] p-5 items-center border-[1.5px] border-[#F0E8E0]">
+                <View className="w-[50px] h-[50px] rounded-2xl items-center justify-center mb-3" style={{ backgroundColor: stat.bg }}>
                     <Feather name={stat.icon} size={22} color={stat.color} />
                 </View>
-                <Text style={{
-                    fontSize: 28,
-                    fontWeight: '900',
-                    color: '#1A0F0A',
-                    letterSpacing: -1,
-                    lineHeight: 32,
-                }}>
+                <Text className="text-[28px] font-black text-[#1A0F0A] tracking-[-1px] leading-8">
                     {stat.value}
                 </Text>
-                <Text style={{
-                    color: '#9CA3AF',
-                    fontSize: 11,
-                    fontWeight: '600',
-                    marginTop: 4,
-                    textAlign: 'center',
-                    letterSpacing: 0.3,
-                }}>
+                <Text className="text-gray-400 text-[11px] font-semibold mt-1 text-center tracking-[0.3px]">
                     {stat.label}
                 </Text>
-                {/* Accent bottom bar */}
-                <View style={{
-                    height: 3,
-                    width: 32,
-                    borderRadius: 2,
-                    backgroundColor: stat.color,
-                    marginTop: 10,
-                    opacity: 0.7,
-                }} />
+                <View className="h-[3px] w-8 rounded-sm mt-2.5 opacity-70" style={{ backgroundColor: stat.color }} />
             </View>
         </Animated.View>
     );
@@ -117,6 +64,7 @@ function StatCard({ stat, anim }: { stat: typeof stats[0]; anim: Animated.Value 
 
 // ─── Value row ────────────────────────────────────────────────────────────────
 function ValueItem({ v, delay }: { v: typeof values[0]; delay: number }) {
+
     const anim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -129,32 +77,24 @@ function ValueItem({ v, delay }: { v: typeof values[0]; delay: number }) {
     }, []);
 
     return (
-        <Animated.View style={{
-            opacity: anim,
-            transform: [{ translateX: anim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }],
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            marginBottom: 18,
-        }}>
-            <View style={{
-                width: 46,
-                height: 46,
-                borderRadius: 14,
-                backgroundColor: v.bg,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 14,
-                marginTop: 2,
-                borderWidth: 1,
-                borderColor: `${v.color}22`,
+        <Animated.View className="items-center"
+            style={{
+                flexDirection: isMobile ? 'column' : 'row',
+                paddingBottom: 14,
+                opacity: anim,
+                transform: [{ translateX: anim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }],
             }}>
+            <View className="w-[46px] h-[46px] rounded-xl items-center justify-center mr-3.5 mt-0.5 border" style={{ backgroundColor: v.bg, borderColor: `${v.color}22` }}>
                 <Feather name={v.icon} size={20} color={v.color} />
             </View>
-            <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '800', color: '#1A0F0A', marginBottom: 3, letterSpacing: -0.2 }}>
+
+            {/* Text content */}
+            <View className="flex-1">
+                <Text className="text-[15px] font-extrabold text-[#1A0F0A] mb-1 tracking-[-0.2px]">
                     {v.title}
                 </Text>
-                <Text style={{ fontSize: 13, color: '#6B7280', lineHeight: 20 }}>
+
+                <Text className="text-[13px] text-gray-500 leading-5">
                     {v.text}
                 </Text>
             </View>
@@ -164,6 +104,7 @@ function ValueItem({ v, delay }: { v: typeof values[0]; delay: number }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function AboutBrandSection() {
+
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const leftAnim = useRef(new Animated.Value(-50)).current;
     const rightAnim = useRef(new Animated.Value(50)).current;
@@ -191,116 +132,57 @@ export default function AboutBrandSection() {
     }, []);
 
     return (
-        <View style={{ backgroundColor: '#FBF7F3', overflow: 'hidden' }}>
-
+        <View className="bg-[#FBF7F3] overflow-hidden">
             {/* ── Decorative blobs ── */}
-            <View style={{
-                position: 'absolute', top: -80, left: -80,
-                width: 280, height: 280, borderRadius: 140,
-                backgroundColor: '#8B4513', opacity: 0.05,
-            }} />
-            <View style={{
-                position: 'absolute', bottom: -60, right: -60,
-                width: 220, height: 220, borderRadius: 110,
-                backgroundColor: '#CD853F', opacity: 0.07,
-            }} /> 
+            <View className="absolute -top-[80px] -left-[80px] w-[280px] h-[280px] rounded-full bg-[#8B4513] opacity-[0.05]" />
+            <View className="absolute -bottom-[60px] -right-[60px] w-[220px] h-[220px] rounded-full bg-[#CD853F] opacity-[0.07]" />
 
-            <View style={{ paddingVertical: 64, paddingHorizontal: isMobile ? 20 : 40 }}>
-                <View style={{ maxWidth: 1280, alignSelf: 'center', width: '100%' }}>
+            <View className="py-28" style={{ paddingHorizontal: isMobile ? 20 : 40 }}>
+                <View className="w-full max-w-[1280px] self-center">
 
                     {/* ═══════════════════════════════════════════
                         TWO-COLUMN: Image Left + Text Right
                     ═══════════════════════════════════════════ */}
-                    <View style={{
-                        flexDirection: isMobile ? 'column' : 'row',
-                        alignItems: isMobile ? 'stretch' : 'center',
-                        gap: isMobile ? 0 : 56,
-                        marginBottom: 60,
-                    }}>
-
+                    <View className="flex-col items-stretch mb-24 md:flex-row md:items-center" style={{ gap: isMobile ? 0 : 56, }}>
                         {/* ── LEFT: Image collage ── */}
-                        <Animated.View style={{
-                            opacity: fadeAnim,
-                            transform: [{ translateX: leftAnim }],
-                            width: isMobile ? '100%' : isTablet ? '45%' : '42%',
-                            marginBottom: isMobile ? 48 : 0,
-                        }}>
-                            {/* Main image */}
-                            <Animated.View style={{
-                                transform: [{ scale: imgScaleAnim }],
-                                borderRadius: 28,
-                                overflow: 'hidden',
-                                shadowColor: '#8B4513',
-                                shadowOffset: { width: 0, height: 16 },
-                                shadowOpacity: 0.20,
-                                shadowRadius: 28,
-                                elevation: 12,
+                        <Animated.View
+                            style={{
+                                opacity: fadeAnim,
+                                transform: [{ translateX: leftAnim }],
+                                width: isMobile ? '100%' : isTablet ? '45%' : '42%',
+                                marginBottom: isMobile ? 48 : 0,
                             }}>
+                            {/* Main image */}
+                            <Animated.View className="rounded-[28px] overflow-hidden" style={{ transform: [{ scale: imgScaleAnim }] }}>
                                 <Image
                                     source={{ uri: 'https://images.unsplash.com/photo-1452860606245-08befc0ff44b?w=800&q=85' }}
-                                    style={{ width: '100%', height: isMobile ? 280 : 400 }}
+                                    className="w-full"
+                                    style={{ height: isMobile ? 280 : 400 }}
                                     resizeMode="cover"
                                 />
-                                {/* Gradient overlay at bottom */}
-                                <View style={{
-                                    position: 'absolute', bottom: 0, left: 0, right: 0, height: 120,
-                                    backgroundColor: 'rgba(0,0,0,0.35)',
-                                }} />
-                                {/* Bottom-left text on image */}
-                                <View style={{ position: 'absolute', bottom: 16, left: 16 }}>
-                                    <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 10, fontWeight: '600', letterSpacing: 1 }}>
-                                        OUR WORKSHOP
-                                    </Text>
-                                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: -0.3 }}>
-                                        Where craft begins ✦
-                                    </Text>
-                                </View>
                             </Animated.View>
 
-                            {/* Floating badge: Est. 2024 */}
-                            <View style={{
-                                position: 'absolute',
-                                bottom: isMobile ? -18 : -22,
-                                right: isMobile ? 12 : -16,
-                                backgroundColor: '#8B4513',
-                                paddingHorizontal: 20,
-                                paddingVertical: 14,
-                                borderRadius: 20,
-                                shadowColor: '#8B4513',
-                                shadowOffset: { width: 0, height: 8 },
-                                shadowOpacity: 0.40,
-                                shadowRadius: 16,
-                                elevation: 10,
-                                alignItems: 'center',
-                            }}>
-                                <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 9, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                            {/* Floating badge */}
+                            <View className="absolute bg-[#8B4513] px-5 py-3.5 rounded-2xl items-center"
+                                style={{
+                                    bottom: isMobile ? -18 : -22,
+                                    right: isMobile ? 12 : -16,
+                                }}>
+                                <Text className="text-white/75 text-[9px] font-bold tracking-[1.5px] uppercase">
                                     Crafting Since
                                 </Text>
-                                <Text style={{ color: '#fff', fontSize: 32, fontWeight: '900', letterSpacing: -1, lineHeight: 38 }}>
+                                <Text className="text-white text-[32px] font-black tracking-[-1px] leading-[38px]">
                                     2024
                                 </Text>
                             </View>
 
-                            {/* Floating artisan card: top-left */}
-                            <View style={{
-                                position: 'absolute',
-                                top: -18,
-                                left: isMobile ? 12 : -18,
-                                backgroundColor: '#fff',
-                                borderRadius: 18,
-                                paddingHorizontal: 14,
-                                paddingVertical: 10,
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                shadowColor: '#000',
-                                shadowOffset: { width: 0, height: 6 },
-                                shadowOpacity: 0.12,
-                                shadowRadius: 12,
-                                elevation: 8,
-                                gap: 10,
-                            }}>
-                                {/* Stacked avatars */}
-                                <View style={{ flexDirection: 'row' }}>
+                            {/* Artisan card */}
+                            <View className="absolute bg-white rounded-xl px-3.5 py-2.5 flex-row items-center gap-2.5"
+                                style={{
+                                    top: -18,
+                                    left: isMobile ? 12 : -18,
+                                }}>
+                                <View className="flex-row">
                                     {[
                                         'https://randomuser.me/api/portraits/women/44.jpg',
                                         'https://randomuser.me/api/portraits/women/68.jpg',
@@ -309,17 +191,18 @@ export default function AboutBrandSection() {
                                         <Image
                                             key={i}
                                             source={{ uri }}
-                                            style={{
-                                                width: 30, height: 30, borderRadius: 15,
-                                                borderWidth: 2, borderColor: '#fff',
-                                                marginLeft: i > 0 ? -8 : 0,
-                                            }}
+                                            className="w-[30px] h-[30px] rounded-full border-2 border-white"
+                                            style={{ marginLeft: i > 0 ? -8 : 0 }}
                                         />
                                     ))}
                                 </View>
+
                                 <View>
-                                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#1A0F0A' }}>35+ Artisans</Text>
-                                    <View style={{ flexDirection: 'row', gap: 1, marginTop: 2 }}>
+                                    <Text className="text-[11px] font-extrabold text-[#1A0F0A]">
+                                        35+ Artisans
+                                    </Text>
+
+                                    <View className="flex-row gap-[1px] mt-0.5">
                                         {[...Array(5)].map((_, i) => (
                                             <Feather key={i} name="star" size={9} color="#F59E0B" />
                                         ))}
@@ -327,114 +210,62 @@ export default function AboutBrandSection() {
                                 </View>
                             </View>
 
-                            {/* Small inset image: bottom-left (desktop) */}
+                            {/* Small inset image */}
                             {!isMobile && (
-                                <View style={{
-                                    position: 'absolute',
-                                    bottom: -24,
-                                    left: -20,
-                                    borderRadius: 20,
-                                    overflow: 'hidden',
-                                    borderWidth: 4,
-                                    borderColor: '#fff',
-                                    shadowColor: '#000',
-                                    shadowOffset: { width: 0, height: 6 },
-                                    shadowOpacity: 0.15,
-                                    shadowRadius: 12,
-                                    elevation: 8,
-                                }}>
-                                    <Image
-                                        source={{ uri: 'https://images.unsplash.com/photo-1574169208507-84376144848b?w=240&q=80' }}
-                                        style={{ width: 110, height: 110 }}
-                                        resizeMode="cover"
-                                    />
+                                <View className="absolute rounded-[20px] overflow-hidden border-4 border-white" style={{ bottom: -24, left: -20, }}>
+                                    <Image source={{ uri: 'https://images.unsplash.com/photo-1574169208507-84376144848b?w=240&q=80' }} className="w-[110px] h-[110px]" />
                                 </View>
                             )}
                         </Animated.View>
 
-                        {/* ── RIGHT: Story text ── */}
-                        <Animated.View style={{
-                            opacity: fadeAnim,
-                            transform: [{ translateX: rightAnim }],
-                            flex: isMobile ? undefined : 1,
-                            marginTop: isMobile ? 32 : 0,
-                        }}>
+                        {/* ── RIGHT: Content ── */}
+                        <Animated.View
+                            style={{
+                                opacity: fadeAnim,
+                                transform: [{ translateX: rightAnim }],
+                                flex: isMobile ? undefined : 1,
+                                marginTop: isMobile ? 32 : 0,
+                            }} >
                             {/* Eyebrow */}
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                                <View style={{ width: 32, height: 2, backgroundColor: '#8B4513', borderRadius: 2 }} />
-                                <Text style={{
-                                    fontSize: 11,
-                                    fontWeight: '700',
-                                    color: '#8B4513',
-                                    letterSpacing: 2.5,
-                                    textTransform: 'uppercase',
-                                }}>
+                            <View className="flex-row items-center justify-start gap-3 mb-4">
+                                <div className="h-px w-8 bg-[rgba(113,67,41,0.35)]" />
+                                <span className="text-[#714329] uppercase tracking-[0.3em] text-xs font-bold">
                                     Our Story
-                                </Text>
+                                </span>
                             </View>
 
                             {/* Title */}
-                            <Text style={{
-                                fontSize: isMobile ? 28 : isTablet ? 32 : 40,
-                                fontWeight: '900',
-                                color: '#1A0F0A',
-                                letterSpacing: -1,
-                                lineHeight: isMobile ? 36 : 50,
-                                marginBottom: 18,
-                            }}>
-                                Crafted by Local{'\n'}
-                                <Text style={{ color: '#8B4513' }}>Artisans</Text> with Love
+                            <h1 className="text-4xl font-serif text-[#1C1C1C] mb-4 leading-tight animate-shimmer">
+                                Crafted by Local <br /><em style={{ color: '#8B4513' }}>Artisans</em> with Love
+                            </h1>
+                            {/* Text */}
+                            <Text className="mb-3 text-sm leading-6 text-gray-500">
+                                Born from a passion for preserving traditional crafts, our platform was founded in 2024 to give talented local artisans a global stage. Every product is made entirely by hand - no factories, no shortcuts, just skilled hands and sincere hearts.
                             </Text>
 
-                            {/* Body text */}
-                            <Text style={{ color: '#6B7280', fontSize: 14, lineHeight: 24, marginBottom: 12 }}>
-                                Born from a passion for preserving traditional crafts, our platform was founded in 2024 to give talented local artisans a global stage. Every product is made entirely by hand — no factories, no shortcuts, just skilled hands and sincere hearts.
-                            </Text>
-                            <Text style={{ color: '#6B7280', fontSize: 14, lineHeight: 24, marginBottom: 28 }}>
+                            <Text className="text-sm leading-6 text-gray-500 mb-7">
                                 When you buy from us, you support a real person, a real family, and a living craft tradition that deserves to thrive.
                             </Text>
 
-                            {/* Value rows */}
-                            <View style={{ marginBottom: 28 }}>
+                            {/* Values */}
+                            <View className="mb-7">
                                 {values.map((v, i) => (
                                     <ValueItem key={v.title} v={v} delay={400 + i * 120} />
                                 ))}
                             </View>
 
-                            {/* CTA buttons */}
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                                <TouchableOpacity style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    backgroundColor: '#8B4513',
-                                    paddingHorizontal: 24,
-                                    paddingVertical: 14,
-                                    borderRadius: 50,
-                                    shadowColor: '#8B4513',
-                                    shadowOffset: { width: 0, height: 6 },
-                                    shadowOpacity: 0.35,
-                                    shadowRadius: 12,
-                                    elevation: 6,
-                                }}>
-                                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14, letterSpacing: 0.2 }}>
+                            {/* Buttons */}
+                            <View className="flex-row flex-wrap gap-3">
+                                <TouchableOpacity className="flex-row items-center gap-2 bg-[#8B4513] px-6 py-3.5 rounded-full" >
+                                    <Text className="text-sm font-extrabold text-white">
                                         Meet Our Artisans
                                     </Text>
                                     <Feather name="arrow-right" size={16} color="#fff" />
                                 </TouchableOpacity>
 
-                                <TouchableOpacity style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    borderWidth: 1.5,
-                                    borderColor: '#8B4513',
-                                    paddingHorizontal: 24,
-                                    paddingVertical: 14,
-                                    borderRadius: 50,
-                                }}>
+                                <TouchableOpacity className="flex-row items-center gap-2 border-[1.5px] border-[#8B4513] px-6 py-3.5 rounded-full">
                                     <Feather name="play-circle" size={16} color="#8B4513" />
-                                    <Text style={{ color: '#8B4513', fontWeight: '700', fontSize: 14 }}>
+                                    <Text className="text-[#8B4513] font-bold text-sm">
                                         Our Story
                                     </Text>
                                 </TouchableOpacity>
@@ -445,36 +276,21 @@ export default function AboutBrandSection() {
                     {/* ═══════════════════════════════════════════
                         STATS ROW
                     ═══════════════════════════════════════════ */}
-                    <View style={{ marginTop: isMobile ? 40 : 20 }}>
+                    <View className={`${isMobile ? 'mt-10' : 'mt-5'}`}>
                         {/* Divider with label */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-                            <View style={{ flex: 1, height: 1, backgroundColor: '#EDE5DC' }} />
-                            <View style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                gap: 6,
-                                backgroundColor: '#fff',
-                                paddingHorizontal: 14,
-                                paddingVertical: 6,
-                                borderRadius: 20,
-                                borderWidth: 1,
-                                borderColor: '#EDE5DC',
-                            }}>
+                        <View className="flex-row items-center gap-3 mb-7">
+                            <View className="flex-1 h-[1px] bg-[#EDE5DC]" />
+                            <View className="flex-row items-center gap-1.5 bg-white px-3.5 py-1.5 rounded-full border border-[#EDE5DC]">
                                 <Feather name="trending-up" size={13} color="#8B4513" />
-                                <Text style={{ color: '#8B4513', fontSize: 11, fontWeight: '700', letterSpacing: 0.8 }}>
+                                <Text className="text-[#8B4513] text-[11px] font-bold tracking-[0.8px]">
                                     BY THE NUMBERS
                                 </Text>
                             </View>
-                            <View style={{ flex: 1, height: 1, backgroundColor: '#EDE5DC' }} />
+                            <View className="flex-1 h-[1px] bg-[#EDE5DC]" />
                         </View>
 
                         {/* Stat cards */}
-                        <View style={{
-                            flexDirection: 'row',
-                            flexWrap: isMobile ? 'wrap' : 'nowrap',
-                            gap: 14,
-                            justifyContent: 'center',
-                        }}>
+                        <View className="flex-row justify-center gap-3.5" style={{ flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                             {stats.map((s, i) => (
                                 <StatCard key={s.label} stat={s} anim={statAnims[i]} />
                             ))}
@@ -484,49 +300,31 @@ export default function AboutBrandSection() {
                     {/* ═══════════════════════════════════════════
                         BOTTOM TRUST BANNER
                     ═══════════════════════════════════════════ */}
-                    <Animated.View style={{
-                        opacity: fadeAnim,
-                        marginTop: 48,
-                        borderRadius: 24,
-                        overflow: 'hidden',
-                    }}>
-                        <LinearGradient
-                            colors={['#8B4513', '#A0522D', '#CD853F']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={{ borderRadius: 24 }}
-                        >
-                            <View style={{
-                                paddingVertical: 28,
-                                paddingHorizontal: isMobile ? 20 : 40,
-                                flexDirection: isMobile ? 'column' : 'row',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: isMobile ? 16 : 0,
-                            }}>
-                                <View style={{ alignItems: isMobile ? 'center' : 'flex-start' }}>
-                                    <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>
+                    <Animated.View style={{ opacity: fadeAnim, marginTop: isMobile ? 20 : 40 }} className="overflow-hidden rounded-3xl">
+                        <LinearGradient colors={['#8B4513', '#A0522D', '#CD853F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 24 }}>
+                            <View className="flex-row items-center justify-between py-7"
+                                style={{
+                                    paddingHorizontal: isMobile ? 20 : 40,
+                                    flexDirection: isMobile ? 'column' : 'row',
+                                    gap: isMobile ? 16 : 0,
+                                }}>
+                                {/* Text block */}
+                                <View className="items-center md:items-start" style={{ alignItems: isMobile ? 'center' : 'flex-start' }}>
+                                    <Text className="text-white/75 text-[11px] font-bold tracking-[1.5px] uppercase mb-1">
                                         Start Supporting Artisans
                                     </Text>
-                                    <Text style={{ color: '#fff', fontSize: isMobile ? 18 : 22, fontWeight: '900', letterSpacing: -0.5, textAlign: isMobile ? 'center' : 'left' }}>
+                                    <Text className="text-white font-black tracking-[-0.5px]"
+                                        style={{
+                                            fontSize: isMobile ? 18 : 22,
+                                            textAlign: isMobile ? 'center' : 'left',
+                                        }}>
                                         Every purchase tells a human story ✦
                                     </Text>
                                 </View>
-                                <TouchableOpacity style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    backgroundColor: '#fff',
-                                    paddingHorizontal: 24,
-                                    paddingVertical: 13,
-                                    borderRadius: 50,
-                                    shadowColor: '#000',
-                                    shadowOffset: { width: 0, height: 4 },
-                                    shadowOpacity: 0.15,
-                                    shadowRadius: 8,
-                                    elevation: 4,
-                                }}>
-                                    <Text style={{ color: '#8B4513', fontWeight: '800', fontSize: 14 }}>
+
+                                {/* Button */}
+                                <TouchableOpacity className="flex-row items-center gap-2 bg-white px-6 py-3.5 rounded-full" >
+                                    <Text className="text-[#8B4513] font-extrabold text-sm">
                                         Shop Handmade
                                     </Text>
                                     <Feather name="arrow-right" size={16} color="#8B4513" />
@@ -536,7 +334,7 @@ export default function AboutBrandSection() {
                     </Animated.View>
 
                 </View>
-            </View> 
+            </View>
         </View>
     );
 }

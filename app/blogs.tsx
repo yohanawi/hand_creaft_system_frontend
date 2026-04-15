@@ -1,4 +1,5 @@
 ﻿import PageShell from '@/components/PageShell';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
 import { getBlogs } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -37,6 +38,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BLOGS_PER_PAGE = 6;
 
 export default function AllBlogsScreen() {
+    const { scrollY, onScroll } = useHeaderScroll();
     const router = useRouter();
     const [selectedCategory, setSelectedCategory] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
@@ -96,8 +98,8 @@ export default function AllBlogsScreen() {
     const featuredBlog = blogs[0] ?? null;
     return (
         <View className="flex-1 bg-white">
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <PageShell>
+            <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
+                <PageShell scrollY={scrollY}>
 
                     <Animated.View style={{ opacity: fadeAnim }}>
                         {/* Hero Section */}
@@ -336,7 +338,7 @@ export default function AllBlogsScreen() {
                     </Animated.View>
 
                 </PageShell>
-            </ScrollView>
+            </Animated.ScrollView>
         </View>
     );
 }

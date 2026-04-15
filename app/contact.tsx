@@ -1,15 +1,17 @@
 import PageShell from '@/components/PageShell';
 import AuthContext from '@/context/AuthContext';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
 import { createSupportTicket } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useContext, useEffect, useState } from 'react';
-import { Animated, Dimensions, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function ContactUsScreen() {
+    const { scrollY, onScroll } = useHeaderScroll();
     const auth = useContext(AuthContext);
     const router = useRouter();
     const [name, setName] = useState('');
@@ -138,8 +140,8 @@ export default function ContactUsScreen() {
 
     return (
         <View className="flex-1 bg-white">
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <PageShell>
+            <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
+                <PageShell scrollY={scrollY}>
 
                     {/* Hero Section */}
                     <Animated.View style={{ opacity: fadeAnim }}>
@@ -368,7 +370,7 @@ export default function ContactUsScreen() {
                     </View>
 
                 </PageShell>
-            </ScrollView>
+            </Animated.ScrollView>
         </View>
     );
 }

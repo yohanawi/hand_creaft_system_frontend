@@ -1,4 +1,5 @@
 ﻿import PageShell from '@/components/PageShell';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
 import { getProducts } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -55,6 +56,7 @@ const GoldDivider = () => (
 );
 
 export default function DealsScreen() {
+    const { scrollY, onScroll } = useHeaderScroll();
     const router = useRouter();
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [products, setProducts] = useState<Product[]>([]);
@@ -145,8 +147,8 @@ export default function DealsScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: J.cream }}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <PageShell>
+            <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
+                <PageShell scrollY={scrollY}>
                     <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}>
 
                         {/* ── Hero + Countdown ──────────────────────────────── */}
@@ -381,7 +383,7 @@ export default function DealsScreen() {
                         </View>
                     </Animated.View>
                 </PageShell>
-            </ScrollView>
+            </Animated.ScrollView>
         </View>
     );
 }

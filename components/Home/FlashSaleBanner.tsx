@@ -1,4 +1,7 @@
-﻿import React, { useEffect, useState, useRef, useCallback } from 'react';
+﻿import { router } from 'expo-router';
+import { Check, ShoppingCart, Zap } from 'lucide-react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 
 const COLORS = {
     background: '#D0B9A7',
@@ -121,6 +124,7 @@ type ProductCardProps = {
     item: SaleProduct;
     index: number;
     isActive: boolean;
+    cardWidth: number;
 };
 
 type SwiperProps = {
@@ -143,43 +147,14 @@ const DigitBlock = ({ value, label }: DigitBlockProps) => {
     const str = String(value).padStart(2, '0');
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{
-                position: 'relative',
-                minWidth: '72px',
-                height: '80px',
-                borderRadius: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-                background: `linear-gradient(160deg, ${COLORS.lightBackground} 0%, #9e8473 100%)`,
-                border: '1px solid rgba(255,255,255,0.25)',
-                boxShadow: '0 8px 24px rgba(113,67,41,0.25), inset 0 1px 0 rgba(255,255,255,0.15)',
-            }}>
-                <div style={{
-                    position: 'absolute', inset: 0,
-                    background: 'linear-gradient(180deg, rgba(0,0,0,0.04) 0%, transparent 50%, rgba(0,0,0,0.06) 100%)',
-                    pointerEvents: 'none',
-                }} />
-                <div style={{
-                    position: 'absolute', top: '50%', left: 0, right: 0,
-                    height: '1px', background: 'rgba(0,0,0,0.12)', zIndex: 2,
-                }} />
-                <span style={{
-                    fontSize: '2.4rem', fontWeight: 900, letterSpacing: '-0.03em',
-                    color: COLORS.darkColor, fontFamily: "'Playfair Display', serif",
-                    position: 'relative', zIndex: 3,
-                    animation: flipping ? 'digitFlip 0.35s ease' : 'none',
-                }}>
+        <div className="flex flex-col items-center">
+            <div className="relative min-w-[72px] h-20 rounded-[14px] flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#B5A192] to-[#9e8473] border border-white/25 before:absolute before:inset-0 before:bg-gradient-to-b before:from-black/4 before:via-transparent before:to-black/6 before:pointer-events-none after:absolute after:top-1/2 after:left-0 after:right-0 after:h-px after:bg-black/12 after:z-[2]">
+                <span className={`text-4xl font-black tracking-tight text-[#714329] font-serif relative z-[3] 
+                                ${flipping ? 'animate-[digitFlip_0.35s_ease]' : ''}`} style={{ letterSpacing: '-0.03em' }}>
                     {str}
                 </span>
             </div>
-            <span style={{
-                marginTop: '6px', fontSize: '9px', fontWeight: 700,
-                letterSpacing: '0.22em', textTransform: 'uppercase',
-                color: COLORS.textSecondary, fontFamily: "'Cormorant Garamond', serif",
-            }}>
+            <span className="mt-1.5 text-xs font-bold tracking-widest uppercase text-[#6B6B6B] font-serif">
                 {label}
             </span>
         </div>
@@ -187,151 +162,148 @@ const DigitBlock = ({ value, label }: DigitBlockProps) => {
 };
 
 // ─── Product Card ─────────────────────────────────────────────────────────────
-const ProductCard = ({ item, index, isActive }: ProductCardProps) => {
+const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => {
     const [inCart, setInCart] = useState(false);
     const [visible, setVisible] = useState(false);
     const stockPct = Math.max(8, (item.stock / item.maxStock) * 100);
     const isLow = item.stock <= 5;
 
     useEffect(() => {
+        // Staggered entrance animation
         const t = setTimeout(() => setVisible(true), index * 80 + 400);
         return () => clearTimeout(t);
     }, [index]);
 
     return (
-        <div style={{
-            flex: '0 0 320px',
-            width: '320px',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            borderRadius: '24px',
-            background: 'rgba(255,255,255,0.52)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255,255,255,0.4)',
-            boxShadow: isActive
-                ? `0 32px 64px rgba(113,67,41,0.22), 0 0 0 2px ${COLORS.darkColor}22`
-                : '0 8px 24px rgba(113,67,41,0.1)',
-            transform: visible
-                ? `translateY(0) scale(${isActive ? 1.02 : 1})`
-                : 'translateY(32px)',
-            opacity: visible ? 1 : 0,
-            transition: 'transform 0.5s cubic-bezier(0.23,1,0.32,1), opacity 0.5s ease, box-shadow 0.4s ease',
-            cursor: 'grab',
-            userSelect: 'none',
-        }}>
-            {/* Image */}
-            <div style={{ position: 'relative', height: '240px', overflow: 'hidden' }}>
+        <div className={`flex-shrink-0 flex flex-col overflow-hidden rounded-2xl bg-white border border-slate-200 transition-all duration-500 select-none
+             ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+            style={{
+                width: cardWidth,
+                transform: visible
+                    ? `translateY(0) scale(${isActive ? 1.02 : 1})`
+                    : 'translateY(32px)',
+            }}>
+            {/* Image Section */}
+            <div className="relative overflow-hidden h-60 bg-slate-100">
                 <img
                     src={item.image}
                     alt={item.name}
                     draggable={false}
-                    style={{
-                        width: '100%', height: '100%', objectFit: 'cover',
-                        transition: 'transform 0.7s ease',
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
-                    onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                    className="object-cover w-full h-full transition-transform duration-700 ease-out hover:scale-105"
                 />
+
                 {/* Discount badge */}
-                <div style={{
-                    position: 'absolute', top: '14px', left: '14px',
-                    background: COLORS.darkColor, color: '#fff',
-                    padding: '4px 10px', borderRadius: '999px',
-                    fontSize: '10px', fontWeight: 800, letterSpacing: '0.05em',
-                    display: 'flex', alignItems: 'center', gap: '4px',
-                    boxShadow: '0 4px 12px rgba(113,67,41,0.4)',
-                    animation: 'badgePop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
-                    animationDelay: `${index * 80 + 600}ms`,
-                }}>
-                    <Icons.Zap size={9} fill="currentColor" /> -{item.discount}%
+                <div className="absolute top-3.5 left-3.5 bg-[#714329] text-white px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest flex items-center gap-1 transition-all duration-500"
+                    style={{ transform: visible ? 'scale(1)' : 'scale(0)', opacity: visible ? 1 : 0, transitionDelay: `${index * 80 + 600}ms` }}>
+                    <Zap size={10} fill="currentColor" /> -{item.discount}%
                 </div>
+
                 {/* Tag */}
-                <div style={{
-                    position: 'absolute', top: '14px', right: '14px',
-                    background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)',
-                    color: COLORS.darkColor, padding: '4px 10px', borderRadius: '999px',
-                    fontSize: '9px', fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                }}>
+                <div className="absolute top-3.5 right-3.5 bg-white/95 backdrop-blur-lg text-[#714329] px-2.5 py-1 rounded-full text-[9px] font-black tracking-[0.12em] uppercase">
                     {item.tag}
                 </div>
-                {/* Stock overlay */}
-                <div style={{
-                    position: 'absolute', bottom: '12px', left: '12px', right: '12px',
-                    background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(10px)',
-                    borderRadius: '12px', padding: '8px 12px',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                        <span style={{ fontSize: '9px', fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Icons.Package size={9} /> {isLow ? 'Almost gone!' : 'In Stock'}
-                        </span>
-                        <span style={{ fontSize: '9px', fontWeight: 900, color: '#fff' }}>{item.stock} left</span>
+
+                {/* Creative stock badge */}
+                <div className="absolute bottom-0 left-0 right-0 flex flex-col justify-end h-24 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                    <div className="flex items-end justify-between mb-2">
+                        <div>
+                            <p className="text-[11px] font-black text-white/90 uppercase tracking-[0.15em] mb-1">
+                                Availability
+                            </p>
+                            <div className="flex items-baseline gap-2">
+                                <span className={`text-2xl font-black font-serif ${isLow ? 'text-red-400' : 'text-emerald-400'}`}>
+                                    {item.stock}
+                                </span>
+                                <span className="text-xs font-semibold text-white/70">
+                                    in stock
+                                </span>
+                            </div>
+                        </div>
+                        <div className={`text-right ${isLow ? 'animate-pulse' : ''}`}>
+                            <div className="text-[10px] font-black uppercase tracking-wider mb-1 px-2.5 py-1 rounded-full"
+                                style={{ background: isLow ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.2)' }}>
+                                <span className={isLow ? 'text-red-300' : 'text-emerald-300'}>
+                                    {isLow ? '⚡ Hurry!' : '✓ Ready'}
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <div style={{ height: '3px', borderRadius: '999px', background: 'rgba(255,255,255,0.2)', overflow: 'hidden' }}>
-                        <div style={{
-                            height: '100%', borderRadius: '999px',
-                            width: `${stockPct}%`,
-                            background: isLow
-                                ? 'linear-gradient(90deg,#f87171,#ef4444)'
-                                : `linear-gradient(90deg,${COLORS.lightColor},${COLORS.darkColor})`,
-                            transition: 'width 1s cubic-bezier(0.23,1,0.32,1)',
-                        }} />
+
+                    {/* Enhanced progress bar */}
+                    <div className="space-y-1.5">
+                        <div className="h-1.5 rounded-full bg-white/20 overflow-hidden backdrop-blur-sm border border-white/10">
+                            <div className={`h-full rounded-full transition-all duration-1000 ${isLow ? 'bg-gradient-to-r from-orange-400 via-red-500 to-red-600'
+                                : 'bg-gradient-to-r from-emerald-400 to-teal-500'
+                                }`}
+                                style={{ width: `${visible ? stockPct : 0}%`, transitionDelay: `${index * 80 + 800}ms` }} />
+                        </div>
+                        <p className="text-[9px] text-white/60 font-semibold uppercase tracking-wider">
+                            {stockPct.toFixed(0)}% stock remaining
+                        </p>
                     </div>
                 </div>
             </div>
 
-            {/* Content */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1.4rem 1.5rem' }}>
-                <h3 style={{
-                    fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.5rem',
-                    lineHeight: 1.3, minHeight: '2.8rem', color: COLORS.textPrimary,
-                    fontFamily: "'Playfair Display', serif",
-                }}>
+            {/* Content Section */}
+            <div className="flex flex-col flex-1 p-5">
+                <h3 className="text-lg font-bold mb-2 leading-snug min-h-[2.8rem] text-[#1C1C1C] font-serif line-clamp-2">
                     {item.name}
                 </h3>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '1.2rem' }}>
-                    <span style={{ fontSize: '1.5rem', fontWeight: 900, color: COLORS.darkColor, fontFamily: "'Playfair Display', serif" }}>
-                        ${item.price}
-                    </span>
-                    <span style={{ fontSize: '0.85rem', textDecoration: 'line-through', opacity: 0.45, color: COLORS.textSecondary }}>
+
+                <div className="flex items-end gap-3 mb-6">
+                    <div className="flex flex-col">
+                        <span className="text-3xl font-black text-[#714329] font-serif tracking-tight leading-none">
+                            ${item.price}
+                        </span>
+                        <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest mt-1">
+                            Best Price
+                        </span>
+                    </div>
+
+                    <span className="text-sm line-through opacity-50 text-[#6B6B6B] font-serif mb-5">
                         ${item.originalPrice}
                     </span>
-                    <span style={{
-                        marginLeft: 'auto', fontSize: '11px', fontWeight: 700,
-                        color: '#15803D', background: '#dcfce7', padding: '2px 8px',
-                        borderRadius: '999px',
-                    }}>
-                        Save ${(item.originalPrice - item.price).toFixed(2)}
-                    </span>
+
+                    <div className="flex flex-col items-end ml-auto">
+                        <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 py-1.5 rounded-full text-xs font-black tracking-wide">
+                            Save ${(item.originalPrice - item.price).toFixed(2)}
+                        </div>
+                        <span className="text-[10px] font-bold text-green-700 mt-1 uppercase tracking-widest opacity-70">
+                            {Math.round(((item.originalPrice - item.price) / item.originalPrice) * 100)}% off
+                        </span>
+                    </div>
                 </div>
-                <button
-                    onClick={() => setInCart(!inCart)}
-                    style={{
-                        marginTop: 'auto',
-                        width: '100%', padding: '13px 0',
-                        borderRadius: '14px',
-                        border: 'none', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                        fontWeight: 800, fontSize: '0.85rem', letterSpacing: '0.04em',
-                        color: '#fff',
-                        background: inCart
-                            ? 'linear-gradient(135deg, #16a34a, #15803d)'
-                            : `linear-gradient(135deg, ${COLORS.lightColor}, ${COLORS.darkColor})`,
-                        boxShadow: inCart
-                            ? '0 6px 20px rgba(21,128,61,0.35)'
-                            : `0 6px 20px rgba(113,67,41,0.4)`,
-                        transform: 'scale(1)',
-                        transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.boxShadow = inCart ? '0 10px 28px rgba(21,128,61,0.45)' : '0 10px 28px rgba(113,67,41,0.5)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = inCart ? '0 6px 20px rgba(21,128,61,0.35)' : '0 6px 20px rgba(113,67,41,0.4)'; }}
-                    onMouseDown={e => e.currentTarget.style.transform = 'scale(0.97)'}
-                    onMouseUp={e => e.currentTarget.style.transform = 'scale(1.03)'}
+
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    {/* Rating */}
+                    <div className="flex items-center gap-2">
+                        <div className="flex gap-0.5">
+                            {[...Array(5)].map((_, i) => (
+                                <span key={i} className={`text-base transition-transform hover:scale-110 ${i < 4 ? 'text-amber-400' : 'text-slate-200'}`}>★</span>
+                            ))}
+                        </div>
+                        <span className="text-xs text-[#6B6B6B] font-semibold">(124 reviews)</span>
+                    </div>
+
+                    {/* Trending badge */}
+                    <div className="flex items-center gap-1 text-[10px] font-black text-[#714329] uppercase tracking-widest bg-orange-50 px-2 py-1 rounded-md">
+                        <Zap size={10} fill="currentColor" />
+                        Trending
+                    </div>
+                </div>
+
+                <button onClick={() => setInCart(!inCart)}
+                    className={`mt-auto w-full py-3.5 px-4 rounded-xl border-2 font-black text-sm tracking-wide transition-all duration-300 flex items-center justify-center gap-2 relative overflow-hidden group 
+                        ${inCart
+                            ? 'bg-green-50 text-green-600 border-green-500/30'
+                            : 'bg-white text-[#714329] border-[#714329]/20 hover:border-[#714329]'
+                        }`}
                 >
-                    {inCart ? <Icons.Check size={16} /> : <Icons.ShoppingCart size={16} />}
-                    {inCart ? 'Added to Bag ✓' : 'Reserve Deal'}
+                    <span className="absolute inset-0 bg-gradient-to-r from-[#B08463]/0 via-[#714329]/5 to-[#714329]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <span className="relative flex items-center justify-center gap-2">
+                        {inCart ? <Check size={16} strokeWidth={3} /> : <ShoppingCart size={16} strokeWidth={2.5} />}
+                        {inCart ? 'Added to Bag' : 'Reserve Deal'}
+                    </span>
                 </button>
             </div>
         </div>
@@ -344,14 +316,35 @@ const Swiper = ({ items }: SwiperProps) => {
     const [dragStart, setDragStart] = useState<number | null>(null);
     const [dragOffset, setDragOffset] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
+    const [containerWidth, setContainerWidth] = useState(0);
     const trackRef = useRef<HTMLDivElement | null>(null);
-    const CARD_WIDTH = 320;
-    const GAP = 24;
-    const STEP = CARD_WIDTH + GAP;
-    const max = items.length - 1;
+    const viewportRef = useRef<HTMLDivElement | null>(null);
+    const VISIBLE_CARDS = 4;
+    const GAP = 28;
+    const cardWidth = containerWidth > 0
+        ? (containerWidth - GAP * (VISIBLE_CARDS - 1)) / VISIBLE_CARDS
+        : 0;
+    const STEP = cardWidth + GAP;
+    const max = Math.max(0, items.length - VISIBLE_CARDS);
 
     const clamp = (value: number) => Math.max(0, Math.min(value, max));
     const goTo = useCallback((idx: number) => { setCurrent(clamp(idx)); setDragOffset(0); }, [max]);
+
+    useEffect(() => {
+        if (!viewportRef.current) return;
+
+        const updateWidth = () => {
+            if (!viewportRef.current) return;
+            setContainerWidth(viewportRef.current.clientWidth);
+        };
+
+        updateWidth();
+
+        const observer = new ResizeObserver(updateWidth);
+        observer.observe(viewportRef.current);
+
+        return () => observer.disconnect();
+    }, []);
 
     const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         setDragStart(e.clientX);
@@ -381,99 +374,56 @@ const Swiper = ({ items }: SwiperProps) => {
         return () => window.removeEventListener('keydown', handler);
     }, [current, goTo]);
 
-    const translateX = -(current * STEP) + dragOffset;
+    const translateX = STEP > 0 ? -(current * STEP) + dragOffset : 0;
 
     return (
-        <div style={{ position: 'relative' }}>
+        <div className="relative">
             {/* Overflow container */}
-            <div style={{ overflow: 'hidden', margin: '0 -8px', padding: '16px 8px 24px' }}>
-                <div
-                    ref={trackRef}
-                    onPointerDown={onPointerDown}
-                    onPointerMove={onPointerMove}
-                    onPointerUp={onPointerUp}
-                    onPointerLeave={onPointerUp}
+            <div ref={viewportRef} className="overflow-hidden mx-[-8px] px-2 py-4 pb-6">
+                <div ref={trackRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}
+                    className={`flex gap-6 transition-transform duration-550 will-change-transform ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
                     style={{
-                        display: 'flex', gap: `${GAP}px`,
                         transform: `translateX(${translateX}px)`,
                         transition: isDragging ? 'none' : 'transform 0.55s cubic-bezier(0.23,1,0.32,1)',
-                        cursor: isDragging ? 'grabbing' : 'grab',
-                        willChange: 'transform',
                     }}
                 >
                     {items.map((item: SaleProduct, i: number) => (
-                        <ProductCard key={item.id} item={item} index={i} isActive={i === current} />
+                        <ProductCard key={item.id} item={item} index={i} isActive={i === current} cardWidth={cardWidth} />
                     ))}
                 </div>
             </div>
 
             {/* Controls row */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
+            <div className="flex items-center justify-between mt-2">
                 {/* Dots */}
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div className="flex items-center gap-2">
                     {items.map((_: SaleProduct, i: number) => (
-                        <button
-                            key={i}
-                            onClick={() => goTo(i)}
-                            style={{
-                                width: i === current ? '28px' : '8px',
-                                height: '8px',
-                                borderRadius: '999px',
-                                border: 'none',
-                                background: i === current ? COLORS.darkColor : COLORS.lightBackground,
-                                cursor: 'pointer',
-                                transition: 'all 0.4s cubic-bezier(0.34,1.56,0.64,1)',
-                                padding: 0,
-                            }}
+                        <button key={i} onClick={() => goTo(i)}
+                            className={`h-2 rounded-full border-none cursor-pointer transition-all duration-400 
+                                ${i === current
+                                    ? 'w-7 bg-[#714329]'
+                                    : 'w-2 bg-[#B5A192]'
+                                }`}
+                            style={{ transitionTimingFunction: 'cubic-bezier(0.34,1.56,0.64,1)' }}
                         />
                     ))}
                 </div>
 
-                {/* Counter */}
-                <span style={{
-                    fontSize: '12px', fontWeight: 700, color: COLORS.textSecondary,
-                    fontFamily: "'Cormorant Garamond', serif", letterSpacing: '0.12em',
-                }}>
-                    {String(current + 1).padStart(2, '0')} / {String(items.length).padStart(2, '0')}
-                </span>
-
                 {/* Arrow buttons */}
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button
-                        onClick={() => goTo(current - 1)}
-                        disabled={current === 0}
-                        style={{
-                            width: '44px', height: '44px', borderRadius: '50%',
-                            border: `1.5px solid ${current === 0 ? COLORS.border : COLORS.darkColor}`,
-                            background: current === 0 ? 'rgba(255,255,255,0.3)' : COLORS.darkColor,
-                            color: current === 0 ? COLORS.textSecondary : '#fff',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: current === 0 ? 'not-allowed' : 'pointer',
-                            transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',
-                            opacity: current === 0 ? 0.45 : 1,
-                            transform: 'scale(1)',
-                        }}
-                        onMouseEnter={e => { if (current !== 0) { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = `0 6px 18px rgba(113,67,41,0.35)`; } }}
-                        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}
+                <div className="flex gap-2.5">
+                    <button onClick={() => goTo(current - 1)} disabled={current === 0}
+                        className={`w-11 h-11 rounded-full border-[1.5px] flex items-center justify-center transition-all cubic-bezier(0.34,1.56,0.64,1) ${current === 0
+                            ? 'border-[#E5E5E5] bg-white/30 text-[#6B6B6B] opacity-45 cursor-not-allowed'
+                            : 'border-[#714329] bg-[#714329] text-white cursor-pointer hover:scale-110'
+                            }`}
                     >
                         <Icons.ArrowLeft size={16} />
                     </button>
-                    <button
-                        onClick={() => goTo(current + 1)}
-                        disabled={current === max}
-                        style={{
-                            width: '44px', height: '44px', borderRadius: '50%',
-                            border: `1.5px solid ${current === max ? COLORS.border : COLORS.darkColor}`,
-                            background: current === max ? 'rgba(255,255,255,0.3)' : COLORS.darkColor,
-                            color: current === max ? COLORS.textSecondary : '#fff',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: current === max ? 'not-allowed' : 'pointer',
-                            transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',
-                            opacity: current === max ? 0.45 : 1,
-                            transform: 'scale(1)',
-                        }}
-                        onMouseEnter={e => { if (current !== max) { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = `0 6px 18px rgba(113,67,41,0.35)`; } }}
-                        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}
+                    <button onClick={() => goTo(current + 1)} disabled={current === max}
+                        className={`w-11 h-11 rounded-full border-[1.5px] flex items-center justify-center transition-all cubic-bezier(0.34,1.56,0.64,1) ${current === max
+                            ? 'border-[#E5E5E5] bg-white/30 text-[#6B6B6B] opacity-45 cursor-not-allowed'
+                            : 'border-[#714329] bg-[#714329] text-white cursor-pointer hover:scale-110'
+                            }`}
                     >
                         <Icons.ArrowRight size={16} />
                     </button>
@@ -484,7 +434,8 @@ const Swiper = ({ items }: SwiperProps) => {
 };
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
-export default function App() {
+export default function FlashSaleBanner() {
+
     const [timeLeft, setTimeLeft] = useState(14 * 3600 + 37 * 60 + 52);
     const [headerVisible, setHeaderVisible] = useState(false);
 
@@ -506,21 +457,8 @@ export default function App() {
             color: COLORS.textPrimary,
             position: 'relative', overflow: 'hidden',
         }}>
-            {/* Ambient blobs */}
-            <div style={{
-                position: 'fixed', top: '-120px', right: '-120px',
-                width: '500px', height: '500px', borderRadius: '50%',
-                background: `radial-gradient(circle, rgba(176,132,99,0.22) 0%, transparent 70%)`,
-                animation: 'blob1 9s ease-in-out infinite', pointerEvents: 'none', zIndex: 0,
-            }} />
-            <div style={{
-                position: 'fixed', bottom: '-100px', left: '-100px',
-                width: '420px', height: '420px', borderRadius: '50%',
-                background: `radial-gradient(circle, rgba(113,67,41,0.13) 0%, transparent 70%)`,
-                animation: 'blob2 11s ease-in-out infinite', pointerEvents: 'none', zIndex: 0,
-            }} />
 
-            <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '0 2rem', position: 'relative', zIndex: 1 }}>
+            <div className="max-w-[1300px] mx-auto px-8 relative z-[1] pb-36">
 
                 {/* ── Header ─────────────────────────────────────── */}
                 <header style={{
@@ -532,20 +470,7 @@ export default function App() {
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '3rem' }}>
 
                         {/* Left */}
-                        <div style={{ flex: '1 1 400px' }}>
-                            <div style={{
-                                display: 'inline-flex', alignItems: 'center', gap: '8px',
-                                padding: '6px 14px', borderRadius: '999px', marginBottom: '1.5rem',
-                                border: `1px solid ${COLORS.darkColor}50`,
-                                color: COLORS.darkColor,
-                                background: 'rgba(255,255,255,0.18)',
-                                fontSize: '10px', fontWeight: 900, letterSpacing: '0.28em', textTransform: 'uppercase',
-                                fontFamily: "'Cormorant Garamond', serif",
-                                animation: 'pulse 2.5s ease-in-out infinite',
-                            }}>
-                                <Icons.Zap size={12} fill="currentColor" /> Limited Release
-                            </div>
-
+                        <div className="flex flex-col flex-1 py-10">
                             <h1 style={{
                                 fontSize: 'clamp(2.2rem, 5vw, 4rem)',
                                 fontFamily: "'Playfair Display', serif",
@@ -558,63 +483,35 @@ export default function App() {
                                 <br />Curated Flash Sale
                             </h1>
 
-                            <p style={{
-                                maxWidth: '440px', fontSize: '1rem', lineHeight: 1.75,
-                                color: COLORS.textPrimary, opacity: 0.72, marginBottom: '1.5rem',
-                                fontFamily: "'Cormorant Garamond', serif", fontWeight: 500,
-                            }}>
-                                Handpicked artisanal pieces, sustainably sourced and uniquely crafted.
-                                Available at special prices for a short time only.
+                            <p className="text-base leading-7 text-[#1C1C1C] opacity-72 mb-6 font-serif font-medium max-w-xl">
+                                Handpicked artisanal pieces, sustainably sourced and uniquely crafted. Available at special prices for a short time only.
                             </p>
 
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                            <View className="flex-row flex-wrap gap-5">
                                 {[
                                     { icon: <Icons.Clock size={13} />, label: '24 Hours Only' },
                                     { icon: <Icons.Truck size={13} />, label: 'Free Shipping' },
                                 ].map((chip) => (
-                                    <div key={chip.label} style={{
-                                        display: 'flex', alignItems: 'center', gap: '6px',
-                                        padding: '7px 14px', borderRadius: '10px',
-                                        background: 'rgba(255,255,255,0.28)',
-                                        border: '1px solid rgba(255,255,255,0.4)',
-                                        fontSize: '12px', fontWeight: 700, color: COLORS.darkColor,
-                                        backdropFilter: 'blur(8px)',
-                                    }}>
-                                        {chip.icon} {chip.label}
-                                    </div>
+                                    <View key={chip.label} className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/30 border border-white">
+                                        {chip.icon}
+                                        <Text className="text-xs font-bold text-[#714329]">
+                                            {chip.label}
+                                        </Text>
+                                    </View>
                                 ))}
-                            </div>
+                            </View>
                         </div>
 
                         {/* Timer */}
-                        <div style={{
-                            display: 'flex', flexDirection: 'column', alignItems: 'center',
-                            padding: '2.5rem 3rem', borderRadius: '28px',
-                            background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(16px)',
-                            border: '1px solid rgba(255,255,255,0.45)',
-                            boxShadow: '0 20px 60px rgba(113,67,41,0.18)',
-                            animation: 'timerIn 0.8s cubic-bezier(0.23,1,0.32,1) 0.3s both',
-                        }}>
-                            <span style={{
-                                fontSize: '9px', fontWeight: 900, letterSpacing: '0.25em',
-                                textTransform: 'uppercase', color: COLORS.textSecondary,
-                                marginBottom: '1.5rem', fontFamily: "'Cormorant Garamond', serif",
-                            }}>
+                        <div className="flex flex-col items-center rounded-[28px] bg-white/18 backdrop-blur-[16px] border p-10 border-white/45 animate-[timerIn_0.8s_cubic-bezier(0.23,1,0.32,1)_0.3s_both]">
+                            <span className="text-xs font-black tracking-widest uppercase text-[#6B6B6B] mb-6 font-serif">
                                 Sale Event Concludes In
                             </span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div className="flex items-center gap-3">
                                 <DigitBlock value={h} label="Hours" />
-                                <span style={{
-                                    fontSize: '2.5rem', fontWeight: 900, color: COLORS.darkColor,
-                                    marginBottom: '18px', animation: 'blink 1s step-end infinite',
-                                    fontFamily: "'Playfair Display', serif",
-                                }}>:</span>
+                                <span className="text-4xl font-black text-[#714329] mb-4.5 animate-[blink_1s_step-end_infinite] font-serif">:</span>
                                 <DigitBlock value={m} label="Minutes" />
-                                <span style={{
-                                    fontSize: '2.5rem', fontWeight: 900, color: COLORS.darkColor,
-                                    marginBottom: '18px', animation: 'blink 1s step-end infinite',
-                                    fontFamily: "'Playfair Display', serif",
-                                }}>:</span>
+                                <span className="text-4xl font-black text-[#714329] mb-4.5 animate-[blink_1s_step-end_infinite] font-serif">:</span>
                                 <DigitBlock value={s} label="Seconds" />
                             </div>
                         </div>
@@ -622,115 +519,76 @@ export default function App() {
                 </header>
 
                 {/* ── Section heading ─────────────────────────────── */}
-                <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    marginBottom: '1.5rem',
-                    animation: 'fadeUp 0.6s ease 0.7s both',
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        <div style={{ width: '5px', height: '44px', borderRadius: '999px', background: `linear-gradient(180deg, ${COLORS.lightColor}, ${COLORS.darkColor})` }} />
+                <div className="flex items-center justify-between mb-6 animate-[fadeUp_0.6s_ease_0.7s_both] ">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-1.5 h-11 rounded-full bg-gradient-to-b from-[#B08463] to-[#714329]" />
                         <div>
-                            <h2 style={{
-                                fontSize: '1.75rem', fontWeight: 700, letterSpacing: '-0.02em',
-                                color: COLORS.textPrimary, fontFamily: "'Playfair Display', serif",
-                            }}>Exclusive Offers</h2>
-                            <p style={{ fontSize: '12px', opacity: 0.55, color: COLORS.textSecondary, fontFamily: "'Cormorant Garamond', serif" }}>
+                            <h2 className="text-3xl font-bold tracking-tight text-[#1C1C1C] font-serif">
+                                Exclusive Offers
+                            </h2>
+                            <p className="opacity-55 text-[#6B6B6B] font-serif">
                                 Drag or use arrows · Limited quantity per customer
                             </p>
                         </div>
                     </div>
-                    <div style={{
-                        display: 'flex', alignItems: 'center', gap: '6px',
-                        fontSize: '13px', fontWeight: 700, color: COLORS.darkColor,
-                        cursor: 'pointer', opacity: 0.65, transition: 'opacity 0.2s',
-                        fontFamily: "'Cormorant Garamond', serif",
-                    }}
-                        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={e => e.currentTarget.style.opacity = '0.65'}
-                    >
-                        View Full Collection <Icons.ChevronRight size={16} />
-                    </div>
+                    <Pressable onPress={() => router.push('/best-sellers')} className="flex-row items-center gap-1.5">
+                        {({ hovered }) => (
+                            <>
+                                <Text className={`text-sm font-bold font-serif ${hovered ? 'text-black' : 'text-[#714329]'}`}>
+                                    View Full Collection
+                                </Text>
+                                <div style={{ color: hovered ? '#000' : '#714329' }}>
+                                    <Icons.ChevronRight size={16} />
+                                </div>
+                            </>
+                        )}
+                    </Pressable>
                 </div>
 
                 {/* ── Swiper ─────────────────────────────────────── */}
                 <div style={{ animation: 'fadeUp 0.7s ease 0.9s both' }}>
                     <Swiper items={saleProducts} />
                 </div>
-
-                {/* ── CTA ────────────────────────────────────────── */}
-                <div style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    padding: '4rem 0 5rem',
-                    animation: 'fadeUp 0.6s ease 1.1s both',
-                }}>
-                    <button
-                        style={{
-                            padding: '16px 40px', borderRadius: '999px',
-                            border: 'none', cursor: 'pointer',
-                            background: `linear-gradient(135deg, ${COLORS.lightColor} 0%, ${COLORS.darkColor} 100%)`,
-                            color: '#fff', fontWeight: 800, fontSize: '0.95rem',
-                            letterSpacing: '0.04em', fontFamily: "'Cormorant Garamond', serif",
-                            display: 'flex', alignItems: 'center', gap: '10px',
-                            boxShadow: `0 10px 32px rgba(113,67,41,0.4)`,
-                            transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
-                            transform: 'scale(1)',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 18px 44px rgba(113,67,41,0.5)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 10px 32px rgba(113,67,41,0.4)'; }}
-                        onMouseDown={e => e.currentTarget.style.transform = 'scale(0.97)'}
-                        onMouseUp={e => e.currentTarget.style.transform = 'scale(1.05)'}
-                    >
-                        Explore All Flash Deals
-                        <Icons.ArrowRight size={17} className="transition-transform" />
-                    </button>
-                    <p style={{
-                        display: 'flex', alignItems: 'center', gap: '6px',
-                        marginTop: '1.25rem', fontSize: '12px', opacity: 0.5,
-                        color: COLORS.textSecondary, fontFamily: "'Cormorant Garamond', serif",
-                    }}>
-                        <Icons.Clock size={12} /> New deals drop every weekend at 12:00 PM EST
-                    </p>
-                </div>
             </div>
 
             <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+                @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
 
-        @keyframes blob1 {
-            0%,100% { transform: translate(0,0) scale(1); }
-            50%      { transform: translate(-30px,25px) scale(1.08); }
-        }
-        @keyframes blob2 {
-            0%,100% { transform: translate(0,0) scale(1); }
-            50%      { transform: translate(20px,-20px) scale(1.06); }
-        }
-        @keyframes blink {
-            0%,100% { opacity: 1; }
-            50%      { opacity: 0.2; }
-        }
-        @keyframes pulse {
-            0%,100% { box-shadow: 0 0 0 0 rgba(113,67,41,0.25); }
-            50%      { box-shadow: 0 0 0 6px rgba(113,67,41,0); }
-        }
-        @keyframes digitFlip {
-            0%   { transform: rotateX(0deg); }
-            50%  { transform: rotateX(-90deg); }
-            100% { transform: rotateX(0deg); }
-        }
-        @keyframes badgePop {
-            from { transform: scale(0) rotate(-8deg); opacity: 0; }
-            to   { transform: scale(1) rotate(0deg);  opacity: 1; }
-        }
-        @keyframes timerIn {
-            from { opacity: 0; transform: translateY(20px) scale(0.96); }
-            to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(18px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-        * { box-sizing: border-box; }
-      `}</style>
+                @keyframes blob1 {
+                    0%,100% { transform: translate(0,0) scale(1); }
+                    50%      { transform: translate(-30px,25px) scale(1.08); }
+                }
+                @keyframes blob2 {
+                    0%,100% { transform: translate(0,0) scale(1); }
+                    50%      { transform: translate(20px,-20px) scale(1.06); }
+                }
+                @keyframes blink {
+                    0%,100% { opacity: 1; }
+                    50%      { opacity: 0.2; }
+                }
+                @keyframes pulse {
+                    0%,100% { box-shadow: 0 0 0 0 rgba(113,67,41,0.25); }
+                    50%      { box-shadow: 0 0 0 6px rgba(113,67,41,0); }
+                }
+                @keyframes digitFlip {
+                    0%   { transform: rotateX(0deg); }
+                    50%  { transform: rotateX(-90deg); }
+                    100% { transform: rotateX(0deg); }
+                }
+                @keyframes badgePop {
+                    from { transform: scale(0) rotate(-8deg); opacity: 0; }
+                    to   { transform: scale(1) rotate(0deg);  opacity: 1; }
+                }
+                @keyframes timerIn {
+                    from { opacity: 0; transform: translateY(20px) scale(0.96); }
+                    to   { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                @keyframes fadeUp {
+                    from { opacity: 0; transform: translateY(18px); }
+                    to   { opacity: 1; transform: translateY(0); }
+                }
+                * { box-sizing: border-box; }
+            `}</style>
         </div>
     );
 }

@@ -14,9 +14,7 @@ export default function BlogSection() {
     const sectionSlide = useRef(new Animated.Value(40)).current;
 
     const isMobile = SCREEN_WIDTH < 768;
-    const CARD_WIDTH = isMobile
-        ? SCREEN_WIDTH - 64
-        : (SCREEN_WIDTH - 160) / 3;
+    const CARD_WIDTH = isMobile ? SCREEN_WIDTH - 64 : (SCREEN_WIDTH - 160) / 3;
     const CARD_MARGIN = 20;
     const CARD_STEP = CARD_WIDTH + CARD_MARGIN;
     const SIDE_SPACE = (SCREEN_WIDTH - CARD_WIDTH) / 2;
@@ -145,14 +143,14 @@ export default function BlogSection() {
 
             {/* Section Header */}
             <View className="px-6 pt-20 mb-8">
-                <Text className={`${isMobile ? 'text-3xl' : 'text-4xl'} text-brown-DarkColor text-center font-extrabold mb-2`}>
-                    Latest from Our Blog
-                </Text>
                 <View className="flex-row items-center justify-center mb-3">
                     <View className="w-9 h-0.5 bg-brown-DarkColor rounded-full mr-2.5" />
                     <Feather name="book-open" size={22} color="#714329" />
                     <View className="w-9 h-0.5 bg-brown-DarkColor rounded-full ml-2.5" />
                 </View>
+                <Text className={`${isMobile ? 'text-3xl' : 'text-4xl'} text-brown-DarkColor text-center font-extrabold mb-2`}>
+                    Latest from Our Blog
+                </Text>
                 <Text className="text-gray-500 text-center text-[15px] leading-[22px]">
                     Stay updated with the latest trends, tips, and insights
                 </Text>
@@ -198,13 +196,8 @@ export default function BlogSection() {
                     {BLOGS.map((blog, i) => {
                         const isActiveDot = i === activeIndex;
                         return (
-                            <TouchableOpacity
-                                key={blog.id}
-                                onPress={() => handleManualDot(i)}
-                                activeOpacity={0.7}
-                            >
-                                <Animated.View
-                                    className={`h-2 rounded-full ${isActiveDot ? 'bg-brown-DarkColor' : 'bg-brown-lightBackground'}`}
+                            <TouchableOpacity key={blog.id} onPress={() => handleManualDot(i)} activeOpacity={0.7}>
+                                <Animated.View className={`h-2 rounded-full ${isActiveDot ? 'bg-brown-DarkColor' : 'bg-brown-lightBackground'}`}
                                     style={{
                                         width: dotScales[i].interpolate({
                                             inputRange: [0, 1],
@@ -227,23 +220,16 @@ export default function BlogSection() {
             {/* View All Button */}
             <View className={`flex-row items-center justify-between gap-5 ${ctaRowMxClass} mt-5 pb-20`}>
                 {/* Prev Button */}
-                <TouchableOpacity
-                    onPress={goPrev}
-                    activeOpacity={0.8}
-                    className="w-[90px] h-[50px] rounded-full bg-white flex-row items-center justify-center px-[10px] shadow-lg"
-                >
+                <TouchableOpacity onPress={goPrev} activeOpacity={0.8} className="w-[90px] h-[50px] rounded-full bg-white flex-row items-center justify-center px-[10px] shadow-lg">
                     <Feather name="chevron-left" size={22} color="#714329" />
                     <Text className="text-brown-DarkColor font-bold ml-1.5">
-                        Next
+                        Prev
                     </Text>
                 </TouchableOpacity>
 
                 {/* Center CTA */}
                 <View className="items-center px-6">
-                    <TouchableOpacity
-                        activeOpacity={0.85}
-                        className="flex-row items-center px-8 py-[14px] bg-brown-DarkColor rounded-full shadow-xl"
-                    >
+                    <TouchableOpacity activeOpacity={0.85} className="flex-row items-center px-8 py-[14px] bg-brown-DarkColor rounded-full shadow-xl">
                         <Text className="text-white font-bold text-[15px] mr-2">
                             View All Articles
                         </Text>
@@ -252,13 +238,9 @@ export default function BlogSection() {
                 </View>
 
                 {/* Next Button */}
-                <TouchableOpacity
-                    onPress={goNext}
-                    activeOpacity={0.8}
-                    className="w-[90px] h-[50px] rounded-full bg-white flex-row items-center justify-center px-[10px] shadow-lg"
-                >
+                <TouchableOpacity onPress={goNext} activeOpacity={0.8} className="w-[90px] h-[50px] rounded-full bg-white flex-row items-center justify-center px-[10px] shadow-lg">
                     <Text className="text-brown-DarkColor font-bold mr-1.5">
-                        Prev
+                        Next
                     </Text>
                     <Feather name="chevron-right" size={22} color="#714329" />
                 </TouchableOpacity>

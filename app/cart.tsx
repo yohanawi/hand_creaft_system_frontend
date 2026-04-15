@@ -1,11 +1,12 @@
 
 import PageShell from '@/components/PageShell';
 import { useCart } from '@/context/CartContext';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Animated, Dimensions, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Platform, Text, TouchableOpacity, View } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const API_BASE = 'http://localhost:5000';
@@ -39,6 +40,7 @@ const GLASS = {
 };
 
 export default function CartScreen() {
+    const { scrollY, onScroll } = useHeaderScroll();
     const router = useRouter();
     const { items, cartCount, subtotal, shippingCost, tax, total, removeFromCart, updateQty } = useCart();
 
@@ -70,8 +72,8 @@ export default function CartScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: CREAM }}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <PageShell>
+            <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
+                <PageShell scrollY={scrollY}>
                     <Animated.View
                         style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }], paddingHorizontal: 16, paddingTop: 32, paddingBottom: 32, backgroundColor: 'transparent' }}
                     >
@@ -348,7 +350,7 @@ export default function CartScreen() {
                         </View>
                     </Animated.View>
                 </PageShell>
-            </ScrollView>
+            </Animated.ScrollView>
         </View>
     );
 }

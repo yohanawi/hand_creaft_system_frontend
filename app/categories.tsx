@@ -1,18 +1,18 @@
 import PageShell from '@/components/PageShell';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
+import api from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Animated,
     Dimensions,
-    ScrollView,
+    Platform,
+    StyleSheet,
     Text,
     TouchableOpacity,
-    View,
-    StyleSheet,
-    Platform,
+    View
 } from 'react-native';
-import api from '@/services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -159,7 +159,7 @@ const CategoryCard = ({ category, index }: { category: any; index: number }) => 
 
                     {/* Stitch divider */}
                     <StitchDivider />
- 
+
                     {/* Subcategory tags */}
                     {category.subcategories.length > 0 && (
                         <View style={styles.tagRow}>
@@ -195,6 +195,7 @@ const CategoryCard = ({ category, index }: { category: any; index: number }) => 
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function CategoriesScreen() {
+    const { scrollY, onScroll } = useHeaderScroll();
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const heroTranslate = useRef(new Animated.Value(-20)).current;
     const statsAnim = useRef(new Animated.Value(0)).current;
@@ -260,8 +261,13 @@ export default function CategoriesScreen() {
 
     return (
         <View style={styles.root}>
-            <ScrollView showsVerticalScrollIndicator={false} style={{ backgroundColor: PALETTE.cream }}>
-                <PageShell>
+            <Animated.ScrollView
+                showsVerticalScrollIndicator={false}
+                style={{ backgroundColor: PALETTE.cream }}
+                onScroll={onScroll}
+                scrollEventThrottle={16}
+            >
+                <PageShell scrollY={scrollY}>
 
                     {/* ── Hero ──────────────────────────────────────────────── */}
                     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: heroTranslate }] }}>
@@ -368,7 +374,7 @@ export default function CategoriesScreen() {
                         </View>
                     </View>
                 </PageShell>
-            </ScrollView>
+            </Animated.ScrollView>
         </View>
     );
 }

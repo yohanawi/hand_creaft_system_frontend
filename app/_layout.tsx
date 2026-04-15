@@ -6,6 +6,7 @@ import { useFonts } from "expo-font";
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { LogBox, Platform } from 'react-native';
 import 'react-native-reanimated';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { CartProvider, useCart } from '../context/CartContext';
@@ -33,6 +34,12 @@ function SyncManager() {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      LogBox.ignoreLogs(['"shadow*" style props are deprecated. Use "boxShadow".']);
+    }
+  }, []);
 
   const [fontsLoaded] = useFonts({
     PlayfairDisplay: PlayfairDisplay_700Bold,

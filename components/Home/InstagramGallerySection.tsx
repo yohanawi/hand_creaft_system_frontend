@@ -1,9 +1,9 @@
 ﻿import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Image, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, Text, TouchableOpacity, View } from 'react-native';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SCREEN_WIDTH = 1280;
 
 const isMobile = SCREEN_WIDTH < 768;
 const isTablet = SCREEN_WIDTH >= 768 && SCREEN_WIDTH < 1024;
@@ -75,13 +75,8 @@ const galleryItems = [
 ];
 
 // ─── Gallery cell ─────────────────────────────────────────────────────────────
-function GalleryCell({
-    item,
-    animVal,
-}: {
-    item: typeof galleryItems[0];
-    animVal: Animated.Value;
-}) {
+function GalleryCell({ item, animVal, }: { item: typeof galleryItems[0]; animVal: Animated.Value; }) {
+
     const [liked, setLiked] = useState(false);
     const heartScale = useRef(new Animated.Value(1)).current;
     const overlayAnim = useRef(new Animated.Value(0)).current;
@@ -108,25 +103,15 @@ function GalleryCell({
     });
 
     return (
-        <Animated.View
-            style={{
-                opacity: animVal,
-                transform: [{ scale: animVal }],
-                marginBottom: GAP,
-                width: CELL_W,
-                height: CELL_H,
-            }}
-            className="rounded-[18px] overflow-hidden shadow-lg">
+        <Animated.View style={{ opacity: animVal, transform: [{ scale: animVal }], marginBottom: GAP, width: CELL_W, height: CELL_H, }}
+            className="rounded-[18px] overflow-hidden">
             <TouchableOpacity activeOpacity={0.95} onPressIn={handleHoverIn} onPressOut={handleHoverOut} style={{ width: CELL_W, height: CELL_H }}>
-
                 {/* Image */}
-                <Image source={{ uri: item.uri }} style={{ width: CELL_W, height: CELL_H }} resizeMode="cover" className="" />
-
+                <Image source={{ uri: item.uri }} style={{ width: CELL_W, height: CELL_H }} resizeMode="cover" />
                 {/* Bottom gradient scrim */}
                 <View className="absolute bottom-0 left-0 right-0 h-full">
                     <View className="h-full bg-black/40" />
                 </View>
-
                 {/* Hover color wash */}
                 <Animated.View
                     style={{
@@ -134,8 +119,7 @@ function GalleryCell({
                         width: CELL_W,
                         height: CELL_H,
                     }}
-                    className="absolute top-0 left-0 bg-[#8B4513]"
-                />
+                    className="absolute top-0 left-0 bg-[#8B4513]" />
 
                 {/* Like button */}
                 <TouchableOpacity onPress={handleLike}
@@ -217,64 +201,40 @@ export default function InstagramGallerySection() {
 
     return (
 
-        <View className="bg-[#fbf7f3] py-[80px] overflow-hidden">
+        <View className="bg-[#fbf7f3] overflow-hidden px-28 py-28">
             {/* Glow blobs */}
-            <View className="absolute bg-[#8B4513] opacity-10 rounded-full"
-                style={{
-                    top: -80,
-                    left: -80,
-                    width: 300,
-                    height: 300,
-                }}
-            />
-            <View className="absolute bg-[#CD853F] opacity-10 rounded-full"
-                style={{
-                    bottom: -60,
-                    right: -60,
-                    width: 260,
-                    height: 260,
-                }}
-            />
-            {/* Section Header */}
-            <Animated.View
-                style={{
-                    opacity: titleAnim,
-                    transform: [{ translateY: slideAnim }],
-                    paddingHorizontal: H_PAD,
-                }}
-                className="items-center mb-9">
-                <LinearGradient className="mx-auto w-44"
-                    colors={['#833ab4', '#fd1d1d', '#fcb045']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={{ borderRadius: 20, padding: 1.5, marginBottom: 16 }}>
-                    <View className="flex-row items-center gap-2 bg-gray-200 px-[14px] py-[7px] rounded-[19px]">
-                        <Feather name="instagram" size={14} color="#fcb045" />
-                        <Text className="text-black text-xs font-bold tracking-[1px]">
-                            @handcraft.studio
-                        </Text>
-                    </View>
-                </LinearGradient>
+            <View className="absolute bg-[#8B4513] opacity-10 rounded-full" style={{ top: -80, left: -80, width: 300, height: 300, }} />
+            <View className="absolute bg-[#CD853F] opacity-10 rounded-full" style={{ bottom: -60, right: -60, width: 260, height: 260, }} />
 
-                <Text
-                    style={{
-                        fontSize: isMobile ? 28 : isTablet ? 36 : 44,
-                        lineHeight: isMobile ? 34 : 52,
-                    }} className="text-[#000] font-black text-center tracking-[-1px] mb-[10px]">
-                    Craft in <Text className="text-[#714329]">Real Life</Text>
-                </Text>
+            {/* Header */}
+            <header className={`text-center max-w-3xl transition-all duration-700 ease-out mx-auto pb-28`}>
+                <View className="flex-row items-center justify-center gap-3 mx-auto mb-4">
+                    <div className="h-px w-8 bg-[rgba(113,67,41,0.35)]" />
+                    <LinearGradient colors={['#833ab4', '#fd1d1d', '#fcb045']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 20, padding: 1.5, marginBottom: 16 }}>
+                        <View className="flex-row items-center gap-2 bg-gray-200 px-[14px] py-[7px] rounded-[19px]">
+                            <Feather name="instagram" size={14} color="#fcb045" />
+                            <Text className="text-black text-xs font-bold tracking-[1px]">
+                                @handcraft.studio
+                            </Text>
+                        </View>
+                    </LinearGradient>
+                    <div className="h-px w-8 bg-[rgba(113,67,41,0.35)]" />
+                </View>
 
-                <Text className="text-black/80 text-base text-center leading-[22px] mb-5">
+                <h1 className="text-4xl md:text-5xl font-serif text-[#1C1C1C] mb-4 leading-tight animate-shimmer">
+                    Craft in <em style={{ color: '#8B4513' }}>Real Life</em>
+                </h1>
+
+                <p className="max-w-[580px] mx-auto text-[#5A4A3F] leading-[1.75]">
                     Behind the scenes · Customer photos · Making process
-                </Text>
+                </p>
 
-                <View className="flex-row flex-wrap justify-center gap-2 ">
+                <View className="flex-row flex-wrap justify-center gap-2 mt-4">
                     <StatPill icon="users" label="24K Followers" />
                     <StatPill icon="image" label="860+ Posts" />
                     <StatPill icon="heart" label="12K Likes/mo" />
                 </View>
-
-            </Animated.View>
+            </header> 
 
             {/* Uniform Grid */}
             <View style={{ paddingHorizontal: H_PAD }} className="flex-row items-start gap-2 py-10">

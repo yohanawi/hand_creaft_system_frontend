@@ -1,27 +1,33 @@
 ﻿import { Feather } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
-import {
-    Animated,
-    Dimensions,
-    Image,
-    NativeScrollEvent,
-    NativeSyntheticEvent,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Dimensions, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const isMobile = SCREEN_WIDTH < 768;
-const isTablet = SCREEN_WIDTH >= 768 && SCREEN_WIDTH < 1024;
+// ─── Responsive sizing (recalculated on each render via hook) ─────────────────
+function useLayout() {
+    const [dim, setDim] = useState(Dimensions.get('window'));
+    useEffect(() => {
+        const sub = Dimensions.addEventListener('change', ({ window }) => setDim(window));
+        return () => sub?.remove();
+    }, []);
 
-// ── Exactly 3 cards always visible, center = active ───────────────────────────
-const PEEK    = isMobile ? 28 : 52;
-const GAP     = isMobile ? 12 : 18;
-const CARD_W  = SCREEN_WIDTH - PEEK * 2 - GAP * 2;
-const CARD_H  = isMobile ? 360 : 400;   // ← fixed height: all cards identical
-const STEP    = CARD_W + GAP;
+    const W = dim.width;
+    const isMobile = W < 640;
+    const isTablet = W >= 640 && W < 1024;
+
+    // On mobile show 1 card centred; tablet/desktop always 3
+    const VISIBLE = isMobile ? 1 : 3;
+    const H_PAD = isMobile ? 16 : isTablet ? 32 : 60;
+    const GAP = isMobile ? 12 : 20;
+    // Card width: centre card is wider on mobile (full visible area)
+    const CARD_WIDTH = isMobile
+        ? W - H_PAD * 2
+        : (W - H_PAD * 2 - GAP * (VISIBLE - 1)) / VISIBLE;
+    const STEP = CARD_WIDTH + GAP;
+    const SIDE_SCALE = isMobile ? 0.88 : 0.82;
+    const CARD_H = isMobile ? 270 : isTablet ? 300 : 300;
+
+    return { W, isMobile, isTablet, VISIBLE, H_PAD, GAP, CARD_WIDTH, STEP, SIDE_SCALE, CARD_H };
+}
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const TESTIMONIALS = [
@@ -82,231 +88,73 @@ const TESTIMONIALS = [
     },
 ];
 
+const TOTAL = TESTIMONIALS.length;
+const EXTENDED = [...TESTIMONIALS, ...TESTIMONIALS, ...TESTIMONIALS];
 type TItem = typeof TESTIMONIALS[0];
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
-function ReviewCard({ item, active }: { item: TItem; active: boolean }) {
-    const scaleAnim = useRef(new Animated.Value(active ? 1 : 0.92)).current;
-    const opacAnim  = useRef(new Animated.Value(active ? 1 : 0.55)).current;
-
-    useEffect(() => {
-        Animated.parallel([
-            Animated.spring(scaleAnim, {
-                toValue: active ? 1 : 0.92,
-                tension: 70, friction: 10,
-                useNativeDriver: true,
-            }),
-            Animated.timing(opacAnim, {
-                toValue: active ? 1 : 0.55,
-                duration: 260,
-                useNativeDriver: true,
-            }),
-        ]).start();
-    }, [active]);
-
+function ReviewCard({ item, cardWidth, cardH, scale, opacity }: {
+    item: TItem;
+    cardWidth: number;
+    cardH: number;
+    scale: Animated.AnimatedInterpolation<number>;
+    opacity: Animated.AnimatedInterpolation<number>;
+}) {
     return (
-        <Animated.View style={{
-            width: CARD_W,
-            height: CARD_H,
-            marginRight: GAP,
-            transform: [{ scale: scaleAnim }],
-            opacity: opacAnim,
-        }}>
-            <View style={{
-                flex: 1,
-                backgroundColor: '#fff',
-                borderRadius: 24,
-                borderWidth: active ? 2 : 1.5,
-                borderColor: active ? '#8B4513' : '#EDE5DC',
-                shadowColor: active ? '#8B4513' : '#000',
-                shadowOffset: { width: 0, height: active ? 12 : 4 },
-                shadowOpacity: active ? 0.18 : 0.06,
-                shadowRadius: active ? 24 : 10,
-                elevation: active ? 12 : 3,
-                overflow: 'hidden',
-            }}>
-
-                {/* ── Active top accent bar ── */}
-                {active && (
-                    <View style={{ height: 4, backgroundColor: '#8B4513', width: '100%' }} />
-                )}
-
-                <View style={{ flex: 1, padding: isMobile ? 18 : 22, justifyContent: 'space-between' }}>
-
-                    {/* ── TOP: Quote + Stars + Verified ── */}
+        <Animated.View style={{ width: cardWidth, height: cardH, transform: [{ scale }], opacity, }}>
+            <View className="flex-1 overflow-hidden bg-white border rounded-3xl">
+                <View className="h-1 w-full bg-[#8B4513]" />
+                <View className="justify-between flex-1 p-5">
                     <View>
-                        <View style={{
-                            flexDirection: 'row',
-                            justifyContent: 'space-between',
-                            alignItems: 'flex-start',
-                            marginBottom: 14,
-                        }}>
-                            {/* Quote mark */}
-                            <View style={{
-                                width: 44, height: 44, borderRadius: 14,
-                                backgroundColor: active ? '#FDF0E8' : '#F7F3F0',
-                                alignItems: 'center', justifyContent: 'center',
-                            }}>
-                                <Text style={{
-                                    fontSize: 32, lineHeight: 38,
-                                    color: active ? '#8B4513' : '#C4A882',
-                                    fontWeight: '900', marginTop: -4,
-                                }}>"</Text>
+                        <View className="flex-row items-start justify-between mb-3">
+                            {/* Quote icon box */}
+                            <View className="w-11 h-11 rounded-xl bg-[#FDF0E8] items-center justify-center">
+                                <Text className="text-[32px] leading-[38px] text-[#8B4513] font-black -mt-1">
+                                    "
+                                </Text>
                             </View>
-
                             {/* Verified badge */}
-                            <View style={{
-                                flexDirection: 'row', alignItems: 'center', gap: 4,
-                                backgroundColor: active ? '#F0FDF4' : '#F9F9F9',
-                                borderWidth: 1,
-                                borderColor: active ? '#BBF7D0' : '#EEE',
-                                paddingHorizontal: 9, paddingVertical: 4,
-                                borderRadius: 20,
-                            }}>
-                                <Feather name="check-circle" size={11} color={active ? '#16A34A' : '#9CA3AF'} />
-                                <Text style={{
-                                    color: active ? '#16A34A' : '#9CA3AF',
-                                    fontSize: 10, fontWeight: '700',
-                                }}>
+                            <View className="flex-row items-center gap-1 bg-[#F0FDF4] border border-[#BBF7D0] px-2.5 py-1 rounded-full">
+                                <Feather name="check-circle" size={11} color="#16A34A" />
+                                <Text className="text-[#16A34A] text-[10px] font-bold">
                                     Verified
                                 </Text>
                             </View>
                         </View>
-
                         {/* Stars */}
-                        <View style={{ flexDirection: 'row', gap: 3, marginBottom: 12 }}>
-                            {[1,2,3,4,5].map(i => (
-                                <Feather
-                                    key={i}
-                                    name="star"
-                                    size={14}
-                                    color={active ? '#F59E0B' : '#D4C4B0'}
-                                />
+                        <View className="flex-row gap-1 mb-2.5">
+                            {[1, 2, 3, 4, 5].map(i => (
+                                <Feather key={i} name="star" size={14} color="#F59E0B" />
                             ))}
                         </View>
 
                         {/* Review text */}
-                        <Text style={{
-                            color: active ? '#1A0F0A' : '#6B7280',
-                            fontSize: 13,
-                            lineHeight: 21,
-                            fontWeight: active ? '500' : '400',
-                        }} numberOfLines={4}>
+                        <Text className="text-[#1A0F0A] text-[13px] leading-[21px] font-medium" numberOfLines={4}>
                             {item.review}
                         </Text>
                     </View>
 
-                    {/* ── MIDDLE: Divider ── */}
-                    <View style={{
-                        height: 1,
-                        backgroundColor: active ? '#EDE5DC' : '#F3F4F6',
-                        marginVertical: 14,
-                    }} />
+                    {/* Divider */}
+                    <View className="h-px bg-[#EDE5DC] my-3" />
 
-                    {/* ── AUTHOR ROW ── */}
-                    <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 10,
-                        marginBottom: 14,
-                    }}>
-                        <View style={{ position: 'relative' }}>
-                            <Image
-                                source={{ uri: item.avatar }}
-                                style={{
-                                    width: 44, height: 44, borderRadius: 22,
-                                    borderWidth: 2,
-                                    borderColor: active ? '#8B4513' : '#E5DDD5',
-                                }}
-                            />
-                            {active && (
-                                <View style={{
-                                    position: 'absolute', bottom: 0, right: 0,
-                                    width: 13, height: 13, borderRadius: 7,
-                                    backgroundColor: '#22C55E',
-                                    borderWidth: 2, borderColor: '#fff',
-                                }} />
-                            )}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={{
-                                fontSize: 14, fontWeight: '800',
-                                color: active ? '#1A0F0A' : '#374151',
-                                letterSpacing: -0.2,
-                            }}>
+                    {/* Avatar + name + role + location */}
+                    <View className="flex-row items-center gap-2.5 mb-3">
+                        <Image source={{ uri: item.avatar }} className="w-11 h-11 rounded-full border-2 border-[#8B4513]" />
+                        <View className="flex-1">
+                            <Text className="text-[14px] font-extrabold text-[#1A0F0A] tracking-[-0.2px]">
                                 {item.name}
                             </Text>
-                            <Text style={{
-                                fontSize: 11,
-                                color: active ? '#8B4513' : '#9CA3AF',
-                                fontWeight: '600', marginTop: 1,
-                            }}>
+                            <Text className="text-[11px] text-[#8B4513] font-semibold mt-0.5">
                                 {item.role}
                             </Text>
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                            <Feather name="map-pin" size={9} color={active ? '#8B4513' : '#D1D5DB'} />
-                            <Text style={{
-                                color: active ? '#8B4513' : '#9CA3AF',
-                                fontSize: 10, fontWeight: '500',
-                            }} numberOfLines={1}>
+                        <View className="flex-row items-center gap-1">
+                            <Feather name="map-pin" size={12} color="#8B4513" />
+                            <Text className="text-[#8B4513] font-medium" numberOfLines={1}>
                                 {item.location}
                             </Text>
                         </View>
                     </View>
-
-                    {/* ── PURCHASED STRIP ── */}
-                    <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 10,
-                        padding: 10,
-                        borderRadius: 14,
-                        backgroundColor: active ? '#FDF0E8' : '#F9F7F5',
-                        borderWidth: 1,
-                        borderColor: active ? '#E8C8A8' : '#EDE5DC',
-                    }}>
-                        <Image
-                            source={{ uri: item.productImage }}
-                            style={{
-                                width: 38, height: 38, borderRadius: 10,
-                                borderWidth: 1,
-                                borderColor: active ? '#D4A07A' : '#E5DDD5',
-                            }}
-                            resizeMode="cover"
-                        />
-                        <View style={{ flex: 1 }}>
-                            <Text style={{
-                                color: active ? '#8B4513' : '#9CA3AF',
-                                fontSize: 9, fontWeight: '700',
-                                textTransform: 'uppercase', letterSpacing: 0.8,
-                            }}>
-                                Purchased
-                            </Text>
-                            <Text style={{
-                                color: active ? '#1A0F0A' : '#4B5563',
-                                fontSize: 11, fontWeight: '700', marginTop: 2,
-                            }} numberOfLines={1}>
-                                {item.product}
-                            </Text>
-                        </View>
-                        <Feather
-                            name="shopping-bag"
-                            size={14}
-                            color={active ? '#8B4513' : '#D1D5DB'}
-                        />
-                    </View>
-
-                    {/* Date */}
-                    <Text style={{
-                        color: active ? '#A07050' : '#C4B8AD',
-                        fontSize: 10,
-                        fontWeight: '500',
-                        textAlign: 'right',
-                        marginTop: 10,
-                    }}>
-                        {item.date}
-                    </Text>
                 </View>
             </View>
         </Animated.View>
@@ -315,260 +163,249 @@ function ReviewCard({ item, active }: { item: TItem; active: boolean }) {
 
 // ─── Main Section ─────────────────────────────────────────────────────────────
 export default function TestimonialsSection() {
-    const fadeAnim  = useRef(new Animated.Value(0)).current;
+
+    const { W, CARD_WIDTH, STEP, GAP, CARD_H, SIDE_SCALE } = useLayout();
+    const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
-
+    const scrollX = useRef(new Animated.Value(0)).current;
     const scrollRef = useRef<ScrollView>(null);
+    const centreOffset = (W - CARD_WIDTH) / 2;
     const [activeIdx, setActiveIdx] = useState(0);
-    const autoRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-    const dragging  = useRef(false);
+    const rawIdxRef = useRef(TOTAL);
+    const isScrollingRef = useRef(false);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    const total     = TESTIMONIALS.length;
-    const avgRating = (TESTIMONIALS.reduce((a, t) => a + 5, 0) / total).toFixed(1);
-
+    // ── entry animation ──
     useEffect(() => {
         Animated.parallel([
-            Animated.timing(fadeAnim,  { toValue: 1, duration: 600, useNativeDriver: true }),
+            Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
             Animated.spring(slideAnim, { toValue: 0, tension: 55, friction: 9, useNativeDriver: true }),
         ]).start();
-        startAuto();
-        return () => stopAuto();
     }, []);
 
-    const startAuto = () => {
-        stopAuto();
-        autoRef.current = setInterval(() => {
-            if (dragging.current) return;
-            setActiveIdx(prev => {
-                const next = (prev + 1) % total;        // ← loop
-                scrollRef.current?.scrollTo({ x: next * STEP, animated: true });
-                return next;
-            });
-        }, 4000);
-    };
+    // ── jump to initial position (second copy) without animation ──
+    useEffect(() => {
+        const t = setTimeout(() => {
+            scrollRef.current?.scrollTo({ x: TOTAL * STEP, animated: false });
+        }, 60);
+        return () => clearTimeout(t);
+    }, [STEP]);
 
-    const stopAuto = () => {
-        if (autoRef.current) { clearInterval(autoRef.current); autoRef.current = null; }
-    };
+    // ── scroll to a given extended index ──
+    const scrollToRaw = useCallback((rawIdx: number, animated = true) => {
+        scrollRef.current?.scrollTo({ x: rawIdx * STEP, animated });
+        rawIdxRef.current = rawIdx;
+        setActiveIdx(((rawIdx % TOTAL) + TOTAL) % TOTAL);
 
-    const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-        const idx = Math.round(e.nativeEvent.contentOffset.x / STEP);
-        setActiveIdx(Math.max(0, Math.min(idx, total - 1)));
-    };
+        // onMomentumScrollEnd does NOT fire for programmatic scrollTo calls,
+        // so we schedule the loop correction ourselves after the animation finishes.
+        if (animated) {
+            if (rawIdx >= TOTAL * 2) {
+                setTimeout(() => {
+                    const corrected = rawIdx - TOTAL;
+                    scrollRef.current?.scrollTo({ x: corrected * STEP, animated: false });
+                    rawIdxRef.current = corrected;
+                }, 350);
+            } else if (rawIdx < TOTAL) {
+                setTimeout(() => {
+                    const corrected = rawIdx + TOTAL;
+                    scrollRef.current?.scrollTo({ x: corrected * STEP, animated: false });
+                    rawIdxRef.current = corrected;
+                }, 350);
+            }
+        }
+    }, [STEP]);
 
-    const goTo = (idx: number) => {
-        // loop wrap
-        const c = ((idx % total) + total) % total;
-        scrollRef.current?.scrollTo({ x: c * STEP, animated: true });
-        setActiveIdx(c);
-        stopAuto();
-        startAuto();
-    };
+    // ── shared correction logic (used by both scroll-end handlers) ──
+    const correctLoop = useCallback((offsetX: number) => {
+        isScrollingRef.current = false;
+        const raw = Math.round(offsetX / STEP);
+        rawIdxRef.current = raw;
+        setActiveIdx(((raw % TOTAL) + TOTAL) % TOTAL);
+
+        if (raw < TOTAL) {
+            // Slid into first copy → silently jump to middle copy
+            setTimeout(() => {
+                const target = raw + TOTAL;
+                scrollRef.current?.scrollTo({ x: target * STEP, animated: false });
+                rawIdxRef.current = target;
+            }, 0);
+        } else if (raw >= TOTAL * 2) {
+            // Slid into third copy → silently jump to middle copy
+            setTimeout(() => {
+                const target = raw - TOTAL;
+                scrollRef.current?.scrollTo({ x: target * STEP, animated: false });
+                rawIdxRef.current = target;
+            }, 0);
+        }
+    }, [STEP]);
+
+    // ── infinite-loop correction after momentum scroll ends ──
+    const onMomentumScrollEnd = useCallback((e: any) => {
+        correctLoop(e.nativeEvent.contentOffset.x);
+    }, [correctLoop]);
+
+    // ── also correct after slow drag-and-release (no momentum) ──
+    const onScrollEndDrag = useCallback((e: any) => {
+        correctLoop(e.nativeEvent.contentOffset.x);
+    }, [correctLoop]);
+
+    // ── auto-play ──
+    const startAutoPlay = useCallback(() => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        timerRef.current = setInterval(() => {
+            if (!isScrollingRef.current) {
+                const next = rawIdxRef.current + 1;
+                scrollToRaw(next);
+            }
+        }, 3500);
+    }, [scrollToRaw]);
+
+    useEffect(() => {
+        startAutoPlay();
+        return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    }, [startAutoPlay]);
+
+    // ── arrow nav ──
+    const goTo = useCallback((direction: -1 | 1) => {
+        isScrollingRef.current = false;
+        const next = rawIdxRef.current + direction;
+        scrollToRaw(next);
+        startAutoPlay(); // reset timer
+    }, [scrollToRaw, startAutoPlay]);
 
     return (
-        <View style={{
-            backgroundColor: '#FAF6F2',
-            paddingVertical: 60,
-            overflow: 'hidden',
-        }}>
-            {/* ── Subtle background dots pattern ── */}
-            <View style={{
-                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                opacity: 0.025,
-                backgroundColor: '#8B4513',
-            }} />
+        <View className="bg-[#FAF6F2] overflow-hidden relative py-28">
+            {/* Background blobs */}
+            <View className="absolute -bottom-[40px] -left-[40px] w-[180px] h-[180px] rounded-full bg-[#CD853F] opacity-[0.06]" />
 
-            {/* ── Blobs ── */}
-            <View style={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: 110, backgroundColor: '#8B4513', opacity: 0.04 }} />
-            <View style={{ position: 'absolute', bottom: -40, left: -40, width: 180, height: 180, borderRadius: 90,  backgroundColor: '#CD853F', opacity: 0.06 }} />
-
-            {/* ════════════ HEADER ════════════ */}
-            <Animated.View style={{
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-                alignItems: isMobile ? 'center' : 'flex-start',
-                paddingHorizontal: isMobile ? 20 : 48,
-                marginBottom: 36,
-            }}>
-                <View style={{
-                    flexDirection: isMobile ? 'column' : 'row',
-                    alignItems: isMobile ? 'center' : 'flex-end',
-                    justifyContent: 'space-between',
-                    width: '100%',
-                    gap: isMobile ? 20 : 0,
-                }}>
-                    {/* Text */}
-                    <View style={{ alignItems: isMobile ? 'center' : 'flex-start' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                            <View style={{ width: 24, height: 2, backgroundColor: '#8B4513', borderRadius: 2 }} />
-                            <Text style={{
-                                fontSize: 10, fontWeight: '700',
-                                color: '#8B4513', letterSpacing: 2.5,
-                                textTransform: 'uppercase',
-                            }}>
-                                Customer Reviews
-                            </Text>
-                            <View style={{ width: 24, height: 2, backgroundColor: '#8B4513', borderRadius: 2 }} />
-                        </View>
-
-                        <Text style={{
-                            fontSize: isMobile ? 26 : isTablet ? 32 : 40,
-                            fontWeight: '900', color: '#1A0F0A',
-                            letterSpacing: -1,
-                            lineHeight: isMobile ? 32 : 48,
-                            textAlign: isMobile ? 'center' : 'left',
-                            marginBottom: 8,
-                        }}>
-                            What Our{' '}
-                            <Text style={{ color: '#8B4513' }}>Customers</Text>
-                            {'\n'}Are Saying
-                        </Text>
-
-                        <Text style={{
-                            color: '#6B7280', fontSize: 14, lineHeight: 22,
-                            textAlign: isMobile ? 'center' : 'left', maxWidth: 400,
-                        }}>
-                            Real stories from people who love handmade craft
-                        </Text>
-                    </View>
-
-                    {/* Rating summary */}
-                    <View style={{
-                        backgroundColor: '#fff',
-                        borderRadius: 22,
-                        paddingHorizontal: 24, paddingVertical: 16,
-                        alignItems: 'center',
-                        borderWidth: 1.5, borderColor: '#EDE5DC',
-                        shadowColor: '#8B4513',
-                        shadowOffset: { width: 0, height: 6 },
-                        shadowOpacity: 0.09, shadowRadius: 16,
-                        elevation: 4, minWidth: 140,
-                    }}>
-                        <Text style={{ fontSize: 44, fontWeight: '900', color: '#8B4513', letterSpacing: -2, lineHeight: 50 }}>
-                            {avgRating}
-                        </Text>
-                        <View style={{ flexDirection: 'row', gap: 2 }}>
-                            {[1,2,3,4,5].map(i => (
-                                <Feather key={i} name="star" size={14} color="#F59E0B" />
-                            ))}
-                        </View>
-                        <Text style={{ color: '#9CA3AF', fontSize: 11, fontWeight: '600', marginTop: 5 }}>
-                            {total * 89}+ verified reviews
-                        </Text>
-                    </View>
+            {/* Header */}
+            <header className={`text-center max-w-3xl transition-all duration-700 ease-out mx-auto pb-28`}>
+                <View className="flex-row items-center justify-center gap-3 mx-auto mb-4">
+                    <div className="h-px w-8 bg-[rgba(113,67,41,0.35)]" />
+                    <span className="text-[#714329] uppercase tracking-[0.3em] text-xs font-bold">
+                        Customer Reviews
+                    </span>
+                    <div className="h-px w-8 bg-[rgba(113,67,41,0.35)]" />
                 </View>
+
+                <h1 className="text-4xl md:text-5xl font-serif text-[#1C1C1C] mb-4 leading-tight animate-shimmer">
+                    What Our <em style={{ color: '#8B4513' }}>Customers</em> Are Saying
+                </h1>
+
+                <p className="max-w-[580px] mx-auto text-[#5A4A3F] leading-[1.75]">
+                    Real stories from people who love handmade craft
+                </p>
+            </header>
+
+            {/* ════════ CAROUSEL ════════ */}
+            <Animated.View style={{ opacity: fadeAnim }}>
+                <ScrollView
+                    ref={scrollRef}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    snapToInterval={STEP}
+                    decelerationRate="fast"
+                    snapToAlignment="center"
+                    contentContainerStyle={{
+                        paddingHorizontal: centreOffset,
+                        gap: GAP,
+                        alignItems: 'center',
+                    }}
+                    onScrollBeginDrag={() => { isScrollingRef.current = true; }}
+                    onMomentumScrollBegin={() => { isScrollingRef.current = true; }}
+                    onMomentumScrollEnd={onMomentumScrollEnd}
+                    onScrollEndDrag={onScrollEndDrag}
+                    scrollEventThrottle={16}
+                    onScroll={Animated.event(
+                        [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+                        { useNativeDriver: false }
+                    )}
+                >
+                    {EXTENDED.map((item, idx) => {
+                        // relative offset of this card's centre vs scroll origin
+                        const cardCentre = idx * STEP;
+                        const inputRange = [
+                            cardCentre - STEP,
+                            cardCentre,
+                            cardCentre + STEP,
+                        ];
+
+                        const scale = scrollX.interpolate({
+                            inputRange,
+                            outputRange: [SIDE_SCALE, 1, SIDE_SCALE],
+                            extrapolate: 'clamp',
+                        });
+                        const opacity = scrollX.interpolate({
+                            inputRange,
+                            outputRange: [0.55, 1, 0.55],
+                            extrapolate: 'clamp',
+                        });
+
+                        return (
+                            <ReviewCard
+                                key={`${item.id}-${idx}`}
+                                item={item}
+                                cardWidth={CARD_WIDTH}
+                                cardH={CARD_H}
+                                scale={scale}
+                                opacity={opacity}
+                            />
+                        );
+                    })}
+                </ScrollView>
             </Animated.View>
 
-            {/* ════════════ CAROUSEL ════════════ */}
-            <ScrollView
-                ref={scrollRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                onScroll={onScroll}
-                onScrollBeginDrag={() => { dragging.current = true;  stopAuto(); }}
-                onScrollEndDrag={() =>   { dragging.current = false; startAuto(); }}
-                onMomentumScrollEnd={() => { dragging.current = false; }}
-                scrollEventThrottle={16}
-                decelerationRate="fast"
-                snapToInterval={STEP}
-                snapToAlignment="center"
-                contentContainerStyle={{ paddingHorizontal: PEEK }}
-            >
-                {TESTIMONIALS.map((item, idx) => (
-                    <ReviewCard
-                        key={item.id}
-                        item={item}
-                        active={activeIdx === idx}
-                    />
-                ))}
-            </ScrollView>
-
-            {/* ════════════ DOTS + ARROWS ════════════ */}
-            <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 14,
-                marginTop: 28,
-                paddingHorizontal: 20,
-            }}>
+            {/* ════════ DOTS + ARROWS ════════ */}
+            <View className="flex-row items-center justify-center gap-3.5 mt-7 px-5">
                 {/* Left arrow */}
-                <TouchableOpacity
-                    onPress={() => goTo(activeIdx - 1)}
-                    style={{
-                        width: 42, height: 42, borderRadius: 12,
-                        borderWidth: 1.5, borderColor: '#DDD0C4',
-                        backgroundColor: '#fff',
-                        alignItems: 'center', justifyContent: 'center',
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.06, shadowRadius: 4,
-                        elevation: 2,
-                    }}
-                >
+                <TouchableOpacity onPress={() => goTo(-1)} className="w-[42px] h-[42px] rounded-xl border-[1.5px] border-[#DDD0C4] bg-white items-center justify-center shadow-sm" accessibilityLabel="Previous testimonial">
                     <Feather name="chevron-left" size={18} color="#8B4513" />
                 </TouchableOpacity>
 
                 {/* Dot indicators */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                <View className="flex-row items-center gap-[7px]">
                     {TESTIMONIALS.map((_, idx) => (
-                        <TouchableOpacity key={idx} onPress={() => goTo(idx)}>
-                            <View style={{
-                                width: activeIdx === idx ? 28 : 8,
-                                height: 8, borderRadius: 4,
-                                backgroundColor: activeIdx === idx ? '#8B4513' : '#DDD0C4',
-                            }} />
+                        <TouchableOpacity
+                            key={idx}
+                            onPress={() => {
+                                const target = TOTAL + idx;
+                                scrollToRaw(target);
+                                startAutoPlay();
+                            }}
+                            accessibilityLabel={`Go to testimonial ${idx + 1}`}
+                        >
+                            <View
+                                style={{
+                                    height: 8,
+                                    width: activeIdx === idx ? 28 : 8,
+                                    borderRadius: 4,
+                                    backgroundColor: activeIdx === idx ? '#8B4513' : '#DDD0C4',
+                                }}
+                            />
                         </TouchableOpacity>
                     ))}
                 </View>
 
                 {/* Right arrow */}
-                <TouchableOpacity
-                    onPress={() => goTo(activeIdx + 1)}
-                    style={{
-                        width: 42, height: 42, borderRadius: 12,
-                        backgroundColor: '#8B4513',
-                        alignItems: 'center', justifyContent: 'center',
-                        shadowColor: '#8B4513',
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.30, shadowRadius: 8,
-                        elevation: 4,
-                    }}
-                >
+                <TouchableOpacity onPress={() => goTo(1)} className="w-[42px] h-[42px] rounded-xl bg-[#8B4513] items-center justify-center shadow-md" accessibilityLabel="Next testimonial">
                     <Feather name="chevron-right" size={18} color="#fff" />
                 </TouchableOpacity>
             </View>
 
-            {/* ════════════ TRUST STRIP ════════════ */}
-            <View style={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-                gap: 10,
-                marginTop: 32,
-                paddingHorizontal: 20,
-            }}>
-                {[
-                    { icon: 'shield'  as const, label: '100% Authentic'       },
-                    { icon: 'users'   as const, label: '50K+ Customers'        },
-                    { icon: 'star'    as const, label: '4.9 Avg Rating'        },
-                    { icon: 'package' as const, label: 'Free Returns'          },
-                ].map(b => (
-                    <View key={b.label} style={{
-                        flexDirection: 'row', alignItems: 'center', gap: 7,
-                        backgroundColor: '#fff',
-                        paddingHorizontal: 14, paddingVertical: 9,
-                        borderRadius: 50,
-                        borderWidth: 1, borderColor: '#EDE5DC',
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: 0.04, shadowRadius: 4,
-                        elevation: 1,
-                    }}>
+            {/* ════════ TRUST STRIP ════════ */}
+            <View className="flex-row flex-wrap justify-center gap-2.5 mt-16 px-5">
+                {(
+                    [
+                        { icon: 'shield', label: '100% Authentic' },
+                        { icon: 'users', label: '50K+ Customers' },
+                        { icon: 'star', label: '4.9 Avg Rating' },
+                        { icon: 'package', label: 'Free Returns' },
+                    ] as { icon: React.ComponentProps<typeof Feather>['name']; label: string }[]
+                ).map(b => (
+                    <View key={b.label} className="flex-row items-center gap-1.5 bg-white px-5 py-2.5 rounded-full border border-[#EDE5DC] shadow-sm">
                         <Feather name={b.icon} size={13} color="#8B4513" />
-                        <Text style={{ color: '#374151', fontSize: 12, fontWeight: '600' }}>
-                            {b.label}
-                        </Text>
+                        <Text className="text-[#374151] text-sm font-semibold">{b.label}</Text>
                     </View>
                 ))}
             </View>

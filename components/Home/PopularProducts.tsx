@@ -1,16 +1,23 @@
-﻿import { Feather } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-    Animated,
-    Dimensions,
-    NativeScrollEvent,
-    NativeSyntheticEvent,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View
-} from 'react-native';
+import { Animated, Dimensions, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { products } from '../../Data/product-data';
+
+// Extend the product type to include optional image property
+type ProductType = {
+    id: number;
+    name: string;
+    category: string;
+    price: number;
+    originalPrice: number;
+    rating: number;
+    reviews: number;
+    badge: string;
+    badgeColor: string;
+    icon: string;
+    color: string;
+    image?: string;
+};
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -20,35 +27,55 @@ const getCardsPerView = () => {
     if (SCREEN_WIDTH >= 1024) return 4;
     if (SCREEN_WIDTH >= 768) return 3;
     if (SCREEN_WIDTH >= 480) return 2;
-    return 1; 
+    return 1;
 };
 
 const CARD_GAP = 16;
 const CARDS_PER_VIEW = getCardsPerView();
 const CARD_WIDTH = (SCREEN_WIDTH - CARD_GAP * (CARDS_PER_VIEW + 1)) / CARDS_PER_VIEW;
-const AUTO_SCROLL_INTERVAL = 3000; // ms between auto scrolls
-const AUTO_SCROLL_SPEED = 1; // px per frame
+const AUTO_SCROLL_INTERVAL = 3000; // ms between auto scrolls 
+
+// --- Inline SVGs for flawless rendering ---
+const Icons = {
+    Heart: ({ filled }: { filled?: boolean }) => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill={filled ? "#EF4444" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+        </svg>
+    ),
+    Cart: () => (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+    ),
+    Star: ({ filled }: { filled?: boolean }) => (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill={filled ? "#D4A373" : "none"} stroke={filled ? "#D4A373" : "#E5E7EB"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+        </svg>
+    ),
+    Sparkles: () => (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3v18"></path><path d="M3 12h18"></path>
+            <path d="m18.36 5.64-12.72 12.72"></path><path d="m5.64 5.64 12.72 12.72"></path>
+        </svg>
+    )
+};
 
 export default function PopularProducts() {
+
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideUpAnim = useRef(new Animated.Value(50)).current;
-
     const scrollRef = useRef<ScrollView>(null);
     const scrollX = useRef(0);
     const autoScrollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
     const isUserScrolling = useRef(false);
-    const animFrameRef = useRef<number | null>(null);
     const maxScroll = useRef(0);
     const contentWidth = useRef(0);
-
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [activeIndex, setActiveIndex] = useState(0);
 
     const categories = ['All', 'Electronics', 'Fashion', 'Wearables', 'Accessories'];
-
-    const filteredProducts = selectedCategory === 'All'
-        ? products
-        : products.filter(p => p.category === selectedCategory);
+    const filteredProducts: ProductType[] = selectedCategory === 'All' ? products : products.filter((p: ProductType) => p.category === selectedCategory);
 
     // Reset scroll on category change
     useEffect(() => {
@@ -104,203 +131,123 @@ export default function PopularProducts() {
         return () => stopAutoScroll();
     }, [filteredProducts.length]);
 
-    const handleScrollBeginDrag = () => {
-        isUserScrolling.current = true;
-        stopAutoScroll();
-    };
+    const HandcraftCard = ({ product, index }: { product: typeof products[0], index: number }) => {
+        const [isVisible, setIsVisible] = useState(false);
+        const [isWishlisted, setIsWishlisted] = useState(false);
+        const discount = product.originalPrice > product.price ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
 
-    const handleScrollEndDrag = () => {
-        isUserScrolling.current = false;
-        startAutoScroll();
-    };
+        // Smooth staggered entrance
+        useEffect(() => {
+            const timer = setTimeout(() => setIsVisible(true), index * 120 + 150);
+            return () => clearTimeout(timer);
+        }, [index]);
 
-    const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-        scrollX.current = e.nativeEvent.contentOffset.x;
-        const idx = Math.round(scrollX.current / (CARD_WIDTH + CARD_GAP));
-        setActiveIndex(idx);
-    };
-
-    const handleContentSizeChange = (w: number) => {
-        contentWidth.current = w;
-        maxScroll.current = w - SCREEN_WIDTH;
-    };
-
-    const renderStars = (rating: number) => {
-        return Array.from({ length: 5 }, (_, i) => (
-            <Feather
-                key={i}
-                name="star"
-                size={12}
-                color={i < Math.floor(rating) ? '#F59E0B' : '#E5E7EB'}
-                style={{ marginRight: 1 }}
-            />
-        ));
-    };
-
-    const ProductCard = ({ product }: { product: typeof products[0] }) => {
-        const cardScale = useRef(new Animated.Value(1)).current;
-        const shadowAnim = useRef(new Animated.Value(0)).current;
-        const discount = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
-
-        const handlePressIn = () => {
-            Animated.parallel([
-                Animated.spring(cardScale, { toValue: 0.97, useNativeDriver: true }),
-                Animated.timing(shadowAnim, { toValue: 1, duration: 150, useNativeDriver: false }),
-            ]).start();
-        };
-
-        const handlePressOut = () => {
-            Animated.parallel([
-                Animated.spring(cardScale, { toValue: 1, tension: 50, friction: 4, useNativeDriver: true }),
-                Animated.timing(shadowAnim, { toValue: 0, duration: 200, useNativeDriver: false }),
-            ]).start();
+        const renderStars = (rating: number) => {
+            return [...Array(5)].map((_, i) => (
+                <Icons.Star key={i} filled={i < Math.floor(rating)} />
+            ));
         };
 
         return (
-            <Animated.View
-                style={{
-                    width: CARD_WIDTH,
-                    marginRight: CARD_GAP,
-                    transform: [{ scale: cardScale }],
-                    opacity: fadeAnim,
-                    borderRadius: 20,
-                    backgroundColor: '#fff',
-                    overflow: 'hidden',
-                    shadowColor: '#8B4513',
-                    shadowOffset: { width: 0, height: 8 },
-                    shadowOpacity: 0.12,
-                    shadowRadius: 16,
-                    elevation: 6,
-                }}
+            <div className={`group relative flex-shrink-0 w-[300px] sm:w-[340px] snap-center rounded-2xl bg-[#FCFAF8] border border-[#F0EBE1] cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] hover:-translate-y-1.5 hover:shadow-[0_24px_48px_-12px_rgba(140,90,65,0.12)]
+                ${isVisible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-12'}`}
             >
-                <TouchableOpacity
-                    onPressIn={handlePressIn}
-                    onPressOut={handlePressOut}
-                    activeOpacity={1}
-                >
-                    {/* Image Area */}
-                    <View
-                        style={{
-                            height: 170,
-                            backgroundColor: product.color,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            position: 'relative',
-                        }}
-                    >
-                        {/* Decorative circle */}
-                        <View style={{
-                            width: 90,
-                            height: 90,
-                            borderRadius: 45,
-                            backgroundColor: 'rgba(255,255,255,0.18)',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}>
-                            <Feather name={product.icon as any} size={48} color="#FFF" />
-                        </View>
+                {/* --- Framed Image Area --- */}
+                <div className="p-3 pb-0">
+                    <div className="relative h-[260px] w-full overflow-hidden rounded-xl bg-[#F3EFEA]">
+                        <img
+                            src={product.image}
+                            alt={product.name}
+                            draggable={false}
+                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-110"
+                        />
 
-                        {/* Badge top-left */}
-                        <View style={{
-                            position: 'absolute',
-                            top: 12,
-                            left: 12,
-                            backgroundColor: product.badgeColor,
-                            paddingHorizontal: 10,
-                            paddingVertical: 4,
-                            borderRadius: 20,
-                        }}>
-                            <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>
-                                {product.badge}
-                            </Text>
-                        </View>
+                        {/* Subtle warm overlay on hover for that organic feel */}
+                        <div className="absolute inset-0 bg-[#8C5A41] mix-blend-overlay opacity-0 transition-opacity duration-700 group-hover:opacity-20" />
 
-                        {/* Discount badge */}
-                        {discount > 0 && (
-                            <View style={{
-                                position: 'absolute',
-                                top: 12,
-                                right: 12,
-                                width: 44,
-                                height: 44,
-                                borderRadius: 22,
-                                backgroundColor: '#EF4444',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}>
-                                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>-{discount}%</Text>
-                            </View>
+                        {/* Top Left Badge */}
+                        {product.badge && (
+                            <div className="absolute top-3 left-3 px-3 py-1.5 rounded-full shadow-sm" style={{ backgroundColor: product.badgeColor }}>
+                                <span className="text-white text-[9px] font-bold uppercase tracking-[0.15em]">
+                                    {product.badge}
+                                </span>
+                            </div>
                         )}
 
-                        {/* Wishlist */}
-                        <TouchableOpacity style={{
-                            position: 'absolute',
-                            bottom: 12,
-                            right: 12,
-                            backgroundColor: '#fff',
-                            borderRadius: 20,
-                            padding: 8,
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.15,
-                            shadowRadius: 4,
-                            elevation: 3,
-                        }}>
-                            <Feather name="heart" size={16} color="#EF4444" />
-                        </TouchableOpacity>
-                    </View>
+                        {/* Top Right Discount Pill */}
+                        {discount > 0 && (
+                            <div className="absolute top-3 right-3 px-2.5 py-1.5 rounded-full bg-[#E85D4E] shadow-sm flex items-center justify-center">
+                                <span className="text-white text-[10px] font-black tracking-wider">
+                                    -{discount}%
+                                </span>
+                            </div>
+                        )}
 
-                    {/* Content */}
-                    <View style={{ padding: 14 }}>
-                        <Text style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+                        {/* New Arrival Floating Tag */}
+                        {product.isNew ? (
+                            <div className="absolute top-3 right-3 px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-md shadow-sm border border-stone-100 flex items-center gap-1.5 text-stone-700">
+                                <Icons.Sparkles />
+                                <span className="text-[9px] font-bold uppercase tracking-[0.1em]">New</span>
+                            </div>
+                        ) : null}
+
+                        {/* Wishlist Button (Glassmorphic) */}
+                        <button onClick={(e) => { e.stopPropagation(); setIsWishlisted(!isWishlisted); }}
+                            className="absolute bottom-3 right-3 p-2.5 rounded-full bg-white/80 backdrop-blur-md border border-white shadow-[0_4px_12px_rgba(0,0,0,0.05)] transition-all duration-300 hover:bg-white hover:scale-110 active:scale-95">
+                            <Icons.Heart filled={isWishlisted} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* --- Content Area --- */}
+                <div className="p-5 pt-4 flex flex-col h-[180px]">
+                    {/* Category & Rating Row */}
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-medium text-[#A68A7C] uppercase tracking-[0.2em]">
                             {product.category}
-                        </Text>
-                        <Text style={{ fontSize: 14, fontWeight: '700', color: '#1F2937', marginBottom: 6 }} numberOfLines={2}>
-                            {product.name}
-                        </Text>
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                            <div className="flex gap-0.5">{renderStars(product.rating)}</div>
+                            <span className="text-[10px] text-stone-400 font-medium">({product.reviews})</span>
+                        </div>
+                    </div>
 
-                        {/* Stars */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                            <View style={{ flexDirection: 'row', marginRight: 4 }}>{renderStars(product.rating)}</View>
-                            <Text style={{ fontSize: 10, color: '#6B7280' }}>({product.reviews})</Text>
-                        </View>
+                    {/* Product Name (Serif font for artisanal feel) */}
+                    <h3 className="text-lg sm:text-xl font-serif font-medium text-[#2C2420] leading-tight mb-auto line-clamp-2">
+                        {product.name}
+                    </h3>
 
-                        {/* Price row */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                            <View>
-                                <Text style={{ fontSize: 20, fontWeight: '800', color: '#8B4513' }}>${product.price}</Text>
-                                {product.originalPrice > product.price && (
-                                    <Text style={{ fontSize: 12, color: '#D1D5DB', textDecorationLine: 'line-through' }}>
-                                        ${product.originalPrice}
-                                    </Text>
-                                )}
-                            </View>
-                        </View>
+                    {/* Price & Action Row */}
+                    <div className="flex items-end justify-between mt-4 pt-4 border-t border-[#F0EBE1]/80">
+                        <div className="flex flex-col">
+                            {discount > 0 ? (
+                                <>
+                                    <span className="text-xs text-stone-400 line-through mb-0.5 decoration-stone-300">
+                                        LKR.{product.originalPrice.toFixed(2)}
+                                    </span>
+                                    <span className="text-xl font-serif font-semibold text-[#8C5A41]">
+                                        LKR.{product.price.toFixed(2)}
+                                    </span>
+                                </>
+                            ) : (
+                                <span className="text-xl font-serif font-semibold text-[#2C2420]">
+                                    LKR.{product.price.toFixed(2)}
+                                </span>
+                            )}
+                        </div>
 
-                        {/* Add to Cart */}
-                        <TouchableOpacity style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#8B4513',
-                            paddingVertical: 12,
-                            borderRadius: 50,
-                            shadowColor: '#8B4513',
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.3,
-                            shadowRadius: 6,
-                            elevation: 4,
-                        }}>
-                            <Feather name="shopping-cart" size={14} color="#FFF" />
-                            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13, marginLeft: 6 }}>Add to Cart</Text>
-                        </TouchableOpacity>
-                    </View>
-                </TouchableOpacity>
-            </Animated.View>
+                        {/* Modern Pill Button replacing standard circular button */}
+                        <button className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#2C2420] text-[#FDFBF7] shadow-md transition-all duration-300 hover:bg-[#8C5A41] hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0">
+                            <Icons.Cart />
+                            <span className="text-[11px] font-bold uppercase tracking-wider">
+                                Add
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
         );
     };
-
-    const totalDots = Math.max(0, filteredProducts.length - CARDS_PER_VIEW + 1);
 
     return (
         <Animated.View
@@ -312,63 +259,35 @@ export default function PopularProducts() {
             }}
         >
             <View style={{ maxWidth: 1400, width: '100%', alignSelf: 'center' }}>
-
                 {/* ── Section Header ── */}
                 <View style={{ alignItems: 'center', marginBottom: 32, paddingHorizontal: 24 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                        <View style={{ width: 40, height: 2, backgroundColor: '#8B4513', marginRight: 10, borderRadius: 2 }} />
+                    <View className="flex flex-row items-center justify-center gap-4 px-6 mb-8">
+                        <View className="w-10 h-0.5 bg-amber-900 rounded mr-2.5" />
                         <Feather name="trending-up" size={22} color="#8B4513" />
-                        <View style={{ width: 40, height: 2, backgroundColor: '#8B4513', marginLeft: 10, borderRadius: 2 }} />
+                        <View className="w-10 h-0.5 bg-amber-900 rounded ml-2.5" />
                     </View>
-                    <Text style={{
-                        fontSize: SCREEN_WIDTH < 768 ? 28 : 36,
-                        fontWeight: '800',
-                        color: '#8B4513',
-                        textAlign: 'center',
-                        letterSpacing: -0.5,
-                        marginBottom: 6,
-                    }}>
+                    <Text className="text-[28px] md:text-[36px] font-extrabold text-[#8B4513] text-center tracking-[-0.5px] mb-[6px]">
                         Popular Products
                     </Text>
-                    <Text style={{ fontSize: 15, color: '#6B7280', textAlign: 'center' }}>
+                    <Text className="text-[15px] text-gray-500 text-center">
                         Discover our best-selling items loved by thousands
                     </Text>
                 </View>
 
                 {/* ── Category Filter ── */}
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}
                     contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 4 }}
-                    style={{ marginBottom: 28 }}
-                >
+                    className="mb-7">
                     {categories.map((cat, i) => {
                         const isActive = selectedCategory === cat;
                         return (
-                            <TouchableOpacity
-                                key={i}
-                                onPress={() => setSelectedCategory(cat)}
-                                style={{
-                                    marginRight: 10,
-                                    paddingHorizontal: 20,
-                                    paddingVertical: 10,
-                                    borderRadius: 50,
-                                    backgroundColor: isActive ? '#8B4513' : '#fff',
-                                    borderWidth: 1.5,
-                                    borderColor: '#8B4513',
-                                    shadowColor: '#8B4513',
-                                    shadowOffset: { width: 0, height: 2 },
-                                    shadowOpacity: isActive ? 0.25 : 0.08,
-                                    shadowRadius: 4,
-                                    elevation: isActive ? 4 : 1,
-                                }}
-                            >
-                                <Text style={{
-                                    fontWeight: '700',
-                                    fontSize: 13,
-                                    color: isActive ? '#fff' : '#8B4513',
-                                    letterSpacing: 0.3,
-                                }}>
+                            <TouchableOpacity key={i} onPress={() => setSelectedCategory(cat)}
+                                className={`mr-2.5 px-5 py-2.5 rounded-full border-1.5 
+                                    ${isActive
+                                        ? 'bg-amber-900 border-amber-900 shadow-md shadow-amber-900'
+                                        : 'bg-white border-amber-900 shadow-sm shadow-amber-900'
+                                    }`}>
+                                <Text className={`font-bold text-sm tracking-wide ${isActive ? 'text-white' : 'text-amber-900'}`}>
                                     {cat}
                                 </Text>
                             </TouchableOpacity>
@@ -377,54 +296,17 @@ export default function PopularProducts() {
                 </ScrollView>
 
                 {/* ── Product Carousel ── */}
-                <ScrollView
-                    ref={scrollRef}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    decelerationRate="fast"
-                    snapToInterval={CARD_WIDTH + CARD_GAP}
-                    snapToAlignment="start"
-                    contentContainerStyle={{ paddingHorizontal: CARD_GAP }}
-                    onScroll={handleScroll}
-                    scrollEventThrottle={16}
-                    onScrollBeginDrag={handleScrollBeginDrag}
-                    onScrollEndDrag={handleScrollEndDrag}
-                    onMomentumScrollEnd={handleScrollEndDrag}
-                    onContentSizeChange={handleContentSizeChange}
-                >
-                    {filteredProducts.map((product) => (
-                        <ProductCard key={product.id} product={product} />
+                <div className="flex w-full gap-6 px-6 pt-4 pb-16 overflow-x-auto md:px-12 snap-x snap-mandatory md:gap-8 scrollbar-hide"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                    {products.map((item, index) => (
+                        <HandcraftCard key={item.id} product={item} index={index} />
                     ))}
-                </ScrollView>
+                    <div className="w-2 shrink-0 md:w-4" />
+                </div>
 
-                {/* ── Dots Indicator ── */}
-                {totalDots > 1 && (
-                    <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 20, gap: 6 }}>
-                        {Array.from({ length: totalDots }, (_, i) => (
-                            <TouchableOpacity
-                                key={i}
-                                onPress={() => {
-                                    const x = i * (CARD_WIDTH + CARD_GAP);
-                                    scrollRef.current?.scrollTo({ x, animated: true });
-                                    scrollX.current = x;
-                                    setActiveIndex(i);
-                                }}
-                            >
-                                <View style={{
-                                    width: activeIndex === i ? 24 : 8,
-                                    height: 8,
-                                    borderRadius: 4,
-                                    backgroundColor: activeIndex === i ? '#8B4513' : '#D1B89A',
-                                    marginHorizontal: 2,
-                                    // smooth width transition via inline style (RN doesn't animate width easily without Animated.Value)
-                                }} />
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                )}
-
-                {/* ── Arrow Navigation ── */}
-                <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 16 }}>
+                {/* ── Navigation Controls ── */}
+                <View className="flex flex-row items-center justify-center gap-4 px-6 mt-8">
+                    {/* Left Arrow */}
                     <TouchableOpacity
                         onPress={() => {
                             const x = Math.max(0, scrollX.current - (CARD_WIDTH + CARD_GAP));
@@ -432,24 +314,19 @@ export default function PopularProducts() {
                             scrollX.current = x;
                             setActiveIndex(Math.round(x / (CARD_WIDTH + CARD_GAP)));
                         }}
-                        style={{
-                            width: 44,
-                            height: 44,
-                            borderRadius: 22,
-                            backgroundColor: '#fff',
-                            borderWidth: 1.5,
-                            borderColor: '#8B4513',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            shadowColor: '#8B4513',
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.12,
-                            shadowRadius: 4,
-                            elevation: 2,
-                        }}
-                    >
+                        className="w-11 h-11 rounded-full bg-white border-1.5 border-amber-900 items-center justify-center shadow-md shadow-amber-900">
                         <Feather name="chevron-left" size={20} color="#8B4513" />
                     </TouchableOpacity>
+
+                    {/* View All Button */}
+                    <TouchableOpacity className="flex flex-row items-center px-8 py-3 bg-white border-2 rounded-full shadow-md border-amber-900 shadow-amber-900">
+                        <Text className="mr-2 text-base font-bold text-amber-900">
+                            View All Products
+                        </Text>
+                        <Feather name="arrow-right" size={18} color="#8B4513" />
+                    </TouchableOpacity>
+
+                    {/* Right Arrow */}
                     <TouchableOpacity
                         onPress={() => {
                             const x = Math.min(maxScroll.current, scrollX.current + (CARD_WIDTH + CARD_GAP));
@@ -457,45 +334,8 @@ export default function PopularProducts() {
                             scrollX.current = x;
                             setActiveIndex(Math.round(x / (CARD_WIDTH + CARD_GAP)));
                         }}
-                        style={{
-                            width: 44,
-                            height: 44,
-                            borderRadius: 22,
-                            backgroundColor: '#8B4513',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            shadowColor: '#8B4513',
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.3,
-                            shadowRadius: 6,
-                            elevation: 4,
-                        }}
-                    >
-                        <Feather name="chevron-right" size={20} color="#FFF" />
-                    </TouchableOpacity>
-                </View>
-
-                {/* ── View All Button ── */}
-                <View style={{ alignItems: 'center', marginTop: 32, paddingHorizontal: 24 }}>
-                    <TouchableOpacity style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        paddingHorizontal: 32,
-                        paddingVertical: 14,
-                        borderRadius: 50,
-                        backgroundColor: '#fff',
-                        borderWidth: 2,
-                        borderColor: '#8B4513',
-                        shadowColor: '#8B4513',
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.12,
-                        shadowRadius: 8,
-                        elevation: 3,
-                    }}>
-                        <Text style={{ color: '#8B4513', fontWeight: '700', fontSize: 15, marginRight: 8 }}>
-                            View All Products
-                        </Text>
-                        <Feather name="arrow-right" size={18} color="#8B4513" />
+                        className="w-11 h-11 rounded-full bg-amber-900 border-1.5 border-amber-900 items-center justify-center shadow-lg shadow-amber-900">
+                        <Feather name="chevron-right" size={20} color="#fff" />
                     </TouchableOpacity>
                 </View>
             </View>

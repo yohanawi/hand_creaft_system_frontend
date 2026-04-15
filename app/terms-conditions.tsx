@@ -1,13 +1,15 @@
 import PageShell from '@/components/PageShell';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Animated, Dimensions, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Text, TouchableOpacity, View } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function TermsConditionsScreen() {
+    const { scrollY, onScroll } = useHeaderScroll();
     const router = useRouter();
     const fadeAnim = useState(new Animated.Value(0))[0];
 
@@ -251,8 +253,8 @@ Sunday: Closed`,
 
     return (
         <View className="flex-1 bg-white">
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <PageShell>
+            <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
+                <PageShell scrollY={scrollY}>
 
                     <Animated.View style={{ opacity: fadeAnim }}>
                         {/* Hero Section */}
@@ -435,7 +437,7 @@ Sunday: Closed`,
                     </Animated.View>
 
                 </PageShell>
-            </ScrollView>
+            </Animated.ScrollView>
         </View>
     );
 }

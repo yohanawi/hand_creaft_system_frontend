@@ -1,8 +1,9 @@
 import PageShell from '@/components/PageShell';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -39,6 +40,7 @@ const GoldDivider = () => (
 );
 
 export default function AboutUsScreen() {
+    const { scrollY, onScroll } = useHeaderScroll();
     const fadeAnim = useState(new Animated.Value(0))[0];
     const slideUpAnim = useState(new Animated.Value(50))[0];
     const scaleAnim = useState(new Animated.Value(0.9))[0];
@@ -111,8 +113,8 @@ export default function AboutUsScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: J.cream }}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <PageShell>
+            <Animated.ScrollView showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16}>
+                <PageShell scrollY={scrollY}>
 
                     {/* ── Hero Section ─────────────────────────────────────── */}
                     <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}>
@@ -337,7 +339,7 @@ export default function AboutUsScreen() {
                     </View>
 
                 </PageShell>
-            </ScrollView>
+            </Animated.ScrollView>
         </View>
     );
 }

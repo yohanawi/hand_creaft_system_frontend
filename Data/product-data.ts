@@ -1,4 +1,21 @@
-export const products = [
+// Add image as an optional property to the product type
+export type ProductDataType = {
+  id: number;
+  name: string;
+  category: string;
+  price: number;
+  originalPrice: number;
+  rating: number;
+  reviews: number;
+  badge: string;
+  badgeColor: string;
+  icon: string;
+  color: string;
+  image?: string;
+  isNew?: boolean;
+};
+
+export const products: ProductDataType[] = [
   {
     id: 1,
     name: "Wireless Headphones",

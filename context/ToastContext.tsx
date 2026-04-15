@@ -203,8 +203,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
             {/* Overlay — always on top */}
             <View
-                pointerEvents="box-none"
                 style={{
+                    pointerEvents: 'box-none',
                     position: 'absolute',
                     top: Platform.OS === 'ios' ? 56 : 16,
                     left: 0,

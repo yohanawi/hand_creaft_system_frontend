@@ -1,6 +1,7 @@
 import PageShell from '@/components/PageShell';
 import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
 import { getAddresses, initiatePayHerePayment, placeOrder, validateCoupon } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
@@ -13,11 +14,10 @@ import {
     Animated,
     Dimensions,
     Platform,
-    ScrollView,
     Text,
     TextInput,
-    TouchableOpacity, 
-    View,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -40,6 +40,7 @@ const EMPTY_FORM: ShippingForm = {
 };
 
 export default function CheckoutScreen() {
+    const { scrollY, onScroll } = useHeaderScroll();
     const router = useRouter();
     const auth = useContext(AuthContext);
     const { items, subtotal, shippingCost, clearCart } = useCart();
@@ -208,8 +209,13 @@ export default function CheckoutScreen() {
 
     return (
         <View className="flex-1 bg-white">
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                <PageShell>
+            <Animated.ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                onScroll={onScroll}
+                scrollEventThrottle={16}
+            >
+                <PageShell scrollY={scrollY}>
                     <Animated.View style={{ opacity: fadeAnim }} className="px-4 py-12 bg-craft-50">
                         <View className="w-full mx-auto max-w-7xl">
                             {/* Heading */}
@@ -602,7 +608,7 @@ export default function CheckoutScreen() {
                         </View>
                     </Animated.View>
                 </PageShell>
-            </ScrollView>
+            </Animated.ScrollView>
         </View>
     );
 }

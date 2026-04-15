@@ -1,16 +1,7 @@
 ﻿import { Feather } from '@expo/vector-icons';
+import { ArrowRightIcon } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-    Animated,
-    Dimensions,
-    Image,
-    NativeScrollEvent,
-    NativeSyntheticEvent,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { Animated, Dimensions, NativeScrollEvent, NativeSyntheticEvent, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -18,17 +9,17 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const getCardsPerView = (): number => {
     if (SCREEN_WIDTH >= 1280) return 5;
     if (SCREEN_WIDTH >= 1024) return 4;
-    if (SCREEN_WIDTH >= 768)  return 3;
-    if (SCREEN_WIDTH >= 480)  return 2;
+    if (SCREEN_WIDTH >= 768) return 3;
+    if (SCREEN_WIDTH >= 480) return 2;
     return 1;
 };
 
-const CARDS_PER_VIEW  = getCardsPerView();
-const CARD_GAP        = 14;
-const H_PADDING       = 20;
-const CARD_WIDTH      = (SCREEN_WIDTH - H_PADDING * 2 - CARD_GAP * (CARDS_PER_VIEW - 1)) / CARDS_PER_VIEW;
-const CARD_HEIGHT     = CARD_WIDTH * 1.35;
-const AUTO_SCROLL_MS  = 3200;
+const CARDS_PER_VIEW = getCardsPerView();
+const CARD_GAP = 14;
+const H_PADDING = 20;
+const CARD_WIDTH = (SCREEN_WIDTH - H_PADDING * 2 - CARD_GAP * (CARDS_PER_VIEW - 1)) / CARDS_PER_VIEW;
+const CARD_HEIGHT = CARD_WIDTH * 1.35;
+const AUTO_SCROLL_MS = 3200;
 
 // ─── Category data with Unsplash image URIs ──────────────────────────────────
 const categories = [
@@ -107,200 +98,91 @@ const categories = [
 ];
 
 // ─── CategoryCard ─────────────────────────────────────────────────────────────
-const CategoryCard = ({
-    category,
-    fadeAnim,
-}: {
-    category: typeof categories[0];
-    fadeAnim: Animated.Value;
-}) => {
-    const cardScale   = useRef(new Animated.Value(1)).current;
-    const overlayAnim = useRef(new Animated.Value(0)).current;
+const CategoryCard = ({ category, index }: { category: typeof categories[0], index: number }) => {
+    const [isVisible, setIsVisible] = useState(false);
 
-    const handlePressIn = () => {
-        Animated.parallel([
-            Animated.spring(cardScale, { toValue: 0.96, useNativeDriver: true }),
-            Animated.timing(overlayAnim, { toValue: 1, duration: 180, useNativeDriver: false }),
-        ]).start();
-    };
-
-    const handlePressOut = () => {
-        Animated.parallel([
-            Animated.spring(cardScale, { toValue: 1, tension: 55, friction: 4, useNativeDriver: true }),
-            Animated.timing(overlayAnim, { toValue: 0, duration: 220, useNativeDriver: false }),
-        ]).start();
-    };
-
-    const overlayOpacity = overlayAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 0.18],
-    });
+    // Entrance Animation
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsVisible(true);
+        }, index * 100 + 100);
+        return () => clearTimeout(timer);
+    }, [index]);
 
     return (
-        <Animated.View
-            style={{
-                width: CARD_WIDTH,
-                height: CARD_HEIGHT,
-                marginRight: CARD_GAP,
-                borderRadius: 22,
-                overflow: 'hidden',
-                opacity: fadeAnim,
-                transform: [{ scale: cardScale }],
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 10 },
-                shadowOpacity: 0.22,
-                shadowRadius: 18,
-                elevation: 10,
-            }}
-        >
-            <TouchableOpacity
-                onPressIn={handlePressIn}
-                onPressOut={handlePressOut}
-                activeOpacity={1}
-                style={{ flex: 1 }}
-            >
-                {/* ── Full-bleed image ── */}
-                <Image
-                    source={{ uri: category.imageUri }}
-                    style={{ position: 'absolute', width: '100%', height: '100%' }}
-                    resizeMode="cover"
-                />
+        <div className={`relative flex-shrink-0 w-[280px] sm:w-[320px] h-[380px] sm:h-[420px] snap-center rounded-md overflow-hidden group cursor-pointer transition-all duration-700 ease-out
+                ${isVisible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-12'}`}>
+            {/* --- Animated Background Image --- */}
+            <img
+                src={category.imageUri}
+                alt={category.name}
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-cover opacity-90 transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-110"
+            />
 
-                {/* ── Dark gradient overlay (bottom-heavy) ── */}
-                <View
-                    style={{
-                        position: 'absolute',
-                        inset: 0,
-                        width: '100%',
-                        height: '100%',
-                        // Simulate gradient with two overlapping views
-                    }}
-                >
-                    {/* Top scrim (subtle) */}
-                    <View style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: '50%',
-                        backgroundColor: 'rgba(0,0,0,0.18)',
-                    }} />
-                    {/* Bottom scrim (strong) */}
-                    <View style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: '70%',
-                        backgroundColor: 'rgba(0,0,0,0.65)',
-                    }} />
-                </View>
+            {/* --- Ambient Gradients --- */}
+            <div className="absolute inset-0 w-full h-full">
+                <div className="absolute bottom-0 left-0 right-0 h-2/3 bg-gradient-to-t from-black/95 via-black/50 to-transparent" />
+            </div>
 
-                {/* ── Accent colour press overlay ── */}
-                <Animated.View style={{
-                    position: 'absolute',
-                    inset: 0,
-                    width: '100%',
-                    height: '100%',
-                    backgroundColor: category.accentColor,
-                    opacity: overlayOpacity,
-                }} />
+            {/* --- Tint Overlay on Hover --- */}
+            <div className="absolute inset-0 w-full h-full transition-opacity duration-500 opacity-0 mix-blend-overlay group-hover:opacity-40"
+                style={{ backgroundColor: category.accentColor }}
+            />
 
-                {/* ── Accent top-left corner stripe ── */}
-                <View style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: 4,
-                    height: 50,
-                    backgroundColor: category.accentColor,
-                    borderBottomRightRadius: 4,
-                }} />
+            {/* --- Detached Bottom Glass Panel --- */}
+            <div className="absolute bottom-5 left-5 right-5 transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:-translate-y-2">
+                {/* Floating Pill
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full mb-3 shadow-lg border border-white/10 bg-black/60 backdrop-blur-md">
+                    <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.5)]" style={{ backgroundColor: category.accentColor }} />
+                    <span className="text-[10px] font-black tracking-[0.2em] text-white/90 uppercase">
+                        {category.description}
+                    </span>
+                </div> */}
 
-                {/* ── Icon badge ── */}
-                <View style={{
-                    position: 'absolute',
-                    top: 14,
-                    right: 14,
-                    width: 44,
-                    height: 44,
-                    borderRadius: 14,
-                    backgroundColor: 'rgba(255,255,255,0.18)',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.28)',
-                }}>
-                    <Feather name={category.icon} size={22} color="#FFF" />
-                </View>
+                {/* Main Content Glass Box */}
+                <div className="relative p-5 rounded-[24px] overflow-hidden bg-black/40 backdrop-blur-xl transition-colors duration-500 group-hover:bg-black/50">
+                    {/* Dynamic Top Border */}
+                    <div className="absolute top-0 left-0 right-0 h-[2px] opacity-70 transition-opacity duration-500 group-hover:opacity-100"
+                        style={{ backgroundColor: category.accentColor }} />
 
-                {/* ── Bottom text content ── */}
-                <View style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    padding: 16,
-                }}>
-                    {/* Description pill */}
-                    <View style={{
-                        alignSelf: 'flex-start',
-                        backgroundColor: category.accentColor,
-                        paddingHorizontal: 10,
-                        paddingVertical: 3,
-                        borderRadius: 20,
-                        marginBottom: 8,
-                    }}>
-                        <Text style={{
-                            color: '#fff',
-                            fontSize: 10,
-                            fontWeight: '700',
-                            letterSpacing: 0.8,
-                            textTransform: 'uppercase',
-                        }}>
-                            {category.description}
-                        </Text>
-                    </View>
-
-                    {/* Category name */}
-                    <Text style={{
-                        color: '#fff',
-                        fontSize: CARD_WIDTH < 130 ? 14 : 17,
-                        fontWeight: '800',
-                        letterSpacing: -0.3,
-                        marginBottom: 6,
-                    }} numberOfLines={1}>
+                    <h3 className="mb-1 text-2xl font-black tracking-tight text-white truncate">
                         {category.name}
-                    </Text>
+                    </h3>
 
-                    {/* Divider + item count */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.25)', marginRight: 10 }} />
-                        <Text style={{
-                            color: 'rgba(255,255,255,0.80)',
-                            fontSize: 11,
-                            fontWeight: '600',
-                            letterSpacing: 0.3,
-                        }}>
-                            {category.itemCount} items
-                        </Text>
-                    </View>
-                </View>
-            </TouchableOpacity> 
-        </Animated.View>
+                    <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold tracking-wider uppercase transition-colors duration-300 text-white/60 group-hover:text-white/90">
+                                Explore
+                            </span>
+                            <span className="text-sm transition-all duration-300 text-white/40 group-hover:translate-x-1 group-hover:text-white">
+                                <ArrowRightIcon size={16} color="currentColor" className="transition-transform duration-300 group-hover:translate-x-1" />
+                            </span>
+                        </div>
+
+                        <div className="px-2.5 py-1 rounded-lg bg-white/10 transition-colors duration-300 group-hover:bg-white/20">
+                            <span className="text-[11px] font-bold text-white">
+                                {category.itemCount} items
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function CategorySection() {
-    const fadeAnim    = useRef(new Animated.Value(0)).current;
-    const slideAnim   = useRef(new Animated.Value(40)).current;
 
-    const scrollRef       = useRef<ScrollView>(null);
-    const scrollX         = useRef(0);
-    const maxScroll       = useRef(0);
-    const isUserDragging  = useRef(false);
-    const timerRef        = useRef<ReturnType<typeof setInterval> | null>(null);
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(40)).current;
+
+    const scrollRef = useRef<ScrollView>(null);
+    const scrollX = useRef(0);
+    const maxScroll = useRef(0);
+    const isUserDragging = useRef(false);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const [activeIndex, setActiveIndex] = useState(0);
     const totalDots = Math.max(0, categories.length - CARDS_PER_VIEW + 1);
@@ -363,49 +245,35 @@ export default function CategorySection() {
         setActiveIndex(i);
     };
 
-    const goLeft  = () => goToIndex(Math.max(0, activeIndex - 1));
+    const goLeft = () => goToIndex(Math.max(0, activeIndex - 1));
     const goRight = () => goToIndex(Math.min(totalDots - 1, activeIndex + 1));
 
     return (
         <Animated.View style={{
             opacity: fadeAnim,
             transform: [{ translateY: slideAnim }],
-            backgroundColor: '#0F0F0F',
-            paddingVertical: 56,
+            backgroundColor: '#fbf7f3', // Tailwind amber-900 background for dark theme
         }}>
-            <View style={{ maxWidth: 1400, width: '100%', alignSelf: 'center' }}>
 
-                {/* ── Section Header ── */}
-                <View style={{ alignItems: 'center', marginBottom: 36, paddingHorizontal: H_PADDING }}>
-                    {/* Eyebrow */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                        <View style={{ width: 32, height: 2, backgroundColor: '#8B4513', borderRadius: 2, marginRight: 10 }} />
-                        <Feather name="grid" size={18} color="#8B4513" />
-                        <View style={{ width: 32, height: 2, backgroundColor: '#8B4513', borderRadius: 2, marginLeft: 10 }} />
+            <View className="px-5 py-28">
+                {/* Header */}
+                <header className={`text-center max-w-3xl transition-all duration-700 ease-out mx-auto pb-28`}>
+                    <View className="flex-row items-center justify-center gap-3 mx-auto mb-4">
+                        <div className="h-px w-8 bg-[rgba(113,67,41,0.35)]" />
+                        <span className="text-[#714329] uppercase tracking-[0.3em] text-xs font-bold flex-row items-center gap-1.5">
+                            <Feather name="grid" size={14} color="#8B4513" /> Categories
+                        </span>
+                        <div className="h-px w-8 bg-[rgba(113,67,41,0.35)]" />
                     </View>
 
-                    <Text style={{
-                        color: '#FFFFFF',
-                        fontSize: SCREEN_WIDTH < 768 ? 26 : 36,
-                        fontWeight: '800',
-                        letterSpacing: -1,
-                        textAlign: 'center',
-                        marginBottom: 8,
-                    }}>
-                        Shop by{' '}
-                        <Text style={{ color: '#8B4513' }}>Category</Text>
-                    </Text>
+                    <h1 className="text-4xl md:text-5xl font-serif text-[#1C1C1C] mb-4 leading-tight animate-shimmer">
+                        Shop by <em style={{ color: '#8B4513' }}>Category</em>
+                    </h1>
 
-                    <Text style={{
-                        color: 'rgba(255,255,255,0.50)',
-                        fontSize: 14,
-                        textAlign: 'center',
-                        lineHeight: 22,
-                        maxWidth: 420,
-                    }}>
+                    <p className="max-w-[580px] mx-auto text-[#5A4A3F] leading-[1.75]">
                         Explore our wide range of categories and find exactly what you're looking for
-                    </Text>
-                </View>
+                    </p>
+                </header>
 
                 {/* ── Carousel ── */}
                 <ScrollView
@@ -415,7 +283,7 @@ export default function CategorySection() {
                     decelerationRate="fast"
                     snapToInterval={CARD_WIDTH + CARD_GAP}
                     snapToAlignment="start"
-                    contentContainerStyle={{ paddingHorizontal: H_PADDING }}
+                    className="px-5"
                     onScroll={handleScroll}
                     scrollEventThrottle={16}
                     onScrollBeginDrag={handleScrollBeginDrag}
@@ -423,98 +291,43 @@ export default function CategorySection() {
                     onMomentumScrollEnd={handleScrollEndDrag}
                     onContentSizeChange={(w) => { maxScroll.current = w - SCREEN_WIDTH; }}
                 >
-                    {categories.map((cat) => (
-                        <CategoryCard key={cat.id} category={cat} fadeAnim={fadeAnim} />
+                    {categories.map((cat, index) => (
+                        <View key={cat.id} style={{ marginRight: CARD_GAP }}>
+                            <CategoryCard category={cat} index={index} />
+                        </View>
                     ))}
                 </ScrollView>
 
                 {/* ── Dots + Arrows ── */}
-                <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginTop: 28,
-                    paddingHorizontal: H_PADDING,
-                    gap: 10,
-                }}>
+                <View className="flex-row items-center justify-center mt-7 px-5 gap-2.5">
                     {/* Left arrow */}
-                    <TouchableOpacity
-                        onPress={goLeft}
-                        style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 20,
-                            borderWidth: 1.5,
-                            borderColor: 'rgba(255,255,255,0.18)',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: 'rgba(255,255,255,0.06)',
-                        }}
-                    >
+                    <TouchableOpacity onPress={goLeft} className="items-center justify-center w-10 h-10 rounded-full shadow-lg bg-amber-900 active:opacity-80">
                         <Feather name="chevron-left" size={18} color="rgba(255,255,255,0.7)" />
                     </TouchableOpacity>
 
                     {/* Dot indicators */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center' }}>
+                    <View className="flex-row items-center gap-1.5 flex-1 justify-center">
                         {Array.from({ length: totalDots }, (_, i) => {
                             const isActive = activeIndex === i;
                             return (
                                 <TouchableOpacity key={i} onPress={() => goToIndex(i)}>
-                                    <View style={{
-                                        width: isActive ? 28 : 7,
-                                        height: 7,
-                                        borderRadius: 4,
-                                        backgroundColor: isActive ? '#8B4513' : 'rgba(255,255,255,0.25)',
-                                    }} />
+                                    <View className={`h-1.5 rounded-full ${isActive ? 'w-7 bg-amber-900' : 'w-1.5 bg-[#DDD0C4]'}`} />
                                 </TouchableOpacity>
                             );
                         })}
                     </View>
 
                     {/* Right arrow */}
-                    <TouchableOpacity
-                        onPress={goRight}
-                        style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 20,
-                            backgroundColor: '#8B4513',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            shadowColor: '#8B4513',
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.5,
-                            shadowRadius: 8,
-                            elevation: 6,
-                        }}
-                    >
+                    <TouchableOpacity onPress={goRight} className="items-center justify-center w-10 h-10 rounded-full shadow-lg bg-amber-900 active:opacity-80">
                         <Feather name="chevron-right" size={18} color="#FFF" />
                     </TouchableOpacity>
                 </View>
 
                 {/* ── Browse All CTA ── */}
-                <View style={{ alignItems: 'center', marginTop: 36, paddingHorizontal: H_PADDING }}>
-                    <TouchableOpacity style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        backgroundColor: '#8B4513',
-                        paddingHorizontal: 32,
-                        paddingVertical: 15,
-                        borderRadius: 50,
-                        shadowColor: '#8B4513',
-                        shadowOffset: { width: 0, height: 6 },
-                        shadowOpacity: 0.45,
-                        shadowRadius: 12,
-                        elevation: 8,
-                    }}>
+                <View className="items-center px-5 mt-9">
+                    <TouchableOpacity className="flex-row items-center px-8 py-4 rounded-full bg-amber-900 active:opacity-80 active:scale-95">
                         <Feather name="compass" size={18} color="#FFF" />
-                        <Text style={{
-                            color: '#fff',
-                            fontWeight: '800',
-                            fontSize: 15,
-                            marginLeft: 10,
-                            letterSpacing: 0.3,
-                        }}>
+                        <Text className="text-white font-black text-base ml-2.5 tracking-wide">
                             Browse All Categories
                         </Text>
                     </TouchableOpacity>

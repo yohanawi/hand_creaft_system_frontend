@@ -2,6 +2,7 @@
 import { useCart } from '@/context/CartContext';
 import { useToast } from '@/context/ToastContext';
 import { useWishlist, WishlistProduct } from '@/context/WishlistContext';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -11,10 +12,9 @@ import {
     Animated,
     Dimensions,
     Platform,
-    ScrollView,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -24,6 +24,7 @@ const imageUri = (img?: string) =>
     img ? (img.startsWith('http') ? img : `${API_BASE}/${img}`) : null;
 
 export default function WishlistScreen() {
+    const { scrollY, onScroll } = useHeaderScroll();
     const router = useRouter();
     const { items, removeItem } = useWishlist();
     const { addToCart } = useCart();
@@ -108,8 +109,13 @@ export default function WishlistScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: COLORS.background }}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
-                <PageShell>
+            <Animated.ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 60 }}
+                onScroll={onScroll}
+                scrollEventThrottle={16}
+            >
+                <PageShell scrollY={scrollY}>
                     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
 
                         {/* Elegant Header Section */}
@@ -469,7 +475,7 @@ export default function WishlistScreen() {
                         </View>
                     </Animated.View>
                 </PageShell>
-            </ScrollView>
+            </Animated.ScrollView>
         </View>
     );
 }
