@@ -27,7 +27,7 @@ function SyncManager() {
       clearLocalCart();
       clearLocalWishlist();
     }
-  }, [userToken]);
+  }, [clearLocalCart, clearLocalWishlist, loadCart, loadWishlist, userToken]);
 
   return null;
 }
@@ -59,6 +59,7 @@ export default function RootLayout() {
                 <Stack.Screen name="index" />
                 <Stack.Screen name="login" />
                 <Stack.Screen name="register" />
+                <Stack.Screen name="customer-dashboard" options={{ animation: 'fade_from_bottom' }} />
                 <Stack.Screen name="profile" />
                 <Stack.Screen name="support-tickets" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="ai-search" options={{ animation: 'slide_from_right' }} />

@@ -1,17 +1,15 @@
 ﻿import PageShell from '@/components/PageShell';
 import { useAuth } from '@/context/AuthContext';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
-import { createBlogComment, getBlogBySlug, getBlogComments, getBlogs } from '@/services/api';
+import { createBlogComment, getAssetUrl, getBlogBySlug, getBlogComments, getBlogs } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Dimensions, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-const API_BASE = 'http://localhost:5000';
-
 const blogImageUri = (img?: string) =>
-    img ? (img.startsWith('http') ? img : `${API_BASE}/${img.replace(/\\/g, '/')}`) : 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=800';
+    getAssetUrl(img) || 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=800';
 
 const formatDate = (d?: string) => {
     if (!d) return '';

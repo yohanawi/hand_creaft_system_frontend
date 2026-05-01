@@ -7,6 +7,7 @@ import useHeaderScroll from '@/hooks/useHeaderScroll';
 import {
     createProductReview,
     deleteProductReview,
+    getAssetUrl,
     getProductById,
     getProductReviews,
 } from '@/services/api';
@@ -29,7 +30,6 @@ import {
 } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const API_BASE = 'http://localhost:5000';
 
 type ProductVariant = {
     _id: string;
@@ -134,9 +134,7 @@ const StarPicker = ({
     </View>
 );
 
-const imageUri = (asset?: string) => (
-    asset ? (asset.startsWith('http') ? asset : `${API_BASE}/${asset}`) : null
-);
+const imageUri = (asset?: string) => getAssetUrl(asset);
 
 const normalizeVariantLabel = (variant?: ProductVariant | null) => (
     String(

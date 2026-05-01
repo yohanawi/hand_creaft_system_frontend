@@ -1,60 +1,50 @@
-import AuthContext from '@/context/AuthContext';
+import CustomerPageFrame, { CustomerSectionCard } from '@/components/Customer/CustomerPageFrame';
+import { BRAND_FONTS, BROWN } from '@/constants/brandTheme';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
+import useProtectedRoute from '@/hooks/useProtectedRoute';
 import { cancelMyOrder, getMyOrders } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    FlatList,
     RefreshControl,
-    StatusBar,
-    StyleSheet,
+    ScrollView,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
 
-const T = {
-    bg: '#1A1209',
-    card: '#2C1810',
-    border: '#3D2415',
-    active: '#C1622F',
-    activeBg: 'rgba(193,98,47,0.15)',
-    text: '#F5EDE0',
-    muted: '#8C7B6E',
-    green: '#4CAF50',
-    yellow: '#F5A623',
-    red: '#E53E3E',
-    blue: '#4299E1',
-};
-
-const STATUS_CONFIG: Record<string, { color: string; icon: string; label: string }> = {
-    awaiting_payment: { color: T.blue, icon: 'credit-card', label: 'Awaiting Payment' },
-    payment_failed: { color: T.red, icon: 'alert-circle', label: 'Payment Failed' },
-    pending: { color: T.yellow, icon: 'clock', label: 'Pending' },
-    confirmed: { color: T.blue, icon: 'check', label: 'Confirmed' },
-    processing: { color: T.blue, icon: 'settings', label: 'Processing' },
-    shipped: { color: T.active, icon: 'truck', label: 'Shipped' },
-    out_for_delivery: { color: T.active, icon: 'navigation', label: 'Out for Delivery' },
-    delivered: { color: T.green, icon: 'check-circle', label: 'Delivered' },
-    cancelled: { color: T.red, icon: 'x-circle', label: 'Cancelled' },
-    returned: { color: T.muted, icon: 'rotate-ccw', label: 'Returned' },
-};
-
 const FILTERS = ['all', 'awaiting_payment', 'payment_failed', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
 
-const PAYMENT_STATUS_COLORS: Record<string, string> = {
-    awaiting_payment: T.blue,
-    cod_due: T.yellow,
-    paid: T.green,
-    failed: T.red,
-    cancelled: T.red,
-    refunded: T.muted,
+const STATUS_CONFIG: Record<string, { color: string; icon: keyof typeof Feather.glyphMap; label: string }> = {
+    awaiting_payment: { color: '#2563EB', icon: 'credit-card', label: 'Awaiting Payment' },
+    payment_failed: { color: '#DC2626', icon: 'alert-circle', label: 'Payment Failed' },
+    pending: { color: '#D97706', icon: 'clock', label: 'Pending' },
+    confirmed: { color: '#2563EB', icon: 'check-circle', label: 'Confirmed' },
+    processing: { color: '#7C3AED', icon: 'settings', label: 'Processing' },
+    shipped: { color: '#C1622F', icon: 'truck', label: 'Shipped' },
+    out_for_delivery: { color: '#EA580C', icon: 'navigation', label: 'Out for Delivery' },
+    delivered: { color: '#15803D', icon: 'check', label: 'Delivered' },
+    cancelled: { color: '#B91C1C', icon: 'x-circle', label: 'Cancelled' },
+    returned: { color: '#6B7280', icon: 'rotate-ccw', label: 'Returned' },
 };
 
+const PAYMENT_STATUS_COLORS: Record<string, string> = {
+    awaiting_payment: '#2563EB',
+    cod_due: '#D97706',
+    paid: '#15803D',
+    failed: '#DC2626',
+    cancelled: '#B91C1C',
+    refunded: '#6B7280',
+};
+
+const formatStatus = (value?: string) => String(value || '').replace(/_/g, ' ');
+
 export default function OrdersScreen() {
-    const auth = useContext(AuthContext);
+    const { scrollY, onScroll } = useHeaderScroll();
+    const auth = useProtectedRoute();
     const navRouter = useRouter();
     const [orders, setOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -64,18 +54,18 @@ export default function OrdersScreen() {
     const [hasMore, setHasMore] = useState(true);
 
     const fetchOrders = useCallback(
-        async (p = 1, status = filter, append = false) => {
-            if (!auth?.userToken) {
-                navRouter.replace('/login' as any);
+        async (nextPage = 1, status = filter, append = false) => {
+            if (!auth.userToken) {
                 return;
             }
+
             try {
-                const params: any = { page: p, limit: 10 };
+                const params: any = { page: nextPage, limit: 10 };
                 if (status !== 'all') params.status = status;
                 const { data } = await getMyOrders(params);
                 const fetched = data.orders ?? [];
-                setOrders(prev => (append ? [...prev, ...fetched] : fetched));
-                setHasMore(p < (data.totalPages ?? 1));
+                setOrders((prev) => (append ? [...prev, ...fetched] : fetched));
+                setHasMore(nextPage < (data.totalPages ?? 1));
             } catch {
                 Alert.alert('Error', 'Could not load orders.');
             } finally {
@@ -83,14 +73,18 @@ export default function OrdersScreen() {
                 setRefreshing(false);
             }
         },
-        [auth?.userToken, filter],
+        [auth.userToken, filter],
     );
 
     useEffect(() => {
+        if (!auth.isAuthorized) {
+            return;
+        }
+
         setLoading(true);
         setPage(1);
-        fetchOrders(1, filter);
-    }, [filter]);
+        fetchOrders(1, filter, false);
+    }, [auth.isAuthorized, fetchOrders, filter]);
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -114,238 +108,176 @@ export default function OrdersScreen() {
                 onPress: async () => {
                     try {
                         await cancelMyOrder(id);
-                        fetchOrders(1, filter);
-                    } catch (err: any) {
-                        Alert.alert('Error', err?.response?.data?.message ?? 'Cannot cancel order.');
+                        fetchOrders(1, filter, false);
+                    } catch (error: any) {
+                        Alert.alert('Error', error?.response?.data?.message ?? 'Cannot cancel order.');
                     }
                 },
             },
         ]);
     };
 
-    const renderOrder = ({ item }: { item: any }) => {
-        const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pending;
-        const canCancel = ['awaiting_payment', 'payment_failed', 'pending', 'confirmed'].includes(item.status);
-        const canRetryPayment = item.paymentMethod === 'payhere' && ['awaiting_payment', 'payment_failed'].includes(item.status);
+    if (auth.shouldBlock) {
         return (
-            <View style={s.card}>
-                {/* Header */}
-                <View style={s.cardHeader}>
-                    <View>
-                        <Text style={s.orderNum}>{item.orderNumber}</Text>
-                        <Text style={s.orderDate}>
-                            {new Date(item.createdAt).toLocaleDateString('en-US', {
-                                day: 'numeric', month: 'short', year: 'numeric',
-                            })}
-                        </Text>
-                    </View>
-                    <View style={[s.badge, { backgroundColor: cfg.color + '22', borderColor: cfg.color }]}>
-                        <Feather name={cfg.icon as any} size={12} color={cfg.color} />
-                        <Text style={[s.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
-                    </View>
-                </View>
-
-                {/* Items preview */}
-                <View style={s.divider} />
-                <View style={s.itemsList}>
-                    {item.items.slice(0, 2).map((it: any) => (
-                        <Text key={it._id} style={s.itemRow} numberOfLines={1}>
-                            · {it.name} × {it.quantity}
-                        </Text>
-                    ))}
-                    {item.items.length > 2 && (
-                        <Text style={s.itemRowMuted}>+{item.items.length - 2} more item(s)</Text>
-                    )}
-                </View>
-
-                {/* Footer */}
-                <View style={s.divider} />
-                <View style={s.cardFooter}>
-                    <View>
-                        <Text style={s.totalLabel}>
-                            Total: <Text style={s.totalValue}>${item.total?.toFixed(2)}</Text>
-                        </Text>
-                        <Text style={[s.paymentText, { color: PAYMENT_STATUS_COLORS[item.paymentStatus] ?? T.muted }]}>
-                            Payment: {String(item.paymentStatus || 'unknown').replace(/_/g, ' ')}
-                        </Text>
-                    </View>
-                    <View style={s.actionRow}>
-                        <TouchableOpacity
-                            style={s.btnTrack}
-                            onPress={() =>
-                                navRouter.push(
-                                    `/order-tracking?orderNumber=${item.orderNumber}` as any,
-                                )
-                            }
-                            activeOpacity={0.8}
-                        >
-                            <Feather name="map-pin" size={14} color={T.active} />
-                            <Text style={s.btnTrackText}>Track</Text>
-                        </TouchableOpacity>
-                        {canRetryPayment && (
-                            <TouchableOpacity
-                                style={s.btnTrack}
-                                onPress={() => navRouter.push(`/payment-failure?orderId=${item._id}` as any)}
-                                activeOpacity={0.8}
-                            >
-                                <Feather name="refresh-cw" size={14} color={T.active} />
-                                <Text style={s.btnTrackText}>Pay Now</Text>
-                            </TouchableOpacity>
-                        )}
-                        {canCancel && (
-                            <TouchableOpacity
-                                style={s.btnCancel}
-                                onPress={() => handleCancel(item._id, item.orderNumber)}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={s.btnCancelText}>Cancel</Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                </View>
+            <View className="flex-1 items-center justify-center bg-[#F7EFE7]">
+                <ActivityIndicator color={BROWN.DarkColor} size="large" />
             </View>
         );
-    };
+    }
 
     return (
-        <View style={s.root}>
-            <StatusBar barStyle="light-content" backgroundColor={T.bg} />
-
-            {/* Header */}
-            <View style={s.header}>
-                <TouchableOpacity onPress={() => navRouter.back()} style={s.backBtn}>
-                    <Feather name="arrow-left" size={22} color={T.text} />
-                </TouchableOpacity>
-                <Text style={s.headerTitle}>My Orders</Text>
-                <View style={{ width: 40 }} />
-            </View>
-
-            {/* Filter tabs */}
-            <FlatList
-                horizontal
-                data={FILTERS}
-                keyExtractor={f => f}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={s.filterWrap}
-                renderItem={({ item: f }) => (
-                    <TouchableOpacity
-                        style={[s.filterTab, filter === f && s.filterTabActive]}
-                        onPress={() => setFilter(f)}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={[s.filterText, filter === f && s.filterTextActive]}>
-                            {f.charAt(0).toUpperCase() + f.slice(1).replace('_', ' ')}
-                        </Text>
+        <CustomerPageFrame
+            scrollY={scrollY}
+            onScroll={onScroll}
+            eyebrow="Order Archive"
+            title="Every purchase, payment state, and shipment update in one place."
+            subtitle="Track orders, continue payment when needed, and review what has already been delivered without leaving the customer workspace."
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BROWN.DarkColor} />}
+            actions={
+                <>
+                    <TouchableOpacity onPress={() => navRouter.push('/shop' as any)} className="rounded-full px-5 py-3" style={{ backgroundColor: '#FFFFFF' }}>
+                        <Text className="font-body text-[14px] font-semibold" style={{ color: BROWN.TextPrimary }}>Browse shop</Text>
                     </TouchableOpacity>
-                )}
-            />
+                    <TouchableOpacity onPress={onRefresh} className="rounded-full border px-5 py-3" style={{ borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(255,255,255,0.1)' }}>
+                        <Text className="font-body text-[14px] font-semibold text-white">Refresh</Text>
+                    </TouchableOpacity>
+                </>
+            }
+            heroAside={
+                <View className="rounded-[30px] border p-5" style={{ borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.1)' }}>
+                    <Text className="font-body text-[11px] uppercase tracking-[1.8px]" style={{ color: '#F1DAC5' }}>Orders snapshot</Text>
+                    <Text className="mt-3 font-heading text-[24px] text-white">{orders.length}</Text>
+                    <View className="gap-3 mt-5">
+                        <View className="flex-row items-center justify-between rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
+                            <Text className="font-body text-[13px]" style={{ color: '#F7E7D8' }}>Current filter</Text>
+                            <Text className="font-body text-[13px] font-semibold text-white">{formatStatus(filter) || 'all'}</Text>
+                        </View>
+                        <View className="flex-row items-center justify-between rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
+                            <Text className="font-body text-[13px]" style={{ color: '#F7E7D8' }}>More pages</Text>
+                            <Text className="font-body text-[13px] font-semibold text-white">{hasMore ? 'Available' : 'Complete'}</Text>
+                        </View>
+                    </View>
+                </View>
+            }
+        >
+            <CustomerSectionCard title="Filter by order state" subtitle="Jump between open, fulfilled, payment, and cancelled orders without leaving the page.">
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 8 }}>
+                    {FILTERS.map((item) => {
+                        const active = item === filter;
+                        return (
+                            <TouchableOpacity
+                                key={item}
+                                onPress={() => setFilter(item)}
+                                className="rounded-full border px-4 py-3"
+                                style={{
+                                    borderColor: active ? BROWN.DarkColor : '#EAD7C3',
+                                    backgroundColor: active ? '#F6ECDF' : '#FFFAF5',
+                                }}
+                            >
+                                <Text className="font-body text-[12px] font-semibold capitalize" style={{ color: active ? BROWN.DarkColor : BROWN.TextSecondary }}>
+                                    {formatStatus(item) || 'all'}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+            </CustomerSectionCard>
 
-            {/* Content */}
-            {loading ? (
-                <View style={s.centered}>
-                    <ActivityIndicator color={T.active} size="large" />
-                </View>
-            ) : orders.length === 0 ? (
-                <View style={s.centered}>
-                    <Feather name="shopping-bag" size={64} color={T.muted} />
-                    <Text style={s.emptyTitle}>No orders yet</Text>
-                    <Text style={s.emptySub}>
-                        {filter !== 'all' ? `No ${filter} orders found.` : 'Start shopping to see orders here.'}
-                    </Text>
-                    {filter === 'all' && (
-                        <TouchableOpacity style={s.shopBtn} onPress={() => navRouter.push('/shop' as any)}>
-                            <Text style={s.shopBtnText}>Browse Shop</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-            ) : (
-                <FlatList
-                    data={orders}
-                    keyExtractor={o => o._id}
-                    renderItem={renderOrder}
-                    contentContainerStyle={s.list}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                            tintColor={T.active}
-                        />
-                    }
-                    onEndReached={loadMore}
-                    onEndReachedThreshold={0.3}
-                    ListFooterComponent={
-                        hasMore ? (
-                            <ActivityIndicator color={T.active} style={{ marginVertical: 16 }} />
-                        ) : null
-                    }
-                />
-            )}
-        </View>
+            <CustomerSectionCard title="Order history" subtitle="Open an order to track delivery, retry payment, or cancel while it is still in the pre-shipment stage.">
+                {loading ? (
+                    <View className="items-center justify-center py-12 gap-3">
+                        <ActivityIndicator color={BROWN.DarkColor} size="large" />
+                        <Text style={{ fontFamily: BRAND_FONTS.body, color: BROWN.TextSecondary }}>Loading your orders...</Text>
+                    </View>
+                ) : orders.length === 0 ? (
+                    <View className="items-center justify-center rounded-[24px] px-6 py-10" style={{ backgroundColor: '#F8EFE6' }}>
+                        <Feather name="shopping-bag" size={44} color={BROWN.lightColor} />
+                        <Text className="mt-4 text-center font-heading text-[24px]" style={{ color: BROWN.TextPrimary }}>No orders here yet</Text>
+                        <Text className="mt-2 text-center font-body text-[13px] leading-6" style={{ color: BROWN.TextSecondary }}>
+                            {filter !== 'all' ? `No ${formatStatus(filter)} orders were found.` : 'Start browsing to build your order archive.'}
+                        </Text>
+                    </View>
+                ) : (
+                    <View className="gap-4">
+                        {orders.map((item) => {
+                            const statusConfig = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pending;
+                            const canCancel = ['awaiting_payment', 'payment_failed', 'pending', 'confirmed'].includes(item.status);
+                            const canRetryPayment = item.paymentMethod === 'payhere' && ['awaiting_payment', 'payment_failed'].includes(item.status);
+
+                            return (
+                                <View key={item._id} className="rounded-[26px] border p-5" style={{ borderColor: '#F0DFCE', backgroundColor: '#FFFAF5' }}>
+                                    <View className="flex-row items-start justify-between gap-4">
+                                        <View className="flex-1">
+                                            <Text className="font-body text-[12px] uppercase tracking-[1.3px]" style={{ color: '#A16D52' }}>{item.orderNumber}</Text>
+                                            <Text className="mt-2 font-heading text-[24px]" style={{ color: BROWN.TextPrimary }}>${Number(item.total || 0).toFixed(2)}</Text>
+                                            <Text className="mt-1 font-body text-[13px]" style={{ color: BROWN.TextSecondary }}>
+                                                {new Date(item.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                            </Text>
+                                        </View>
+                                        <View className="rounded-full px-3 py-2" style={{ backgroundColor: `${statusConfig.color}15` }}>
+                                            <Text className="font-body text-[12px] font-semibold" style={{ color: statusConfig.color }}>{statusConfig.label}</Text>
+                                        </View>
+                                    </View>
+
+                                    <View className="mt-4 gap-2 rounded-[20px] px-4 py-4" style={{ backgroundColor: '#F6ECDF' }}>
+                                        {(item.items || []).slice(0, 2).map((product: any) => (
+                                            <Text key={product._id} className="font-body text-[13px] leading-6" style={{ color: '#6F5A4F' }}>
+                                                {product.name} x{product.quantity}
+                                            </Text>
+                                        ))}
+                                        {item.items?.length > 2 ? (
+                                            <Text className="font-body text-[12px] italic" style={{ color: BROWN.TextSecondary }}>+{item.items.length - 2} more item(s)</Text>
+                                        ) : null}
+                                    </View>
+
+                                    <View className="mt-4 flex-row flex-wrap items-center justify-between gap-3">
+                                        <Text className="font-body text-[12px] capitalize" style={{ color: PAYMENT_STATUS_COLORS[item.paymentStatus] ?? BROWN.TextSecondary }}>
+                                            Payment: {formatStatus(item.paymentStatus) || 'unknown'}
+                                        </Text>
+                                        <View className="flex-row flex-wrap gap-2">
+                                            <TouchableOpacity
+                                                onPress={() => navRouter.push(`/order-tracking?orderNumber=${item.orderNumber}` as any)}
+                                                className="flex-row items-center gap-2 rounded-full px-4 py-3"
+                                                style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EAD7C3' }}
+                                            >
+                                                <Feather name="map-pin" size={14} color={BROWN.DarkColor} />
+                                                <Text className="font-body text-[12px] font-semibold" style={{ color: BROWN.DarkColor }}>Track</Text>
+                                            </TouchableOpacity>
+
+                                            {canRetryPayment ? (
+                                                <TouchableOpacity
+                                                    onPress={() => navRouter.push(`/payment-failure?orderId=${item._id}` as any)}
+                                                    className="flex-row items-center gap-2 rounded-full px-4 py-3"
+                                                    style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EAD7C3' }}
+                                                >
+                                                    <Feather name="refresh-cw" size={14} color={BROWN.DarkColor} />
+                                                    <Text className="font-body text-[12px] font-semibold" style={{ color: BROWN.DarkColor }}>Pay now</Text>
+                                                </TouchableOpacity>
+                                            ) : null}
+
+                                            {canCancel ? (
+                                                <TouchableOpacity
+                                                    onPress={() => handleCancel(item._id, item.orderNumber)}
+                                                    className="rounded-full px-4 py-3"
+                                                    style={{ borderWidth: 1, borderColor: '#DC2626', backgroundColor: '#FFFFFF' }}
+                                                >
+                                                    <Text className="font-body text-[12px] font-semibold" style={{ color: '#DC2626' }}>Cancel</Text>
+                                                </TouchableOpacity>
+                                            ) : null}
+                                        </View>
+                                    </View>
+                                </View>
+                            );
+                        })}
+
+                        {hasMore ? (
+                            <TouchableOpacity onPress={loadMore} className="self-start rounded-full px-5 py-3" style={{ backgroundColor: '#F6ECDF' }}>
+                                <Text className="font-body text-[13px] font-semibold" style={{ color: BROWN.DarkColor }}>Load more orders</Text>
+                            </TouchableOpacity>
+                        ) : null}
+                    </View>
+                )}
+            </CustomerSectionCard>
+        </CustomerPageFrame>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: T.bg },
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingTop: 52, paddingBottom: 16, paddingHorizontal: 20,
-        backgroundColor: T.card, borderBottomWidth: 1, borderBottomColor: T.border,
-    },
-    backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: T.text },
-    filterWrap: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-    filterTab: {
-        paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-        backgroundColor: T.card, borderWidth: 1, borderColor: T.border,
-    },
-    filterTabActive: { backgroundColor: T.activeBg, borderColor: T.active },
-    filterText: { color: T.muted, fontSize: 13, fontWeight: '500' },
-    filterTextActive: { color: T.active, fontWeight: '700' },
-    list: { padding: 16, gap: 12 },
-    card: {
-        backgroundColor: T.card, borderRadius: 16,
-        borderWidth: 1, borderColor: T.border, overflow: 'hidden',
-    },
-    cardHeader: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-        padding: 16,
-    },
-    orderNum: { fontSize: 15, fontWeight: '700', color: T.text },
-    orderDate: { fontSize: 12, color: T.muted, marginTop: 2 },
-    badge: {
-        flexDirection: 'row', alignItems: 'center', gap: 5,
-        paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1,
-    },
-    badgeText: { fontSize: 12, fontWeight: '600' },
-    divider: { height: 1, backgroundColor: T.border },
-    itemsList: { paddingHorizontal: 16, paddingVertical: 10, gap: 4 },
-    itemRow: { fontSize: 13, color: T.text },
-    itemRowMuted: { fontSize: 12, color: T.muted, fontStyle: 'italic' },
-    cardFooter: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        padding: 14,
-    },
-    totalLabel: { fontSize: 14, color: T.muted },
-    totalValue: { color: T.active, fontWeight: '700', fontSize: 15 },
-    paymentText: { fontSize: 12, marginTop: 4, textTransform: 'capitalize' },
-    actionRow: { flexDirection: 'row', gap: 8 },
-    btnTrack: {
-        flexDirection: 'row', alignItems: 'center', gap: 5,
-        paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10,
-        backgroundColor: T.activeBg, borderWidth: 1, borderColor: T.active,
-    },
-    btnTrackText: { color: T.active, fontSize: 13, fontWeight: '600' },
-    btnCancel: {
-        paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10,
-        borderWidth: 1, borderColor: T.red,
-    },
-    btnCancelText: { color: T.red, fontSize: 13, fontWeight: '600' },
-    centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-    emptyTitle: { fontSize: 20, fontWeight: '700', color: T.text },
-    emptySub: { fontSize: 14, color: T.muted, textAlign: 'center', paddingHorizontal: 32 },
-    shopBtn: {
-        marginTop: 8, backgroundColor: T.active,
-        paddingHorizontal: 28, paddingVertical: 12, borderRadius: 24,
-    },
-    shopBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-});

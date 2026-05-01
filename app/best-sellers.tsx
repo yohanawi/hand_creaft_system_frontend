@@ -1,16 +1,14 @@
 ﻿import PageShell from '@/components/PageShell';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
-import { getProducts } from '@/services/api';
+import { getAssetUrl, getProducts } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Animated, Dimensions, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
-const API_BASE = 'http://localhost:5000';
-
 const productImageUri = (img?: string) =>
-    img ? (img.startsWith('http') ? img : `${API_BASE}/${img.replace(/\\/g, '/')}`) : 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600';
+    getAssetUrl(img) || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

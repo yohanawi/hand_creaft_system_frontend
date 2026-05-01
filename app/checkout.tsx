@@ -1,13 +1,13 @@
 import PageShell from '@/components/PageShell';
-import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
+import useProtectedRoute from '@/hooks/useProtectedRoute';
 import { getAddresses, initiatePayHerePayment, placeOrder, validateCoupon } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -42,7 +42,7 @@ const EMPTY_FORM: ShippingForm = {
 export default function CheckoutScreen() {
     const { scrollY, onScroll } = useHeaderScroll();
     const router = useRouter();
-    const auth = useContext(AuthContext);
+    const auth = useProtectedRoute();
     const { items, subtotal, shippingCost, clearCart } = useCart();
     const authUser = auth?.user;
 
@@ -206,6 +206,14 @@ export default function CheckoutScreen() {
 
     const unitPrice = (item: (typeof items)[number]) =>
         item.salePrice !== null && item.salePrice < item.price ? item.salePrice : item.price;
+
+    if (auth.shouldBlock) {
+        return (
+            <View className="flex-1 items-center justify-center bg-white">
+                <ActivityIndicator size="large" color="#8B4513" />
+            </View>
+        );
+    }
 
     return (
         <View className="flex-1 bg-white">

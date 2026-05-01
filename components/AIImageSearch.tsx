@@ -7,7 +7,7 @@
  * Used inside: app/ai-search.tsx
  */
 
-import { searchProductsByImage } from "@/services/api";
+import { getAssetUrl, searchProductsByImage } from "@/services/api";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -15,16 +15,12 @@ import React, { useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    Dimensions,
     Image,
     ScrollView,
-    StatusBar,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // ─── Design Tokens (consistent with the rest of the app) ─────────────────────
 const C = {
@@ -66,9 +62,7 @@ type SimilarProduct = {
 function getImageUri(product: SimilarProduct["product"]): string {
     const raw = product.thumbnailImage || (product.images && product.images.length > 0 ? product.images[0] : "");
     if (raw) {
-        if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
-        const normalized = raw.startsWith("/") ? raw : `/${raw}`;
-        return `http://localhost:5000${normalized}`;
+        return getAssetUrl(raw) || "https://via.placeholder.com/300x300?text=No+Image";
     }
     return "https://via.placeholder.com/300x300?text=No+Image";
 }
@@ -97,7 +91,7 @@ export default function AIImageSearch() {
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState<SimilarProduct[]>([]);
     const [searchDone, setSearchDone] = useState(false);
-    const [errorMsg, setErrorMsg] = useState<string | null>(null); 
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [searchTime, setSearchTime] = useState<number | null>(null);
 
     // ── Image Picker ──────────────────────────────────────────────────────────
@@ -199,65 +193,6 @@ export default function AIImageSearch() {
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <View style={{ flex: 1, backgroundColor: C.cream }}>
-            <StatusBar barStyle="light-content" backgroundColor={C.primaryDark} />
-
-            {/* ── Header ────────────────────────────────────────────────────────── */}
-            <View
-                style={{
-                    backgroundColor: C.primaryDark,
-                    paddingTop: 50,
-                    paddingBottom: 20,
-                    paddingHorizontal: 20,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 12,
-                }}
-            >
-                <TouchableOpacity
-                    onPress={() => router.back()}
-                    style={{
-                        width: 38,
-                        height: 38,
-                        borderRadius: 19,
-                        backgroundColor: "rgba(255,255,255,0.15)",
-                        justifyContent: "center",
-                        alignItems: "center",
-                    }}
-                >
-                    <Feather name="arrow-left" size={20} color={C.white} />
-                </TouchableOpacity>
-
-                <View style={{ flex: 1 }}>
-                    <Text
-                        style={{
-                            color: C.white,
-                            fontSize: 20,
-                            fontWeight: "700",
-                            letterSpacing: 0.3,
-                        }}
-                    >
-                        AI Image Search
-                    </Text>
-                    <Text style={{ color: C.accentLight, fontSize: 12, marginTop: 2 }}>
-                        Upload a photo to find visually similar jewelries
-                    </Text>
-                </View>
-
-                {/* AI badge */}
-                <View
-                    style={{
-                        backgroundColor: C.accent,
-                        paddingHorizontal: 10,
-                        paddingVertical: 4,
-                        borderRadius: 12,
-                    }}
-                >
-                    <Text style={{ color: C.white, fontSize: 11, fontWeight: "700" }}>
-                        CNN
-                    </Text>
-                </View>
-            </View>
-
             <ScrollView
                 contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
                 showsVerticalScrollIndicator={false}

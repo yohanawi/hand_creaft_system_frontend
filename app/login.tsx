@@ -1,620 +1,294 @@
+import AuthField from '@/components/Auth/AuthField';
+import AuthStage from '@/components/Auth/AuthStage';
+import PageShell from '@/components/PageShell';
+import { BRAND_FONTS, BROWN } from '@/constants/brandTheme';
+import { useAuth } from '@/context/AuthContext';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
+import { API_URL, loginUser, setAuthToken } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     Alert,
     Animated,
-    Dimensions,
-    Easing,
     KeyboardAvoidingView,
     Platform,
     Pressable,
-    ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
 
-import AuthContext from '@/context/AuthContext';
-import { loginUser, setAuthToken } from '@/services/api';
-
-const { width: SW, height: SH } = Dimensions.get('window');
-
-// ── Design tokens ────────────────────────────────────────────────────────────
-const T = {
-    bark: '#2C1810',
-    espresso: '#4A2515',
-    clay: '#8B4513',
-    terra: '#C1622F',
-    kraft: '#D4A96A',
-    sand: '#EDD9B8',
-    cream: '#FAF6F0',
-    linen: '#F5EDE0',
-    sage: '#6B7C5E',
-    muted: '#8C7B6E',
-    charcoal: '#2D2926',
+const C = {
+    screen: BROWN.Background,
+    text: BROWN.TextPrimary,
+    muted: BROWN.TextSecondary,
+    accent: BROWN.DarkColor,
+    accentDeep: BROWN.DarkColor,
+    bronze: BROWN.SecondaryBackground,
+    line: BROWN.Border,
+    card: '#FFFFFF',
     white: '#FFFFFF',
+    successBg: 'rgba(255,255,255,0.72)',
 };
 
-// ── Feature data ─────────────────────────────────────────────────────────────
-const FEATURES = [
-    { icon: 'shield', title: 'Secure Payments', sub: 'End-to-end encrypted transactions' },
-    { icon: 'users', title: '10K+ Artisans', sub: 'Verified creators worldwide' },
-    { icon: 'globe', title: '150+ Countries', sub: 'International shipping' },
-    { icon: 'award', title: 'Quality Guarantee', sub: 'Every item handpicked' },
-];
+const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
-// ── Floating icon spec ────────────────────────────────────────────────────────
-const FLOATERS = [
-    { icon: 'scissors', size: 28, x: '80%', y: '12%', opacity: 0.18 },
-    { icon: 'package', size: 22, x: '10%', y: '25%', opacity: 0.13 },
-    { icon: 'heart', size: 20, x: '75%', y: '58%', opacity: 0.16 },
-    { icon: 'star', size: 18, x: '15%', y: '72%', opacity: 0.14 },
-    { icon: 'feather', size: 24, x: '60%', y: '82%', opacity: 0.12 },
-    { icon: 'sun', size: 16, x: '35%', y: '10%', opacity: 0.10 },
-];
-
-// ── Hook: responsive breakpoint ──────────────────────────────────────────────
-function useDims() {
-    const [dims, setDims] = useState({ w: SW, h: SH });
-    useEffect(() => {
-        const sub = Dimensions.addEventListener('change', ({ window }) =>
-            setDims({ w: window.width, h: window.height })
-        );
-        return () => sub?.remove();
-    }, []);
-    return { ...dims, isMobile: dims.w < 768, isTablet: dims.w >= 768 && dims.w < 1024 };
-}
-
-// ── FloaterIcon ──────────────────────────────────────────────────────────────
-function FloaterIcon({ icon, size, opacity, delay }: any) {
-    const anim = useRef(new Animated.Value(0)).current;
-    useEffect(() => {
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(anim, { toValue: 1, duration: 3200 + delay * 400, easing: Easing.inOut(Easing.sin), useNativeDriver: true, delay }),
-                Animated.timing(anim, { toValue: 0, duration: 3200 + delay * 400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-            ])
-        ).start();
-    }, []);
-    const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [0, -18] });
-    const rotate = anim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '12deg'] });
-    return (
-        <Animated.View style={{ transform: [{ translateY }, { rotate }], opacity }}>
-            <Feather name={icon} size={size} color={T.white} />
-        </Animated.View>
-    );
-}
-
-// ── SocialBtn ────────────────────────────────────────────────────────────────
-function SocialBtn({ children, onPress }: any) {
-    const scale = useRef(new Animated.Value(1)).current;
-    return (
-        <Animated.View style={{ transform: [{ scale }], flex: 1 }}>
-            <Pressable
-                onPressIn={() => Animated.spring(scale, { toValue: 0.93, useNativeDriver: true }).start()}
-                onPressOut={() => Animated.spring(scale, { toValue: 1, tension: 200, friction: 5, useNativeDriver: true }).start()}
-                onPress={onPress}
-                style={s.socialBtn}
-            >
-                {children}
-            </Pressable>
-        </Animated.View>
-    );
-}
-
-// ── InputField ───────────────────────────────────────────────────────────────
-function InputField({ icon, placeholder, value, onChange, secureEntry, right, keyboardType }: any) {
-    const [focused, setFocused] = useState(false);
-    const focusAnim = useRef(new Animated.Value(0)).current;
-    const onFocus = () => { setFocused(true); Animated.timing(focusAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start(); };
-    const onBlur = () => { setFocused(false); Animated.timing(focusAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start(); };
-    const borderColor = focusAnim.interpolate({ inputRange: [0, 1], outputRange: ['rgba(212,169,106,0.3)', T.terra] });
-    const bgColor = focusAnim.interpolate({ inputRange: [0, 1], outputRange: ['rgba(245,237,224,0.8)', 'rgba(250,246,240,1)'] });
-
-    return (
-        <Animated.View style={[s.inputWrap, { borderColor, backgroundColor: bgColor }]}>
-            <Feather name={icon} size={19} color={focused ? T.terra : T.muted} style={{ marginRight: 12 }} />
-            <TextInput
-                placeholder={placeholder}
-                placeholderTextColor={T.muted}
-                value={value}
-                onChangeText={onChange}
-                onFocus={onFocus}
-                onBlur={onBlur}
-                secureTextEntry={secureEntry}
-                keyboardType={keyboardType}
-                autoCapitalize="none"
-                style={s.input}
-            />
-            {right}
-        </Animated.View>
-    );
-}
-
-// ── FeatureCard ───────────────────────────────────────────────────────────────
-function FeatureCard({ icon, title, sub, index }: any) {
-    const anim = useRef(new Animated.Value(0)).current;
-    useEffect(() => {
-        Animated.timing(anim, { toValue: 1, duration: 500, delay: 400 + index * 120, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
-    }, []);
-    return (
-        <Animated.View style={[s.featureCard, { opacity: anim, transform: [{ translateX: anim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }] }]}>
-            <View style={s.featureIconWrap}>
-                <Feather name={icon} size={20} color={T.clay} />
-            </View>
-            <View style={{ flex: 1 }}>
-                <Text style={s.featureTitle}>{title}</Text>
-                <Text style={s.featureSub}>{sub}</Text>
-            </View>
-        </Animated.View>
-    );
-}
-
-// ── Main ──────────────────────────────────────────────────────────────────────
 export default function LoginScreen() {
-    const { isMobile, isTablet } = useDims();
+    const router = useRouter();
+    const { scrollY, onScroll } = useHeaderScroll();
+    const { login, user, userToken, isLoading: authIsLoading } = useAuth();
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [rememberMe, setRememberMe] = useState(false);
+    const [rememberMe, setRememberMe] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
 
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-    const slideLeft = useRef(new Animated.Value(-40)).current;
-    const slideRight = useRef(new Animated.Value(40)).current;
-    const logoScale = useRef(new Animated.Value(0.7)).current;
-    const logoPulse = useRef(new Animated.Value(1)).current;
     const btnScale = useRef(new Animated.Value(1)).current;
 
-    const authContext = useContext(AuthContext);
-    const router = useRouter();
-    if (!authContext) throw new Error('AuthContext must be used within AuthProvider');
-    const { login } = authContext;
-
     useEffect(() => {
-        Animated.parallel([
-            Animated.timing(fadeAnim, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-            Animated.spring(slideLeft, { toValue: 0, tension: 55, friction: 9, useNativeDriver: true }),
-            Animated.spring(slideRight, { toValue: 0, tension: 55, friction: 9, useNativeDriver: true }),
-            Animated.spring(logoScale, { toValue: 1, tension: 60, friction: 8, delay: 200, useNativeDriver: true }),
-        ]).start();
-
-        Animated.loop(Animated.sequence([
-            Animated.timing(logoPulse, { toValue: 1.06, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-            Animated.timing(logoPulse, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        ])).start();
-    }, []);
+        if (authIsLoading || !userToken) return;
+        router.replace(user?.role === 'admin' ? '/admin' : '/customer-dashboard');
+    }, [authIsLoading, router, user?.role, userToken]);
 
     const handleLogin = async () => {
-        if (!email || !password) { Alert.alert('Required', 'Please enter email and password'); return; }
-        setIsLoading(true);
-        Animated.spring(btnScale, { toValue: 0.96, useNativeDriver: true }).start();
+        const normalizedEmail = normalizeEmail(email);
+        if (!normalizedEmail || !password) {
+            Alert.alert('Missing details', 'Enter your email address and password to continue.');
+            return;
+        }
+
+        setSubmitting(true);
+        Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start();
+
         try {
-            const res = await loginUser({ email, password });
-            const { token, user } = res.data;
+            const response = await loginUser({ email: normalizedEmail, password });
+            const { token, user: userData } = response.data;
+
             setAuthToken(token);
-            login(token, { id: user.id, name: user.name, email: user.email, role: user.role });
-            if (user.role === 'admin') {
-                router.replace('/admin');
-            } else {
-                router.replace('/');
-            }
-        } catch (err: any) {
-            Alert.alert('Login Failed', err.response?.data?.message || 'Please check your credentials');
+            login(token, userData, { persist: rememberMe });
+            router.replace(userData.role === 'admin' ? '/admin' : '/customer-dashboard');
+        } catch (error: any) {
+            const message =
+                error.response?.data?.message ??
+                (error.request
+                    ? `Unable to reach the backend at ${API_URL}. Make sure the Express server is running.`
+                    : error.message) ??
+                'Please check your credentials and try again.';
+            Alert.alert('Login failed', message);
         } finally {
-            setIsLoading(false);
-            Animated.spring(btnScale, { toValue: 1, tension: 200, friction: 5, useNativeDriver: true }).start();
+            setSubmitting(false);
+            Animated.spring(btnScale, { toValue: 1, tension: 180, friction: 7, useNativeDriver: true }).start();
         }
     };
 
-    // ── Shared: form panel ────────────────────────────────────────────────────
-    const FormPanel = () => (
-        <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[s.formScroll, isMobile && s.formScrollMobile]}
-            keyboardShouldPersistTaps="handled"
-        > 
-            <View style={[s.formInner, isMobile && s.formInnerMobile]}>
-
-                {/* Mobile-only logo strip */}
-                {isMobile && (
-                    <View style={s.mobileLogo}>
-                        <Animated.View style={[s.mobileLogoIcon, { transform: [{ scale: logoPulse }] }]}>
-                            <Feather name="scissors" size={30} color={T.white} />
-                        </Animated.View>
-                        <View>
-                            <Text style={s.mobileLogoName}>HandCraft</Text>
-                            <Text style={s.mobileLogoTagline}>ARTISAN MARKETPLACE</Text>
-                        </View>
-                    </View>
-                )}
-
-                {/* Headline */}
-                <View style={s.formHeader}>
-                    <Text style={s.formEyebrow}>SIGN IN</Text>
-                    <Text style={[s.formTitle, isMobile && s.formTitleMobile]}>Welcome{'\n'}Back.</Text>
-                    <Text style={s.formSubtitle}>Continue your artisan journey</Text>
-                </View>
-
-                {/* Inputs */}
-                <View style={s.fields}>
-                    <InputField
-                        icon="mail"
-                        placeholder="Email address"
-                        value={email}
-                        onChange={setEmail}
-                        keyboardType="email-address"
-                    />
-                    <InputField
-                        icon="lock"
-                        placeholder="Password"
-                        value={password}
-                        onChange={setPassword}
-                        secureEntry={!showPassword}
-                        right={
-                            <TouchableOpacity onPress={() => setShowPassword(v => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                                <Feather name={showPassword ? 'eye' : 'eye-off'} size={19} color={T.muted} />
-                            </TouchableOpacity>
-                        }
-                    />
-                </View>
-
-                {/* Options row */}
-                <View style={s.optionsRow}>
-                    <TouchableOpacity style={s.rememberRow} onPress={() => setRememberMe(v => !v)} activeOpacity={0.7}>
-                        <View style={[s.checkbox, rememberMe && s.checkboxActive]}>
-                            {rememberMe && <Feather name="check" size={11} color={T.white} />}
-                        </View>
-                        <Text style={s.rememberText}>Remember me</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/forgot-password' as any)}>
-                        <Text style={s.forgotText}>Forgot Password?</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Submit */}
-                <Animated.View style={{ transform: [{ scale: btnScale }] }}>
-                    <TouchableOpacity onPress={handleLogin} disabled={isLoading} activeOpacity={0.9}>
-                        <LinearGradient
-                            colors={[T.espresso, T.clay, T.terra]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={s.submitBtn}
-                        >
-                            {isLoading ? (
-                                <Text style={s.submitBtnText}>Signing In…</Text>
-                            ) : (
-                                <>
-                                    <Text style={s.submitBtnText}>Sign In</Text>
-                                    <Feather name="arrow-right" size={20} color={T.white} style={{ marginLeft: 8 }} />
-                                </>
-                            )}
-                        </LinearGradient>
-                    </TouchableOpacity>
-                </Animated.View>
-
-                {/* Divider */}
-                <View style={s.divider}>
-                    <View style={s.dividerLine} />
-                    <Text style={s.dividerText}>OR CONTINUE WITH</Text>
-                    <View style={s.dividerLine} />
-                </View>
-
-                {/* Social row */}
-                <View style={s.socialRow}>
-                    <SocialBtn>
-                        <Text style={s.googleLetter}>G</Text>
-                        <Text style={s.socialLabel}>Google</Text>
-                    </SocialBtn>
-                    <SocialBtn>
-                        <Feather name="facebook" size={20} color="#1877F2" />
-                        <Text style={s.socialLabel}>Facebook</Text>
-                    </SocialBtn>
-                    <SocialBtn>
-                        <Feather name="github" size={20} color={T.charcoal} />
-                        <Text style={s.socialLabel}>GitHub</Text>
-                    </SocialBtn>
-                </View>
-
-                {/* Register link */}
-                <View style={s.registerRow}>
-                    <Text style={s.registerPrompt}>New to HandCraft? </Text>
-                    <TouchableOpacity onPress={() => router.push('/register')} activeOpacity={0.7}>
-                        <Text style={s.registerLink}>Create Account →</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        </ScrollView>
-    );
-
-    // ── Brand panel (desktop/tablet left side) ────────────────────────────────
-    const BrandPanel = () => (
-        <LinearGradient
-            colors={[T.bark, T.espresso, T.clay]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={s.brand}
-        >
-            {/* Floating icons */}
-            {FLOATERS.map((f, i) => (
-                <Animated.View
-                    key={i}
-                    style={[s.floater, { left: f.x as any, top: f.y as any }]}
-                >
-                    <FloaterIcon icon={f.icon} size={f.size} opacity={f.opacity} delay={i * 200} />
-                </Animated.View>
-            ))}
-
-            {/* Big decorative ring */}
-            <View style={s.brandRing1} />
-            <View style={s.brandRing2} />
-
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={s.brandScroll}
-            >
-                {/* Logo lockup */}
-                <Animated.View style={[s.logoWrap, { transform: [{ scale: logoScale }] }]}>
-                    <Animated.View style={[s.logoCircle, { transform: [{ scale: logoPulse }] }]}>
-                        <Feather name="scissors" size={52} color={T.white} />
-                    </Animated.View>
-                </Animated.View>
-
-                <Text style={s.brandName}>HandCraft</Text>
-
-                <View style={s.brandDivider}>
-                    <View style={s.brandDividerDot} />
-                    <View style={s.brandDividerLine} />
-                    <View style={s.brandDividerDot} />
-                </View>
-
-                <Text style={s.brandTagline}>ARTISAN MARKETPLACE</Text>
-
-                <Text style={s.brandDesc}>
-                    Discover extraordinary handcrafted{'\n'}pieces from independent creators.{'\n'}
-                    Where every item tells a story.
-                </Text>
-
-                {/* Features */}
-                <View style={s.featureList}>
-                    {FEATURES.map((f, i) => (
-                        <FeatureCard key={i} {...f} index={i} />
-                    ))}
-                </View>
-
-                {/* Explore CTA */}
-                <TouchableOpacity
-                    style={s.exploreCta}
-                    onPress={() => router.push('/')}
-                    activeOpacity={0.85}
-                >
-                    <Text style={s.exploreCtaText}>Explore Marketplace</Text>
-                    <Feather name="arrow-right" size={17} color={T.clay} />
-                </TouchableOpacity>
-
-                {/* Testimonial */}
-                <View style={s.testimonial}>
-                    <Text style={s.testimonialText}>
-                        "HandCraft helped me reach customers I never could have found on my own."
-                    </Text>
-                    <Text style={s.testimonialAuthor}>— Priya, ceramic artist</Text>
-                </View>
-            </ScrollView>
-        </LinearGradient>
-    );
-
-    // ── Render ────────────────────────────────────────────────────────────────
     return (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={s.root}
-        >
-            <Animated.View style={[s.flex, { opacity: fadeAnim }]}>
-                {isMobile ? (
-                    /* ── Mobile: form-only, brand info collapsed into header strip ── */
-                    <LinearGradient
-                        colors={[T.bark, T.espresso, T.clay, T.cream]}
-                        locations={[0, 0.2, 0.38, 0.38]}
-                        style={s.flex}
+        <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <Animated.ScrollView
+                style={styles.root}
+                contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                onScroll={onScroll}
+                scrollEventThrottle={16}
+            >
+                <PageShell scrollY={scrollY}>
+                    <AuthStage
+                        badgeIcon="key"
+                        badgeLabel="Member Sign In"
+                        cardTitle="Return to your collection."
+                        cardDescription="Sign in to revisit saved pieces, follow your orders, and keep your curated wishlist close."
+                        heroEyebrow="Artisan Account Access"
+                        heroTitle="A calm, crafted entrance for returning customers."
+                        heroDescription="Your account keeps delivery details, favorite finds, and support history in one place, so the shopping experience feels as considered as the pieces themselves."
+                        heroQuote="Every handcrafted order deserves a checkout and support flow that feels personal, not mechanical."
+                        heroQuoteAuthor="studio promise"
+                        features={[
+                            { icon: 'heart', title: 'Saved favorites', body: 'Pick up where you left off with wishlisted jewelry and gift ideas.' },
+                            { icon: 'truck', title: 'Order tracking', body: 'Review deliveries, payment status, and customer support updates quickly.' },
+                            { icon: 'shield', title: 'Protected sessions', body: 'Use remember me when you want secure persistence on your own device.' },
+                        ]}
+                        footerPrompt="New here?"
+                        footerActionLabel="Create an account"
+                        onFooterAction={() => router.push('/register' as any)}
                     >
-                        {/* Floating icons behind header */}
-                        {FLOATERS.slice(0, 3).map((f, i) => (
-                            <Animated.View key={i} style={[s.floater, { left: f.x as any, top: i === 0 ? '4%' : i === 1 ? '10%' : '22%', zIndex: 0 }]}>
-                                <FloaterIcon icon={f.icon} size={f.size} opacity={f.opacity} delay={i * 300} />
-                            </Animated.View>
-                        ))}
+                        <View style={styles.formGroup}>
+                            <AuthField
+                                icon="mail"
+                                value={email}
+                                placeholder="Email address"
+                                onChange={setEmail}
+                                keyboardType="email-address"
+                                autoComplete="email"
+                                textContentType="emailAddress"
+                                returnKeyType="next"
+                            />
+                            <AuthField
+                                icon="lock"
+                                value={password}
+                                placeholder="Password"
+                                onChange={setPassword}
+                                secureTextEntry={!showPassword}
+                                autoComplete="password"
+                                textContentType="password"
+                                returnKeyType="go"
+                                onSubmitEditing={handleLogin}
+                                right={
+                                    <TouchableOpacity onPress={() => setShowPassword((value) => !value)} activeOpacity={0.7}>
+                                        <Feather name={showPassword ? 'eye' : 'eye-off'} size={16} color={C.muted} />
+                                    </TouchableOpacity>
+                                }
+                            />
+                        </View>
 
-                        <Animated.View style={[s.mobileCard, { transform: [{ translateY: slideRight }] }]}>
-                            <FormPanel />
-                        </Animated.View>
-                    </LinearGradient>
-                ) : (
-                    /* ── Tablet / Desktop: split screen ── */
-                    <View style={s.splitScreen}>
-                        <Animated.View
-                            style={[
-                                s.brandCol,
-                                isTablet ? { width: '42%' } : { width: '45%' },
-                                { transform: [{ translateX: slideLeft }] },
-                            ]}
-                        >
-                            <BrandPanel />
+                        <View style={styles.metaRow}>
+                            <Pressable style={styles.checkRow} onPress={() => setRememberMe((value) => !value)}>
+                                <View style={[styles.check, rememberMe && styles.checkActive]}>
+                                    {rememberMe && <Feather name="check" size={11} color={C.white} />}
+                                </View>
+                                <Text style={styles.metaText}>Remember me on this device</Text>
+                            </Pressable>
+
+                            <TouchableOpacity onPress={() => router.push('/forgot-password' as any)} activeOpacity={0.75}>
+                                <Text style={styles.inlineLink}>Forgot password?</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <Animated.View style={{ transform: [{ scale: btnScale }] }}>
+                            <TouchableOpacity disabled={submitting} activeOpacity={0.88} onPress={handleLogin}>
+                                <LinearGradient
+                                    colors={[BROWN.DarkColor, BROWN.SecondaryBackground, BROWN.lightColor]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.submitBtn}
+                                >
+                                    <Text style={styles.submitText}>{submitting ? 'Signing In...' : 'Sign In'}</Text>
+                                    {!submitting && <Feather name="arrow-right" size={16} color={C.white} />}
+                                </LinearGradient>
+                            </TouchableOpacity>
                         </Animated.View>
 
-                        <Animated.View
-                            style={[s.formCol, { transform: [{ translateX: slideRight }] }]}
-                        >
-                            {/* Subtle craft paper texture bg */}
-                            <View style={s.formBg}>
-                                <View style={s.formBgAccent} />
+                        <View style={styles.notePanel}>
+                            <View style={styles.noteHeader}>
+                                <Feather name="clock" size={15} color={C.accent} />
+                                <Text style={styles.noteTitle}>Need help before checkout?</Text>
                             </View>
-                            <FormPanel />
-                        </Animated.View>
-                    </View>
-                )}
-            </Animated.View>
+                            <Text style={styles.noteBody}>
+                                If you cannot access your account, use password recovery or reach out to the support team for order and delivery help.
+                            </Text>
+                            <TouchableOpacity onPress={() => router.push('/contact' as any)} activeOpacity={0.75}>
+                                <Text style={styles.noteLink}>Contact support</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </AuthStage>
+                </PageShell>
+            </Animated.ScrollView>
         </KeyboardAvoidingView>
     );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: T.bark },
-    flex: { flex: 1 },
-
-    // Split screen
-    splitScreen: { flex: 1, flexDirection: 'row' },
-    brandCol: { flexShrink: 0 },
-    formCol: { flex: 1, backgroundColor: T.cream, position: 'relative', overflow: 'hidden' },
-    formBg: { position: 'absolute', inset: 0, backgroundColor: T.cream },
-    formBgAccent: { position: 'absolute', top: -120, right: -120, width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(212,169,106,0.07)' },
-
-    // Brand panel
-    brand: { flex: 1, overflow: 'hidden', position: 'relative' },
-    brandRing1: { position: 'absolute', right: -100, bottom: -100, width: 400, height: 400, borderRadius: 200, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-    brandRing2: { position: 'absolute', right: -60, bottom: -60, width: 260, height: 260, borderRadius: 130, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
-    brandScroll: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 56, paddingHorizontal: 40, zIndex: 2 },
-    floater: { position: 'absolute', zIndex: 1 },
-
-    // Logo
-    logoWrap: { marginBottom: 24 },
-    logoCircle: {
-        width: 100, height: 100, borderRadius: 50,
-        backgroundColor: 'rgba(255,255,255,0.14)',
-        alignItems: 'center', justifyContent: 'center',
-        borderWidth: 2, borderColor: 'rgba(255,255,255,0.28)',
-        shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 10,
-    },
-    brandName: { color: T.white, fontSize: 40, fontWeight: '800', letterSpacing: 4, fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif', textAlign: 'center', marginBottom: 16 },
-    brandDivider: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
-    brandDividerLine: { width: 40, height: 1, backgroundColor: 'rgba(255,255,255,0.35)' },
-    brandDividerDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: T.kraft },
-    brandTagline: { color: T.kraft, fontSize: 11, fontWeight: '700', letterSpacing: 3.5, textAlign: 'center', marginBottom: 20 },
-    brandDesc: { color: 'rgba(255,255,255,0.72)', fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 32 },
-
-    // Feature cards
-    featureList: { width: '100%', gap: 10, marginBottom: 32 },
-    featureCard: {
-        flexDirection: 'row', alignItems: 'center', gap: 14,
-        backgroundColor: 'rgba(255,255,255,0.09)',
-        borderRadius: 16, padding: 14,
-        borderLeftWidth: 3, borderLeftColor: T.kraft,
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-    },
-    featureIconWrap: {
-        width: 42, height: 42, borderRadius: 12,
-        backgroundColor: T.white,
-        alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0,
-    },
-    featureTitle: { color: T.white, fontSize: 14, fontWeight: '700', marginBottom: 2 },
-    featureSub: { color: 'rgba(255,255,255,0.62)', fontSize: 12 },
-
-    // Explore CTA
-    exploreCta: {
-        flexDirection: 'row', alignItems: 'center', gap: 8,
-        backgroundColor: T.white, borderRadius: 100,
-        paddingVertical: 13, paddingHorizontal: 28,
-        marginBottom: 28,
-        shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 16, shadowOffset: { width: 0, height: 4 }, elevation: 6,
-    },
-    exploreCtaText: { color: T.clay, fontSize: 15, fontWeight: '700' },
-
-    // Testimonial
-    testimonial: {
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        borderRadius: 16, padding: 18,
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
-        width: '100%',
-    },
-    testimonialText: { color: 'rgba(255,255,255,0.82)', fontSize: 13, lineHeight: 20, fontStyle: 'italic', marginBottom: 8, fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' },
-    testimonialAuthor: { color: T.kraft, fontSize: 12, fontWeight: '600' },
-
-    // Mobile
-    mobileCard: {
+const styles = StyleSheet.create({
+    root: {
         flex: 1,
-        marginTop: 180,
-        backgroundColor: T.cream,
-        borderTopLeftRadius: 36,
-        borderTopRightRadius: 36,
-        shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 30, shadowOffset: { width: 0, height: -8 }, elevation: 20,
-        overflow: 'hidden',
+        backgroundColor: C.screen,
     },
-    mobileLogo: {
-        flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 28,
-        paddingTop: 8,
+    scrollContent: {
+        flexGrow: 1,
     },
-    mobileLogoIcon: {
-        width: 52, height: 52, borderRadius: 16,
-        backgroundColor: T.clay,
-        alignItems: 'center', justifyContent: 'center',
-        shadowColor: T.clay, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 6,
+    formGroup: {
+        gap: 12,
     },
-    mobileLogoName: { color: T.bark, fontSize: 22, fontWeight: '800', fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' },
-    mobileLogoTagline: { color: T.muted, fontSize: 10, fontWeight: '600', letterSpacing: 2 },
-
-    // Form
-    formScroll: { flexGrow: 1 },
-    formScrollMobile: {},
-    formInner: { flex: 1, justifyContent: 'center', paddingHorizontal: 48, paddingVertical: 48, maxWidth: 480, alignSelf: 'center', width: '100%' },
-    formInnerMobile: { paddingHorizontal: 28, paddingVertical: 32 },
-    formHeader: { marginBottom: 32 },
-    formEyebrow: { color: T.terra, fontSize: 11, fontWeight: '700', letterSpacing: 3, marginBottom: 6 },
-    formTitle: { color: T.bark, fontSize: 48, fontWeight: '800', lineHeight: 52, marginBottom: 8, fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' },
-    formTitleMobile: { fontSize: 36, lineHeight: 40 },
-    formSubtitle: { color: T.muted, fontSize: 14 },
-
-    // Fields
-    fields: { gap: 14, marginBottom: 18 },
-    inputWrap: {
-        flexDirection: 'row', alignItems: 'center',
-        borderWidth: 1.5, borderRadius: 16,
-        paddingHorizontal: 16, height: 56,
-        shadowColor: T.clay, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        flexWrap: 'wrap',
     },
-    input: { flex: 1, fontSize: 15, color: T.charcoal, height: '100%' },
-
-    // Options
-    optionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
-    rememberRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: T.kraft, alignItems: 'center', justifyContent: 'center' },
-    checkboxActive: { backgroundColor: T.clay, borderColor: T.clay },
-    rememberText: { fontSize: 13, color: T.muted },
-    forgotText: { fontSize: 13, fontWeight: '600', color: T.terra },
-
-    // Submit
+    checkRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 9,
+    },
+    check: {
+        width: 20,
+        height: 20,
+        borderRadius: 6,
+        borderWidth: 1.5,
+        borderColor: C.bronze,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: C.card,
+    },
+    checkActive: {
+        backgroundColor: C.accent,
+        borderColor: C.accent,
+    },
+    metaText: {
+        fontFamily: BRAND_FONTS.body,
+        fontSize: 12,
+        color: C.muted,
+    },
+    inlineLink: {
+        fontFamily: BRAND_FONTS.body,
+        fontSize: 12,
+        fontWeight: '700',
+        color: C.accentDeep,
+    },
     submitBtn: {
-        height: 56, borderRadius: 16,
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        shadowColor: T.clay, shadowOpacity: 0.4, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 8,
-        marginBottom: 28,
+        minHeight: 56,
+        borderRadius: 18,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        shadowColor: BROWN.DarkColor,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.18,
+        shadowRadius: 14,
+        elevation: 4,
     },
-    submitBtnText: { color: T.white, fontSize: 17, fontWeight: '800', letterSpacing: 0.5 },
-
-    // Divider
-    divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
-    dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(139,69,19,0.15)' },
-    dividerText: { color: T.muted, fontSize: 11, fontWeight: '600', letterSpacing: 1.5 },
-
-    // Social
-    socialRow: { flexDirection: 'row', gap: 10, marginBottom: 28 },
-    socialBtn: {
-        flex: 1, height: 50, borderRadius: 14,
-        backgroundColor: T.white,
-        alignItems: 'center', justifyContent: 'center',
-        borderWidth: 1.5, borderColor: 'rgba(212,169,106,0.3)',
-        gap: 4,
-        shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2,
+    submitText: {
+        fontFamily: BRAND_FONTS.body,
+        fontSize: 13,
+        fontWeight: '700',
+        color: C.white,
+        letterSpacing: 1.5,
+        textTransform: 'uppercase',
     },
-    googleLetter: { fontSize: 18, fontWeight: '800', color: '#DB4437' },
-    socialLabel: { fontSize: 11, color: T.muted, fontWeight: '600' },
-
-    // Register
-    registerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-    registerPrompt: { color: T.muted, fontSize: 14 },
-    registerLink: { color: T.terra, fontSize: 14, fontWeight: '700' },
+    notePanel: {
+        borderRadius: 18,
+        padding: 16,
+        backgroundColor: C.successBg,
+        borderWidth: 1,
+        borderColor: C.line,
+    },
+    noteHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 8,
+    },
+    noteTitle: {
+        fontFamily: BRAND_FONTS.body,
+        fontSize: 13,
+        fontWeight: '700',
+        color: C.text,
+    },
+    noteBody: {
+        fontFamily: BRAND_FONTS.body,
+        fontSize: 12,
+        lineHeight: 20,
+        color: C.muted,
+        marginBottom: 10,
+    },
+    noteLink: {
+        fontFamily: BRAND_FONTS.body,
+        fontSize: 12,
+        fontWeight: '700',
+        color: C.accent,
+    },
 });

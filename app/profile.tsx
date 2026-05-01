@@ -1,4 +1,7 @@
-import { AuthContext } from '@/context/AuthContext';
+import CustomerPageFrame, { CustomerSectionCard } from '@/components/Customer/CustomerPageFrame';
+import { BROWN } from '@/constants/brandTheme';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
+import useProtectedRoute from '@/hooks/useProtectedRoute';
 import {
   addAddress,
   changeMyPassword,
@@ -11,12 +14,11 @@ import {
 } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useContext, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   RefreshControl,
-  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -51,7 +53,9 @@ const EMPTY_ADDRESS: AddressForm = {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const auth = useContext(AuthContext);
+  const { scrollY, onScroll } = useHeaderScroll();
+  const auth = useProtectedRoute();
+  const { logout, updateUser, userToken } = auth;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -64,8 +68,7 @@ export default function ProfileScreen() {
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
 
   const loadProfile = useCallback(async () => {
-    if (!auth?.userToken) {
-      router.replace('/login' as any);
+    if (!userToken) {
       return;
     }
 
@@ -78,7 +81,7 @@ export default function ProfileScreen() {
         phone: user?.phone || '',
       });
       setAddresses(addressesRes.data || []);
-      auth?.updateUser?.({
+      updateUser({
         name: user?.name,
         email: user?.email,
         phone: user?.phone,
@@ -90,13 +93,17 @@ export default function ProfileScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [auth?.userToken, router]);
+  }, [updateUser, userToken]);
 
   useFocusEffect(
     useCallback(() => {
+      if (!auth.isAuthorized) {
+        return;
+      }
+
       setLoading(true);
       loadProfile();
-    }, [loadProfile])
+    }, [auth.isAuthorized, loadProfile])
   );
 
   const onRefresh = () => {
@@ -123,7 +130,7 @@ export default function ProfileScreen() {
         email: data.user.email,
         phone: data.user.phone || '',
       });
-      auth?.updateUser?.(data.user);
+      updateUser(data.user);
       Alert.alert('Success', 'Profile updated successfully.');
     } catch (error: any) {
       Alert.alert('Error', error?.response?.data?.message ?? 'Failed to update profile.');
@@ -165,7 +172,7 @@ export default function ProfileScreen() {
       setAddresses(data.addresses || []);
       setAddressForm(EMPTY_ADDRESS);
       setEditingAddressId(null);
-      auth?.updateUser?.({ addresses: data.addresses || [] });
+      updateUser({ addresses: data.addresses || [] });
     } catch (error: any) {
       Alert.alert('Error', error?.response?.data?.message ?? 'Failed to save address.');
     } finally {
@@ -199,7 +206,7 @@ export default function ProfileScreen() {
           try {
             const { data } = await deleteAddress(id);
             setAddresses(data.addresses || []);
-            auth?.updateUser?.({ addresses: data.addresses || [] });
+            updateUser({ addresses: data.addresses || [] });
           } catch (error: any) {
             Alert.alert('Error', error?.response?.data?.message ?? 'Failed to delete address.');
           }
@@ -212,20 +219,23 @@ export default function ProfileScreen() {
     try {
       const { data } = await setDefaultAddress(id);
       setAddresses(data.addresses || []);
-      auth?.updateUser?.({ addresses: data.addresses || [] });
+      updateUser({ addresses: data.addresses || [] });
     } catch (error: any) {
       Alert.alert('Error', error?.response?.data?.message ?? 'Failed to set default address.');
     }
   };
 
   const handleLogout = () => {
-    auth?.logout();
+    logout();
     router.replace('/login' as any);
   };
 
-  if (!auth?.userToken) {
-    router.replace('/login' as any);
-    return null;
+  if (auth.shouldBlock) {
+    return (
+      <View className="flex-1 items-center justify-center bg-[#F8F2EA]">
+        <ActivityIndicator size="large" color="#8B4513" />
+      </View>
+    );
   }
 
   if (loading) {
@@ -237,17 +247,46 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView
-      className="flex-1 bg-[#F8F2EA]"
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#8B4513" />}
-    >
-      <View className="px-4 py-10 gap-6">
-        <View className="bg-[#8B4513] rounded-3xl p-6">
-          <Text className="text-white text-3xl font-bold">My Profile</Text>
-          <Text className="text-white/80 mt-2">Manage your account, password, and saved addresses.</Text>
+    <CustomerPageFrame
+      scrollY={scrollY}
+      onScroll={onScroll}
+      eyebrow="Customer Profile"
+      title="Your account, delivery details, and support tools in one place."
+      subtitle="Update personal details, manage saved addresses, change your password, and open support conversations without leaving the customer area."
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BROWN.DarkColor} />}
+      actions={
+        <>
+          <TouchableOpacity onPress={() => router.push('/support-tickets' as any)} className="px-5 py-3 rounded-full" style={{ backgroundColor: '#FFFFFF' }}>
+            <Text className="font-body text-[14px] font-semibold" style={{ color: BROWN.TextPrimary }}>My Tickets</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout} className="px-5 py-3 border rounded-full" style={{ borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(255,255,255,0.1)' }}>
+            <Text className="font-body text-[14px] font-semibold text-white">Logout</Text>
+          </TouchableOpacity>
+        </>
+      }
+      heroAside={
+        <View className="rounded-[30px] border p-5" style={{ borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.1)' }}>
+          <Text className="font-body text-[11px] uppercase tracking-[1.8px]" style={{ color: '#F1DAC5' }}>Account snapshot</Text>
+          <Text className="mt-3 font-heading text-[24px] text-white">{profile.email || auth.user?.email || 'Customer account'}</Text>
+          <View className="gap-3 mt-5">
+            <View className="flex-row items-center justify-between px-4 py-3 rounded-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
+              <Text className="font-body text-[13px]" style={{ color: '#F7E7D8' }}>Saved addresses</Text>
+              <Text className="font-body text-[13px] font-semibold text-white">{addresses.length}</Text>
+            </View>
+            <View className="flex-row items-center justify-between px-4 py-3 rounded-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
+              <Text className="font-body text-[13px]" style={{ color: '#F7E7D8' }}>Default address</Text>
+              <Text className="font-body text-[13px] font-semibold text-white">{defaultAddressId ? 'Selected' : 'None'}</Text>
+            </View>
+            <View className="flex-row items-center justify-between px-4 py-3 rounded-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
+              <Text className="font-body text-[13px]" style={{ color: '#F7E7D8' }}>Phone</Text>
+              <Text className="font-body text-[13px] font-semibold text-white">{profile.phone || 'Add to profile'}</Text>
+            </View>
+          </View>
         </View>
-
-        <View className="bg-white rounded-2xl p-5 gap-4">
+      }
+    >
+      <View className="grid gap-6">
+        <CustomerSectionCard title="Profile details" subtitle="Keep your name, email, and phone details current for support, checkout, and delivery communication.">
           <Text className="text-[#2C1810] text-xl font-bold">Profile Details</Text>
 
           <View>
@@ -266,9 +305,9 @@ export default function ProfileScreen() {
           <TouchableOpacity onPress={handleSaveProfile} disabled={savingProfile} className="bg-[#8B4513] rounded-xl py-4 items-center">
             {savingProfile ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold">Save Profile</Text>}
           </TouchableOpacity>
-        </View>
+        </CustomerSectionCard>
 
-        <View className="bg-white rounded-2xl p-5 gap-4">
+        <CustomerSectionCard title="Support access" subtitle="Create a ticket or revisit existing conversations whenever an order, payment, or product needs attention.">
           <View className="flex-row items-center justify-between">
             <Text className="text-[#2C1810] text-xl font-bold">Support</Text>
             <TouchableOpacity onPress={() => router.push('/support-tickets' as any)} className="bg-[#F8F2EA] rounded-xl px-4 py-2 flex-row items-center">
@@ -280,9 +319,9 @@ export default function ProfileScreen() {
           <TouchableOpacity onPress={() => router.push('/contact' as any)} className="bg-[#2C1810] rounded-xl py-4 items-center">
             <Text className="text-white font-bold">Create Support Ticket</Text>
           </TouchableOpacity>
-        </View>
+        </CustomerSectionCard>
 
-        <View className="bg-white rounded-2xl p-5 gap-4">
+        <CustomerSectionCard title="Password security" subtitle="Refresh your password whenever you want a new sign-in credential for this account.">
           <Text className="text-[#2C1810] text-xl font-bold">Change Password</Text>
 
           <TextInput
@@ -303,9 +342,9 @@ export default function ProfileScreen() {
           <TouchableOpacity onPress={handleChangePassword} disabled={savingPassword} className="bg-[#2C1810] rounded-xl py-4 items-center">
             {savingPassword ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold">Update Password</Text>}
           </TouchableOpacity>
-        </View>
+        </CustomerSectionCard>
 
-        <View className="bg-white rounded-2xl p-5 gap-4">
+        <CustomerSectionCard title="Saved addresses" subtitle="Manage delivery destinations and keep one default address ready for faster checkout.">
           <View className="flex-row items-center justify-between">
             <Text className="text-[#2C1810] text-xl font-bold">Saved Addresses</Text>
             <Text className="text-[#8B4513] font-semibold">Default: {defaultAddressId ? 'Selected' : 'None'}</Text>
@@ -391,12 +430,8 @@ export default function ProfileScreen() {
               ) : null}
             </View>
           </View>
-        </View>
-
-        <TouchableOpacity onPress={handleLogout} className="bg-[#2C1810] rounded-2xl py-4 items-center mb-8">
-          <Text className="text-white font-bold">Logout</Text>
-        </TouchableOpacity>
+        </CustomerSectionCard>
       </View>
-    </ScrollView>
+    </CustomerPageFrame>
   );
 }

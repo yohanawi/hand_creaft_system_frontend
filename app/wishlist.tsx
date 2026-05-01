@@ -1,5 +1,6 @@
 ﻿import PageShell from '@/components/PageShell';
 import { useCart } from '@/context/CartContext';
+import { getAssetUrl } from '@/services/api';
 import { useToast } from '@/context/ToastContext';
 import { useWishlist, WishlistProduct } from '@/context/WishlistContext';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
@@ -18,10 +19,8 @@ import {
 } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const API_BASE = 'http://localhost:5000';
 
-const imageUri = (img?: string) =>
-    img ? (img.startsWith('http') ? img : `${API_BASE}/${img}`) : null;
+const imageUri = (img?: string) => getAssetUrl(img);
 
 export default function WishlistScreen() {
     const { scrollY, onScroll } = useHeaderScroll();

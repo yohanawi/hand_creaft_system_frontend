@@ -1,35 +1,18 @@
-import { AuthContext } from '@/context/AuthContext';
+import CustomerPageFrame, { CustomerSectionCard } from '@/components/Customer/CustomerPageFrame';
+import { BRAND_FONTS, BROWN } from '@/constants/brandTheme';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
+import useProtectedRoute from '@/hooks/useProtectedRoute';
 import { trackOrder } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     RefreshControl,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
-
-const T = {
-    bg: '#1A1209',
-    card: '#2C1810',
-    card2: '#241610',
-    border: '#3D2415',
-    active: '#C1622F',
-    activeBg: 'rgba(193,98,47,0.15)',
-    text: '#F5EDE0',
-    muted: '#8C7B6E',
-    green: '#4CAF50',
-    greenBg: 'rgba(76,175,80,0.12)',
-    yellow: '#F5A623',
-    red: '#E53E3E',
-    blue: '#4299E1',
-    blueBg: 'rgba(66,153,225,0.12)',
-};
 
 type TrackingEvent = {
     _id: string;
@@ -39,26 +22,27 @@ type TrackingEvent = {
     timestamp: string;
 };
 
-const STATUS_CONFIG: Record<string, { color: string; bg: string; icon: string; label: string }> = {
-    awaiting_payment: { color: T.blue, bg: T.blueBg, icon: 'credit-card', label: 'Awaiting Payment' },
-    payment_failed: { color: T.red, bg: 'rgba(229,62,62,0.12)', icon: 'alert-circle', label: 'Payment Failed' },
-    pending: { color: T.yellow, bg: 'rgba(245,166,35,0.12)', icon: 'clock', label: 'Order Placed' },
-    confirmed: { color: T.blue, bg: T.blueBg, icon: 'check', label: 'Confirmed' },
-    processing: { color: T.blue, bg: T.blueBg, icon: 'settings', label: 'Processing' },
-    shipped: { color: T.active, bg: T.activeBg, icon: 'truck', label: 'Shipped' },
-    out_for_delivery: { color: T.active, bg: T.activeBg, icon: 'navigation', label: 'Out for Delivery' },
-    delivered: { color: T.green, bg: T.greenBg, icon: 'check-circle', label: 'Delivered' },
-    cancelled: { color: T.red, bg: 'rgba(229,62,62,0.12)', icon: 'x-circle', label: 'Cancelled' },
-    returned: { color: T.muted, bg: 'rgba(140,123,110,0.12)', icon: 'rotate-ccw', label: 'Returned' },
+const STATUS_CONFIG: Record<string, { color: string; bg: string; icon: keyof typeof Feather.glyphMap; label: string }> = {
+    awaiting_payment: { color: '#2563EB', bg: 'rgba(66,153,225,0.12)', icon: 'credit-card', label: 'Awaiting Payment' },
+    payment_failed: { color: '#E53E3E', bg: 'rgba(229,62,62,0.12)', icon: 'alert-circle', label: 'Payment Failed' },
+    pending: { color: '#D97706', bg: 'rgba(245,166,35,0.12)', icon: 'clock', label: 'Order Placed' },
+    confirmed: { color: '#2563EB', bg: 'rgba(66,153,225,0.12)', icon: 'check', label: 'Confirmed' },
+    processing: { color: '#2563EB', bg: 'rgba(66,153,225,0.12)', icon: 'settings', label: 'Processing' },
+    shipped: { color: '#C1622F', bg: 'rgba(193,98,47,0.15)', icon: 'truck', label: 'Shipped' },
+    out_for_delivery: { color: '#C1622F', bg: 'rgba(193,98,47,0.15)', icon: 'navigation', label: 'Out for Delivery' },
+    delivered: { color: '#4CAF50', bg: 'rgba(76,175,80,0.12)', icon: 'check-circle', label: 'Delivered' },
+    cancelled: { color: '#E53E3E', bg: 'rgba(229,62,62,0.12)', icon: 'x-circle', label: 'Cancelled' },
+    returned: { color: '#8C7B6E', bg: 'rgba(140,123,110,0.12)', icon: 'rotate-ccw', label: 'Returned' },
 };
 
 const ORDER_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered'];
 const PAYHERE_ORDER_STEPS = ['awaiting_payment', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered'];
 
 export default function OrderTrackingScreen() {
+    const { scrollY, onScroll } = useHeaderScroll();
     const { orderNumber } = useLocalSearchParams<{ orderNumber: string }>();
     const router = useRouter();
-    const auth = useContext(AuthContext);
+    const auth = useProtectedRoute();
 
     const [order, setOrder] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -80,9 +64,12 @@ export default function OrderTrackingScreen() {
     }, [orderNumber]);
 
     useEffect(() => {
-        if (!auth?.userToken) { router.replace('/login' as any); return; }
+        if (!auth.isAuthorized) {
+            return;
+        }
+
         fetchOrder();
-    }, [auth?.userToken, fetchOrder, router]);
+    }, [auth.isAuthorized, fetchOrder]);
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
@@ -94,372 +81,262 @@ export default function OrderTrackingScreen() {
     const isCancelled = order?.status === 'cancelled' || order?.status === 'returned';
     const cfg = order ? (STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending) : null;
 
-    if (loading) {
+    if (auth.shouldBlock) {
         return (
-            <View style={[s.root, s.centered]}>
-                <StatusBar barStyle="light-content" backgroundColor={T.bg} />
-                <ActivityIndicator color={T.active} size="large" />
-                <Text style={s.muted}>Fetching order details…</Text>
-            </View>
-        );
-    }
-
-    if (error || !order) {
-        return (
-            <View style={[s.root, s.centered]}>
-                <StatusBar barStyle="light-content" backgroundColor={T.bg} />
-                <Feather name="alert-circle" size={56} color={T.red} />
-                <Text style={s.title}>{error || 'Order not found'}</Text>
-                <TouchableOpacity style={s.primaryBtn} onPress={() => router.replace('/orders' as any)}>
-                    <Text style={s.primaryBtnText}>My Orders</Text>
-                </TouchableOpacity>
+            <View className="flex-1 items-center justify-center bg-[#F7EFE7]">
+                <ActivityIndicator color={BROWN.DarkColor} size="large" />
             </View>
         );
     }
 
     return (
-        <View style={s.root}>
-            <StatusBar barStyle="light-content" backgroundColor={T.bg} />
-
-            {/* Header */}
-            <View style={s.header}>
-                <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-                    <Feather name="arrow-left" size={22} color={T.text} />
-                </TouchableOpacity>
-                <View style={{ flex: 1 }}>
-                    <Text style={s.headerTitle}>Order Tracking</Text>
-                    <Text style={s.headerSub}>{order.orderNumber}</Text>
-                </View>
-                <TouchableOpacity onPress={onRefresh} style={s.backBtn}>
-                    <Feather name="refresh-cw" size={18} color={T.muted} />
-                </TouchableOpacity>
-            </View>
-
-            <ScrollView
-                contentContainerStyle={s.scrollContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.active} />}
-                showsVerticalScrollIndicator={false}
-            >
-                {/* Status Hero */}
-                <View style={[s.heroCard, { borderColor: cfg!.color }]}>
-                    <View style={[s.heroIcon, { backgroundColor: cfg!.bg }]}>
-                        <Feather name={cfg!.icon as any} size={36} color={cfg!.color} />
-                    </View>
-                    <Text style={[s.heroStatus, { color: cfg!.color }]}>{cfg!.label}</Text>
-                    <Text style={s.heroSub}>
-                        {isCancelled
-                            ? 'This order has been ' + order.status + '.'
-                            : order.status === 'awaiting_payment'
-                                ? 'Your order is created. The system is waiting for PayHere to confirm payment securely.'
-                                : order.status === 'payment_failed'
-                                    ? 'Payment did not complete. Retry payment from your payment failure page or orders list.'
-                                    : order.status === 'delivered'
-                                        ? 'Your order has been delivered successfully!'
-                                        : 'Your order is on its way. Stay updated below.'}
-                    </Text>
-                </View>
-
-                {/* Progress Bar (only for non-cancelled) */}
-                {!isCancelled && (
-                    <View style={s.progressCard}>
-                        <Text style={s.sectionTitle}>Progress</Text>
-                        <View style={s.stepsRow}>
-                            {activeSteps.map((step, idx) => {
-                                const done = idx <= currentStepIdx;
-                                const stepCfg = STATUS_CONFIG[step];
-                                return (
-                                    <React.Fragment key={step}>
-                                        <View style={s.stepCol}>
-                                            <View style={[s.stepDot, done && s.stepDotDone, { borderColor: done ? stepCfg.color : T.border }]}>
-                                                <Feather
-                                                    name={stepCfg.icon as any}
-                                                    size={13}
-                                                    color={done ? stepCfg.color : T.muted}
-                                                />
-                                            </View>
-                                            <Text style={[s.stepLabel, done && { color: stepCfg.color }]} numberOfLines={2}>
-                                                {stepCfg.label}
-                                            </Text>
-                                        </View>
-                                        {idx < activeSteps.length - 1 && (
-                                            <View style={[s.stepLine, idx < currentStepIdx && { backgroundColor: T.active }]} />
-                                        )}
-                                    </React.Fragment>
-                                );
-                            })}
+        <CustomerPageFrame
+            scrollY={scrollY}
+            onScroll={onScroll}
+            eyebrow="Order Tracking"
+            title={order ? `Tracking ${order.orderNumber}` : 'Tracking your order'}
+            subtitle={
+                loading
+                    ? 'Fetching the latest fulfilment information for this order.'
+                    : error || !order
+                        ? 'The order could not be found for this account.'
+                        : 'Live status, payment state, shipment details, and full order contents in one customer view.'
+            }
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BROWN.DarkColor} />}
+            actions={
+                <>
+                    <TouchableOpacity onPress={() => router.replace('/orders' as any)} className="rounded-full px-5 py-3" style={{ backgroundColor: '#FFFFFF' }}>
+                        <Text className="font-body text-[14px] font-semibold" style={{ color: BROWN.TextPrimary }}>All orders</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={onRefresh} className="rounded-full border px-5 py-3" style={{ borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(255,255,255,0.1)' }}>
+                        <Text className="font-body text-[14px] font-semibold text-white">Refresh</Text>
+                    </TouchableOpacity>
+                </>
+            }
+            heroAside={
+                order ? (
+                    <View className="rounded-[30px] border p-5" style={{ borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.1)' }}>
+                        <Text className="font-body text-[11px] uppercase tracking-[1.8px]" style={{ color: '#F1DAC5' }}>Current state</Text>
+                        <Text className="mt-3 font-heading text-[24px] text-white">{cfg?.label}</Text>
+                        <View className="gap-3 mt-5">
+                            <View className="flex-row items-center justify-between rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
+                                <Text className="font-body text-[13px]" style={{ color: '#F7E7D8' }}>Payment</Text>
+                                <Text className="font-body text-[13px] font-semibold text-white">{String(order.paymentStatus || '').replace(/_/g, ' ')}</Text>
+                            </View>
+                            <View className="flex-row items-center justify-between rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
+                                <Text className="font-body text-[13px]" style={{ color: '#F7E7D8' }}>Total</Text>
+                                <Text className="font-body text-[13px] font-semibold text-white">${Number(order.total || 0).toFixed(2)}</Text>
+                            </View>
                         </View>
                     </View>
-                )}
-
-                <View style={s.infoCard}>
-                    <Text style={s.sectionTitle}>Payment Info</Text>
-                    <View style={s.infoRow}>
-                        <Feather name="credit-card" size={16} color={T.muted} />
-                        <Text style={s.infoLabel}>Method</Text>
-                        <Text style={s.infoValue}>{String(order.paymentMethod || '').replace(/_/g, ' ')}</Text>
+                ) : undefined
+            }
+        >
+            {loading ? (
+                <CustomerSectionCard title="Loading order" subtitle="Checking the current order state.">
+                    <View className="items-center justify-center py-12 gap-3">
+                        <ActivityIndicator color={BROWN.DarkColor} size="large" />
+                        <Text style={{ fontFamily: BRAND_FONTS.body, color: BROWN.TextSecondary }}>Fetching order details...</Text>
                     </View>
-                    <View style={s.infoRow}>
-                        <Feather name="shield" size={16} color={T.muted} />
-                        <Text style={s.infoLabel}>Payment Status</Text>
-                        <Text style={s.infoValue}>{String(order.paymentStatus || '').replace(/_/g, ' ')}</Text>
-                    </View>
-                    {order.paymentReference ? (
-                        <View style={s.infoRow}>
-                            <Feather name="hash" size={16} color={T.muted} />
-                            <Text style={s.infoLabel}>Reference</Text>
-                            <Text style={s.infoValue}>{order.paymentReference}</Text>
-                        </View>
-                    ) : null}
-                    {order.paymentMethod === 'payhere' && ['awaiting_payment', 'failed'].includes(order.paymentStatus) ? (
-                        <TouchableOpacity
-                            style={[s.primaryBtn, { marginTop: 8, marginBottom: 0 }]}
-                            onPress={() => router.push(`/payment-failure?orderId=${order._id}` as any)}
-                            activeOpacity={0.85}
-                        >
-                            <Text style={s.primaryBtnText}>Complete Payment</Text>
+                </CustomerSectionCard>
+            ) : error || !order ? (
+                <CustomerSectionCard title="Order unavailable" subtitle="This order could not be loaded for the current session.">
+                    <View className="items-center justify-center rounded-[24px] px-6 py-10" style={{ backgroundColor: '#F8EFE6' }}>
+                        <Feather name="alert-circle" size={44} color="#E53E3E" />
+                        <Text className="mt-4 text-center font-heading text-[24px]" style={{ color: BROWN.TextPrimary }}>{error || 'Order not found'}</Text>
+                        <TouchableOpacity onPress={() => router.replace('/orders' as any)} className="mt-5 rounded-full px-5 py-3" style={{ backgroundColor: BROWN.DarkColor }}>
+                            <Text className="font-body text-[13px] font-semibold text-white">Back to orders</Text>
                         </TouchableOpacity>
-                    ) : null}
-                </View>
-
-                {/* Courier & Tracking Info */}
-                {(order.courier || order.trackingNumber || order.estimatedDelivery) && (
-                    <View style={s.infoCard}>
-                        <Text style={s.sectionTitle}>Shipment Info</Text>
-                        {order.courier && (
-                            <View style={s.infoRow}>
-                                <Feather name="truck" size={16} color={T.muted} />
-                                <Text style={s.infoLabel}>Courier</Text>
-                                <Text style={s.infoValue}>{order.courier}</Text>
-                            </View>
-                        )}
-                        {order.trackingNumber && (
-                            <View style={s.infoRow}>
-                                <Feather name="hash" size={16} color={T.muted} />
-                                <Text style={s.infoLabel}>Tracking #</Text>
-                                <Text style={[s.infoValue, { color: T.active }]}>{order.trackingNumber}</Text>
-                            </View>
-                        )}
-                        {order.estimatedDelivery && (
-                            <View style={s.infoRow}>
-                                <Feather name="calendar" size={16} color={T.muted} />
-                                <Text style={s.infoLabel}>Est. Delivery</Text>
-                                <Text style={s.infoValue}>
-                                    {new Date(order.estimatedDelivery).toLocaleDateString('en-US', {
-                                        weekday: 'short', day: 'numeric', month: 'long',
-                                    })}
-                                </Text>
-                            </View>
-                        )}
                     </View>
-                )}
+                </CustomerSectionCard>
+            ) : (
+                <>
+                    <CustomerSectionCard title="Current status" subtitle="The latest order state and what it means for this delivery.">
+                        <View className="items-center rounded-[24px] border px-6 py-8" style={{ borderColor: `${cfg!.color}40`, backgroundColor: '#FFFAF5' }}>
+                            <View className="h-[72px] w-[72px] items-center justify-center rounded-full" style={{ backgroundColor: cfg!.bg }}>
+                                <Feather name={cfg!.icon} size={36} color={cfg!.color} />
+                            </View>
+                            <Text className="mt-5 font-heading text-[28px] text-center" style={{ color: cfg!.color }}>{cfg!.label}</Text>
+                            <Text className="mt-3 text-center font-body text-[14px] leading-7" style={{ color: BROWN.TextSecondary }}>
+                                {isCancelled
+                                    ? 'This order has been ' + order.status + '.'
+                                    : order.status === 'awaiting_payment'
+                                        ? 'Your order is created. The system is waiting for PayHere to confirm payment securely.'
+                                        : order.status === 'payment_failed'
+                                            ? 'Payment did not complete. Retry payment from your payment failure page or orders list.'
+                                            : order.status === 'delivered'
+                                                ? 'Your order has been delivered successfully!'
+                                                : 'Your order is on its way. Stay updated below.'}
+                            </Text>
+                        </View>
+                    </CustomerSectionCard>
 
-                {/* Tracking Timeline */}
-                {order.trackingEvents?.length > 0 && (
-                    <View style={s.timelineCard}>
-                        <Text style={s.sectionTitle}>Tracking History</Text>
-                        {[...order.trackingEvents].reverse().map((ev: TrackingEvent, idx: number) => {
-                            const evCfg = STATUS_CONFIG[ev.status] ?? STATUS_CONFIG.pending;
-                            const isFirst = idx === 0;
-                            return (
-                                <View key={ev._id ?? idx} style={s.timelineRow}>
-                                    {/* Vertical line + dot */}
-                                    <View style={s.timelineLine}>
-                                        <View style={[s.timelineDot, isFirst && { backgroundColor: evCfg.color }]}>
-                                            <Feather
-                                                name={evCfg.icon as any}
-                                                size={11}
-                                                color={isFirst ? '#fff' : T.muted}
-                                            />
-                                        </View>
-                                        {idx < order.trackingEvents.length - 1 && (
-                                            <View style={s.timelineConnector} />
-                                        )}
-                                    </View>
-                                    {/* Content */}
-                                    <View style={[s.timelineContent, isFirst && { borderColor: evCfg.color }]}>
-                                        <View style={s.timelineHeader}>
-                                            <Text style={[s.timelineStatus, isFirst && { color: evCfg.color }]}>
-                                                {evCfg.label}
-                                            </Text>
-                                            <Text style={s.timelineTime}>
-                                                {new Date(ev.timestamp).toLocaleString('en-US', {
-                                                    day: 'numeric', month: 'short',
-                                                    hour: '2-digit', minute: '2-digit',
-                                                })}
-                                            </Text>
-                                        </View>
-                                        <Text style={s.timelineMsg}>{ev.message}</Text>
-                                        {ev.location && (
-                                            <View style={s.timelineLoc}>
-                                                <Feather name="map-pin" size={11} color={T.muted} />
-                                                <Text style={s.timelineLocText}>{ev.location}</Text>
+                    {!isCancelled ? (
+                        <CustomerSectionCard title="Progress" subtitle="Each fulfilment milestone from order placement through delivery.">
+                            <View className="gap-5">
+                                {activeSteps.map((step, idx) => {
+                                    const done = idx <= currentStepIdx;
+                                    const stepCfg = STATUS_CONFIG[step];
+                                    return (
+                                        <View key={step} className="flex-row items-center gap-4">
+                                            <View className="h-[34px] w-[34px] items-center justify-center rounded-full border-2" style={{ borderColor: done ? stepCfg.color : '#E3D0BF', backgroundColor: done ? `${stepCfg.color}12` : '#FFF9F3' }}>
+                                                <Feather name={stepCfg.icon} size={14} color={done ? stepCfg.color : '#8C7B6E'} />
                                             </View>
-                                        )}
-                                    </View>
-                                </View>
-                            );
-                        })}
-                    </View>
-                )}
-
-                {/* Shipping Address */}
-                {order.shippingAddress && (
-                    <View style={s.infoCard}>
-                        <Text style={s.sectionTitle}>Deliver To</Text>
-                        <Text style={s.addrName}>{order.shippingAddress.fullName}</Text>
-                        <Text style={s.addrLine}>{order.shippingAddress.address}</Text>
-                        <Text style={s.addrLine}>
-                            {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zipCode}
-                        </Text>
-                        <Text style={s.addrLine}>{order.shippingAddress.country}</Text>
-                        <Text style={[s.addrLine, { marginTop: 4 }]}>{order.shippingAddress.phone}</Text>
-                    </View>
-                )}
-
-                {/* Items */}
-                <View style={s.infoCard}>
-                    <Text style={s.sectionTitle}>
-                        Items ({order.items.length})
-                    </Text>
-                    {order.items.map((it: any) => (
-                        <View key={it._id} style={s.orderItemRow}>
-                            <View style={s.orderItemInfo}>
-                                <Text style={s.orderItemName} numberOfLines={1}>{it.name}</Text>
-                                {it.selectedVariant?.label ? (
-                                    <Text style={[s.orderItemSku, { color: '#8B4513' }]}>{it.selectedVariant.label}</Text>
-                                ) : null}
-                                <Text style={s.orderItemSku}>SKU: {it.sku} · Qty: {it.quantity}</Text>
+                                            <View className="flex-1 rounded-[18px] px-4 py-4" style={{ backgroundColor: done ? '#F6ECDF' : '#FFFAF5' }}>
+                                                <Text className="font-body text-[13px] font-semibold" style={{ color: done ? stepCfg.color : BROWN.TextPrimary }}>{stepCfg.label}</Text>
+                                                <Text className="mt-1 font-body text-[12px]" style={{ color: BROWN.TextSecondary }}>
+                                                    {idx < currentStepIdx ? 'Completed' : idx === currentStepIdx ? 'Current stage' : 'Upcoming'}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    );
+                                })}
                             </View>
-                            <Text style={s.orderItemPrice}>
-                                ${((it.salePrice ?? it.price) * it.quantity).toFixed(2)}
-                            </Text>
-                        </View>
-                    ))}
-                    <View style={s.pricingWrap}>
-                        <View style={s.pricingRow}>
-                            <Text style={s.pricingLabel}>Subtotal</Text>
-                            <Text style={s.pricingVal}>${order.subtotal?.toFixed(2)}</Text>
-                        </View>
-                        <View style={s.pricingRow}>
-                            <Text style={s.pricingLabel}>Shipping</Text>
-                            <Text style={s.pricingVal}>
-                                {order.shippingCost === 0 ? 'FREE' : `$${order.shippingCost?.toFixed(2)}`}
-                            </Text>
-                        </View>
-                        <View style={s.pricingRow}>
-                            <Text style={s.pricingLabel}>Tax</Text>
-                            <Text style={s.pricingVal}>${order.tax?.toFixed(2)}</Text>
-                        </View>
-                        <View style={[s.pricingRow, s.pricingTotal]}>
-                            <Text style={s.pricingTotalLabel}>Total</Text>
-                            <Text style={s.pricingTotalVal}>${order.total?.toFixed(2)}</Text>
-                        </View>
-                    </View>
-                </View>
+                        </CustomerSectionCard>
+                    ) : null}
 
-                {/* Back to orders */}
-                <TouchableOpacity
-                    style={s.primaryBtn}
-                    onPress={() => router.push('/orders' as any)}
-                    activeOpacity={0.85}
-                >
-                    <Feather name="list" size={16} color="#fff" />
-                    <Text style={s.primaryBtnText}> All Orders</Text>
-                </TouchableOpacity>
+                    <CustomerSectionCard title="Payment info" subtitle="Payment method, state, and reference details for this order.">
+                        <View className="gap-3">
+                            <View className="flex-row items-center justify-between rounded-[18px] px-4 py-4" style={{ backgroundColor: '#F6ECDF' }}>
+                                <Text className="font-body text-[13px]" style={{ color: BROWN.TextSecondary }}>Method</Text>
+                                <Text className="font-body text-[13px] font-semibold capitalize" style={{ color: BROWN.TextPrimary }}>{String(order.paymentMethod || '').replace(/_/g, ' ')}</Text>
+                            </View>
+                            <View className="flex-row items-center justify-between rounded-[18px] px-4 py-4" style={{ backgroundColor: '#F6ECDF' }}>
+                                <Text className="font-body text-[13px]" style={{ color: BROWN.TextSecondary }}>Payment status</Text>
+                                <Text className="font-body text-[13px] font-semibold capitalize" style={{ color: BROWN.TextPrimary }}>{String(order.paymentStatus || '').replace(/_/g, ' ')}</Text>
+                            </View>
+                            {order.paymentReference ? (
+                                <View className="flex-row items-center justify-between rounded-[18px] px-4 py-4" style={{ backgroundColor: '#F6ECDF' }}>
+                                    <Text className="font-body text-[13px]" style={{ color: BROWN.TextSecondary }}>Reference</Text>
+                                    <Text className="font-body text-[13px] font-semibold" style={{ color: BROWN.TextPrimary }}>{order.paymentReference}</Text>
+                                </View>
+                            ) : null}
+                            {order.paymentMethod === 'payhere' && ['awaiting_payment', 'failed'].includes(order.paymentStatus) ? (
+                                <TouchableOpacity onPress={() => router.push(`/payment-failure?orderId=${order._id}` as any)} className="self-start rounded-full px-5 py-3" style={{ backgroundColor: BROWN.DarkColor }}>
+                                    <Text className="font-body text-[13px] font-semibold text-white">Complete payment</Text>
+                                </TouchableOpacity>
+                            ) : null}
+                        </View>
+                    </CustomerSectionCard>
 
-                <View style={{ height: 32 }} />
-            </ScrollView>
-        </View>
+                    {(order.courier || order.trackingNumber || order.estimatedDelivery) ? (
+                        <CustomerSectionCard title="Shipment info" subtitle="Courier, tracking number, and estimated delivery details.">
+                            <View className="gap-3">
+                                {order.courier ? (
+                                    <View className="flex-row items-center justify-between rounded-[18px] px-4 py-4" style={{ backgroundColor: '#F6ECDF' }}>
+                                        <Text className="font-body text-[13px]" style={{ color: BROWN.TextSecondary }}>Courier</Text>
+                                        <Text className="font-body text-[13px] font-semibold" style={{ color: BROWN.TextPrimary }}>{order.courier}</Text>
+                                    </View>
+                                ) : null}
+                                {order.trackingNumber ? (
+                                    <View className="flex-row items-center justify-between rounded-[18px] px-4 py-4" style={{ backgroundColor: '#F6ECDF' }}>
+                                        <Text className="font-body text-[13px]" style={{ color: BROWN.TextSecondary }}>Tracking #</Text>
+                                        <Text className="font-body text-[13px] font-semibold" style={{ color: BROWN.DarkColor }}>{order.trackingNumber}</Text>
+                                    </View>
+                                ) : null}
+                                {order.estimatedDelivery ? (
+                                    <View className="flex-row items-center justify-between rounded-[18px] px-4 py-4" style={{ backgroundColor: '#F6ECDF' }}>
+                                        <Text className="font-body text-[13px]" style={{ color: BROWN.TextSecondary }}>Est. delivery</Text>
+                                        <Text className="font-body text-[13px] font-semibold" style={{ color: BROWN.TextPrimary }}>
+                                            {new Date(order.estimatedDelivery).toLocaleDateString('en-US', {
+                                                weekday: 'short', day: 'numeric', month: 'long',
+                                            })}
+                                        </Text>
+                                    </View>
+                                ) : null}
+                            </View>
+                        </CustomerSectionCard>
+                    ) : null}
+
+                    {order.trackingEvents?.length > 0 ? (
+                        <CustomerSectionCard title="Tracking history" subtitle="Detailed movement and fulfilment updates from the courier and order system.">
+                            <View className="gap-4">
+                                {[...order.trackingEvents].reverse().map((ev: TrackingEvent, idx: number) => {
+                                    const evCfg = STATUS_CONFIG[ev.status] ?? STATUS_CONFIG.pending;
+                                    const isFirst = idx === 0;
+                                    return (
+                                        <View key={ev._id ?? idx} className="flex-row gap-4">
+                                            <View className="items-center">
+                                                <View className="h-[28px] w-[28px] items-center justify-center rounded-full" style={{ backgroundColor: isFirst ? evCfg.color : '#EAD7C3' }}>
+                                                    <Feather name={evCfg.icon} size={11} color={isFirst ? '#FFFFFF' : '#8C7B6E'} />
+                                                </View>
+                                                {idx < order.trackingEvents.length - 1 ? <View className="mt-1 h-full w-[2px]" style={{ backgroundColor: '#EAD7C3' }} /> : null}
+                                            </View>
+                                            <View className="flex-1 rounded-[18px] border px-4 py-4" style={{ borderColor: isFirst ? `${evCfg.color}50` : '#EAD7C3', backgroundColor: '#FFFAF5' }}>
+                                                <View className="flex-row items-center justify-between gap-3">
+                                                    <Text className="font-body text-[13px] font-semibold" style={{ color: isFirst ? evCfg.color : BROWN.TextPrimary }}>
+                                                        {evCfg.label}
+                                                    </Text>
+                                                    <Text className="font-body text-[11px]" style={{ color: BROWN.TextSecondary }}>
+                                                        {new Date(ev.timestamp).toLocaleString('en-US', {
+                                                            day: 'numeric', month: 'short',
+                                                            hour: '2-digit', minute: '2-digit',
+                                                        })}
+                                                    </Text>
+                                                </View>
+                                                <Text className="mt-2 font-body text-[13px] leading-6" style={{ color: BROWN.TextSecondary }}>{ev.message}</Text>
+                                                {ev.location ? (
+                                                    <View className="mt-3 flex-row items-center gap-2">
+                                                        <Feather name="map-pin" size={11} color={BROWN.TextSecondary} />
+                                                        <Text className="font-body text-[11px]" style={{ color: BROWN.TextSecondary }}>{ev.location}</Text>
+                                                    </View>
+                                                ) : null}
+                                            </View>
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        </CustomerSectionCard>
+                    ) : null}
+
+                    {order.shippingAddress ? (
+                        <CustomerSectionCard title="Deliver to" subtitle="Shipping address currently attached to this order.">
+                            <Text className="font-body text-[15px] font-semibold" style={{ color: BROWN.TextPrimary }}>{order.shippingAddress.fullName}</Text>
+                            <Text className="mt-2 font-body text-[13px] leading-6" style={{ color: BROWN.TextSecondary }}>{order.shippingAddress.address}</Text>
+                            <Text className="font-body text-[13px] leading-6" style={{ color: BROWN.TextSecondary }}>{order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zipCode}</Text>
+                            <Text className="font-body text-[13px] leading-6" style={{ color: BROWN.TextSecondary }}>{order.shippingAddress.country}</Text>
+                            <Text className="mt-2 font-body text-[13px]" style={{ color: BROWN.TextSecondary }}>{order.shippingAddress.phone}</Text>
+                        </CustomerSectionCard>
+                    ) : null}
+
+                    <CustomerSectionCard title={`Items (${order.items.length})`} subtitle="Products, variants, quantities, and final pricing for this order.">
+                        <View className="gap-4">
+                            {order.items.map((it: any) => (
+                                <View key={it._id} className="flex-row items-center justify-between gap-4 rounded-[18px] px-4 py-4" style={{ backgroundColor: '#F6ECDF' }}>
+                                    <View className="flex-1">
+                                        <Text className="font-body text-[13px] font-semibold" style={{ color: BROWN.TextPrimary }} numberOfLines={1}>{it.name}</Text>
+                                        {it.selectedVariant?.label ? (
+                                            <Text className="mt-1 font-body text-[11px]" style={{ color: BROWN.DarkColor }}>{it.selectedVariant.label}</Text>
+                                        ) : null}
+                                        <Text className="mt-1 font-body text-[11px]" style={{ color: BROWN.TextSecondary }}>SKU: {it.sku} · Qty: {it.quantity}</Text>
+                                    </View>
+                                    <Text className="font-body text-[14px] font-semibold" style={{ color: BROWN.DarkColor }}>
+                                        ${((it.salePrice ?? it.price) * it.quantity).toFixed(2)}
+                                    </Text>
+                                </View>
+                            ))}
+                            <View className="gap-3 rounded-[18px] px-4 py-4" style={{ backgroundColor: '#FFFAF5' }}>
+                                <View className="flex-row items-center justify-between">
+                                    <Text className="font-body text-[13px]" style={{ color: BROWN.TextSecondary }}>Subtotal</Text>
+                                    <Text className="font-body text-[13px] font-semibold" style={{ color: BROWN.TextPrimary }}>${order.subtotal?.toFixed(2)}</Text>
+                                </View>
+                                <View className="flex-row items-center justify-between">
+                                    <Text className="font-body text-[13px]" style={{ color: BROWN.TextSecondary }}>Shipping</Text>
+                                    <Text className="font-body text-[13px] font-semibold" style={{ color: BROWN.TextPrimary }}>{order.shippingCost === 0 ? 'FREE' : `$${order.shippingCost?.toFixed(2)}`}</Text>
+                                </View>
+                                <View className="flex-row items-center justify-between">
+                                    <Text className="font-body text-[13px]" style={{ color: BROWN.TextSecondary }}>Tax</Text>
+                                    <Text className="font-body text-[13px] font-semibold" style={{ color: BROWN.TextPrimary }}>${order.tax?.toFixed(2)}</Text>
+                                </View>
+                                <View className="mt-2 flex-row items-center justify-between border-t pt-3" style={{ borderColor: '#EAD7C3' }}>
+                                    <Text className="font-body text-[15px] font-semibold" style={{ color: BROWN.TextPrimary }}>Total</Text>
+                                    <Text className="font-heading text-[22px]" style={{ color: BROWN.DarkColor }}>${order.total?.toFixed(2)}</Text>
+                                </View>
+                            </View>
+                        </View>
+                    </CustomerSectionCard>
+                </>
+            )}
+        </CustomerPageFrame>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: T.bg },
-    centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: 24 },
-    header: {
-        flexDirection: 'row', alignItems: 'center',
-        paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16,
-        backgroundColor: T.card, borderBottomWidth: 1, borderBottomColor: T.border,
-    },
-    backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: T.text },
-    headerSub: { fontSize: 12, color: T.active, marginTop: 2, fontWeight: '600' },
-    scrollContent: { padding: 16, gap: 12 },
-
-    heroCard: {
-        backgroundColor: T.card, borderRadius: 20,
-        borderWidth: 1, alignItems: 'center', padding: 28, gap: 10,
-    },
-    heroIcon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
-    heroStatus: { fontSize: 22, fontWeight: '800' },
-    heroSub: { fontSize: 14, color: T.muted, textAlign: 'center' },
-
-    progressCard: { backgroundColor: T.card, borderRadius: 16, borderWidth: 1, borderColor: T.border, padding: 16 },
-    sectionTitle: { fontSize: 14, fontWeight: '700', color: T.text, marginBottom: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
-    stepsRow: { flexDirection: 'row', alignItems: 'flex-start' },
-    stepCol: { alignItems: 'center', flex: 1, gap: 6 },
-    stepDot: {
-        width: 30, height: 30, borderRadius: 15, borderWidth: 2,
-        alignItems: 'center', justifyContent: 'center',
-        backgroundColor: T.border,
-    },
-    stepDotDone: { backgroundColor: 'transparent' },
-    stepLabel: { fontSize: 9, color: T.muted, textAlign: 'center', lineHeight: 12 },
-    stepLine: { flex: 1, height: 2, backgroundColor: T.border, marginTop: 14, marginHorizontal: -4 },
-
-    infoCard: { backgroundColor: T.card, borderRadius: 16, borderWidth: 1, borderColor: T.border, padding: 16 },
-    infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-    infoLabel: { color: T.muted, fontSize: 13, flex: 1 },
-    infoValue: { color: T.text, fontSize: 13, fontWeight: '600', flex: 2, textAlign: 'right' },
-
-    addrName: { fontSize: 15, fontWeight: '700', color: T.text, marginBottom: 4 },
-    addrLine: { fontSize: 13, color: T.muted, lineHeight: 20 },
-
-    timelineCard: { backgroundColor: T.card, borderRadius: 16, borderWidth: 1, borderColor: T.border, padding: 16 },
-    timelineRow: { flexDirection: 'row', marginBottom: 4 },
-    timelineLine: { width: 32, alignItems: 'center' },
-    timelineDot: {
-        width: 26, height: 26, borderRadius: 13,
-        backgroundColor: T.border, alignItems: 'center', justifyContent: 'center',
-        zIndex: 1,
-    },
-    timelineConnector: { width: 2, flex: 1, backgroundColor: T.border, marginTop: 2, marginBottom: 2 },
-    timelineContent: {
-        flex: 1, marginLeft: 10, backgroundColor: T.card2,
-        borderRadius: 12, borderWidth: 1, borderColor: T.border,
-        padding: 12, marginBottom: 8,
-    },
-    timelineHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-    timelineStatus: { fontSize: 13, fontWeight: '700', color: T.text },
-    timelineTime: { fontSize: 11, color: T.muted },
-    timelineMsg: { fontSize: 13, color: T.muted, lineHeight: 18 },
-    timelineLoc: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-    timelineLocText: { fontSize: 11, color: T.muted },
-
-    orderItemRow: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border,
-    },
-    orderItemInfo: { flex: 1 },
-    orderItemName: { fontSize: 13, color: T.text, fontWeight: '600' },
-    orderItemSku: { fontSize: 11, color: T.muted, marginTop: 2 },
-    orderItemPrice: { fontSize: 14, color: T.active, fontWeight: '700', marginLeft: 8 },
-
-    pricingWrap: { marginTop: 12, gap: 6 },
-    pricingRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    pricingLabel: { fontSize: 13, color: T.muted },
-    pricingVal: { fontSize: 13, color: T.text, fontWeight: '600' },
-    pricingTotal: { borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8, marginTop: 4 },
-    pricingTotalLabel: { fontSize: 15, color: T.text, fontWeight: '700' },
-    pricingTotalVal: { fontSize: 18, color: T.active, fontWeight: '800' },
-
-    primaryBtn: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        backgroundColor: T.active, borderRadius: 14,
-        paddingVertical: 14, paddingHorizontal: 24, gap: 6, marginTop: 4,
-    },
-    primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-
-    title: { fontSize: 18, fontWeight: '700', color: T.text, textAlign: 'center' },
-    muted: { color: T.muted, fontSize: 14 },
-});

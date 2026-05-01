@@ -2,14 +2,14 @@
 import PageShell from '@/components/PageShell';
 import { useCart } from '@/context/CartContext';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
+import { getAssetUrl } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Animated, Dimensions, Platform, Text, TouchableOpacity, View } from 'react-native';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const API_BASE = 'http://localhost:5000';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Font families (assume loaded globally or via expo-font)
 const SERIF_FONT = 'PlayfairDisplay_700Bold';
@@ -55,7 +55,7 @@ export default function CartScreen() {
         ]).start();
     }, [fadeAnim, slideAnim]);
 
-    const imageUri = (img: string) => (img?.startsWith('http') ? img : `${API_BASE}/${img}`);
+    const imageUri = (img: string) => getAssetUrl(img) || img;
     const unitPrice = (item: (typeof items)[number]) =>
         item.salePrice !== null && item.salePrice < item.price ? item.salePrice : item.price;
     const cartItemKey = (item: (typeof items)[number]) => `${item.product}:${item.selectedVariant?.variantId || 'base'}`;

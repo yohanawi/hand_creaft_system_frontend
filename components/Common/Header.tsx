@@ -645,7 +645,7 @@ export default function Header({ scrollY }: HeaderProps) {
                             <IconBtn icon="shopping-cart" badge={cartCount} onPress={() => router.push("/cart" as any)} />
 
                             {userToken ? (
-                                <TouchableOpacity onPress={() => router.push("/profile" as any)} className="flex-row items-center gap-[7px]">
+                                <TouchableOpacity onPress={() => router.push("/customer-dashboard" as any)} className="flex-row items-center gap-[7px]">
                                     <View className="w-[40px] h-[40px] rounded-[12px] bg-[#CD853F] items-center justify-center">
                                         <Feather name="user" size={19} color="#fff" />
                                     </View>

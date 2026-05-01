@@ -1,7 +1,80 @@
 import axios from "axios";
+import Constants from "expo-constants";
+import { Platform } from "react-native";
 
-// Replace with your Express backend URL
-const API_URL = "http://localhost:5000/api";
+const normalizeBaseUrl = (value: string) => {
+  const trimmed = value.trim().replace(/\/$/, "");
+  return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
+};
+
+const getHostFromUri = (value?: string | null) =>
+  String(value || "")
+    .split(":")[0]
+    .trim();
+
+const getExpoDevHost = () => {
+  const candidates = [
+    Constants.expoConfig?.hostUri,
+    (Constants as any).expoGoConfig?.debuggerHost,
+    (Constants as any).manifest2?.extra?.expoClient?.hostUri,
+    (Constants as any).manifest?.debuggerHost,
+  ];
+
+  return (
+    candidates
+      .map(getHostFromUri)
+      .find((host) => !!host && host !== "localhost") || ""
+  );
+};
+
+const getWebHost = () => {
+  if (typeof window === "undefined") {
+    return "localhost";
+  }
+
+  const hostname = window.location.hostname?.trim();
+  return hostname || "localhost";
+};
+
+const getApiUrl = () => {
+  const configuredUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (configuredUrl?.trim()) {
+    return normalizeBaseUrl(configuredUrl);
+  }
+
+  if (Platform.OS === "web") {
+    return `http://${getWebHost()}:5000/api`;
+  }
+
+  const expoHost = getExpoDevHost();
+
+  if (expoHost) {
+    return `http://${expoHost}:5000/api`;
+  }
+
+  if (Platform.OS === "android") {
+    return "http://10.0.2.2:5000/api";
+  }
+
+  return "http://localhost:5000/api";
+};
+
+export const API_URL = getApiUrl();
+export const API_ORIGIN = API_URL.replace(/\/api$/, "");
+
+export const getAssetUrl = (value?: string | null) => {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.replace(/\\/g, "/");
+  if (/^https?:\/\//i.test(normalized)) {
+    return normalized;
+  }
+
+  return `${API_ORIGIN}${normalized.startsWith("/") ? normalized : `/${normalized}`}`;
+};
 
 const api = axios.create({
   baseURL: API_URL,
@@ -31,6 +104,7 @@ export const loginUser = (data: { email: string; password: string }) =>
   api.post("/auth/login", data);
 
 export const getMyProfile = () => api.get("/auth/me");
+export const getCustomerOverview = () => api.get("/auth/customer-overview");
 export const updateMyProfile = (data: {
   name?: string;
   email?: string;

@@ -1,32 +1,46 @@
-﻿import { forgotPassword } from '@/services/api';
+import AuthField from '@/components/Auth/AuthField';
+import AuthStage from '@/components/Auth/AuthStage';
+import PageShell from '@/components/PageShell';
+import { BRAND_FONTS, BROWN } from '@/constants/brandTheme';
+import useHeaderScroll from '@/hooks/useHeaderScroll';
+import { forgotPassword } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const J = {
-    gold: '#C9A84C', goldLight: '#E8CA7A',
-    garnet: '#6B1A2F', garnetLight: '#A0344F',
-    cream: '#FAF6F0', parchment: '#F2EBE0',
-    ivory: '#FFFAF5', ink: '#2C1A0E',
-    wood: '#8B4513', woodDark: '#5C3317',
-    muted: '#9B7B6A', border: '#E8D9C8', white: '#FFFFFF',
+const C = {
+    screen: BROWN.Background,
+    text: BROWN.TextPrimary,
+    muted: BROWN.TextSecondary,
+    accent: BROWN.DarkColor,
+    bronze: BROWN.SecondaryBackground,
+    light: BROWN.lightColor,
+    line: BROWN.Border,
+    white: '#FFFFFF',
+    softBg: 'rgba(255,255,255,0.72)',
 };
+
+const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
 export default function ForgotPasswordScreen() {
     const router = useRouter();
+    const { scrollY, onScroll } = useHeaderScroll();
     const [email, setEmail] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const btnScale = useRef(new Animated.Value(1)).current;
 
     const handleSubmit = async () => {
-        if (!email.trim()) {
+        const normalizedEmail = normalizeEmail(email);
+        if (!normalizedEmail) {
             Alert.alert('Required', 'Please enter your email address.');
             return;
         }
         setSubmitting(true);
+        Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start();
         try {
-            const { data } = await forgotPassword({ email: email.trim() });
+            const { data } = await forgotPassword({ email: normalizedEmail });
             Alert.alert(
                 'Reset Link Generated',
                 data?.resetUrl
@@ -37,97 +51,137 @@ export default function ForgotPasswordScreen() {
             Alert.alert('Error', error?.response?.data?.message ?? 'Failed to generate reset link.');
         } finally {
             setSubmitting(false);
+            Animated.spring(btnScale, { toValue: 1, tension: 180, friction: 7, useNativeDriver: true }).start();
         }
     };
 
     return (
-        <LinearGradient colors={[J.woodDark, J.garnet, J.garnetLight]} style={styles.root}>
-            <View style={styles.ring1} />
-            <View style={styles.ring2} />
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-                <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <Feather name="arrow-left" size={18} color={J.goldLight} />
-                        <Text style={styles.backText}>Back</Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.card}>
-                        {/* Brand mark */}
-                        <View style={styles.brandMark}>
-                            <LinearGradient colors={[J.garnetLight, J.garnet]} style={styles.brandCircle}>
-                                <Feather name="mail" size={24} color={J.gold} />
-                            </LinearGradient>
-                        </View>
-                        <Text style={styles.eyebrow}>✦ ACCOUNT RECOVERY ✦</Text>
-                        <Text style={styles.title}>Forgot Password</Text>
-                        <Text style={styles.subtitle}>Enter your registered email and we'll generate a secure reset link for you.</Text>
-
-                        {/* Divider */}
-                        <View style={styles.divider}>
-                            <View style={styles.dividerLine} />
-                            <Feather name="star" size={12} color={J.gold} style={{ marginHorizontal: 10 }} />
-                            <View style={styles.dividerLine} />
-                        </View>
-
-                        <Text style={styles.label}>Email Address</Text>
-                        <View style={styles.inputWrap}>
-                            <Feather name="mail" size={16} color={J.muted} style={{ marginRight: 10 }} />
-                            <TextInput
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
+            <Animated.ScrollView
+                style={styles.root}
+                contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+                onScroll={onScroll}
+                scrollEventThrottle={16}
+                showsVerticalScrollIndicator={false}
+            >
+                <PageShell scrollY={scrollY}>
+                    <AuthStage
+                        badgeIcon="mail"
+                        badgeLabel="Account Recovery"
+                        cardTitle="Reset access with your email."
+                        cardDescription="Enter the email address attached to your account and we will generate a secure reset link for development or local testing."
+                        heroEyebrow="Password Assistance"
+                        heroTitle="A recovery flow styled with the same warm storefront language."
+                        heroDescription="Use this step when you cannot sign in but still need access to orders, saved jewelry, and support history. The recovery path is simple and intentionally calm."
+                        heroQuote="Good recovery flows feel reassuring. They do not make the customer work harder than the original sign-in."
+                        heroQuoteAuthor="account support"
+                        features={[
+                            { icon: 'shield', title: 'Secure reset path', body: 'The backend generates a reset link without exposing password data.' },
+                            { icon: 'mail', title: 'Email-led recovery', body: 'Use the same address tied to your saved orders and customer account.' },
+                            { icon: 'arrow-left-circle', title: 'Fast return to sign in', body: 'Once the reset flow is complete, you can move straight back into the login page.' },
+                        ]}
+                        footerPrompt="Remembered it already?"
+                        footerActionLabel="Back to sign in"
+                        onFooterAction={() => router.push('/login' as any)}
+                    >
+                        <View style={styles.formGroup}>
+                            <AuthField
+                                icon="mail"
                                 value={email}
-                                onChangeText={setEmail}
-                                placeholder="your@email.com"
-                                placeholderTextColor={J.muted}
+                                placeholder="Email address"
+                                onChange={setEmail}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
-                                style={styles.input}
+                                autoComplete="email"
+                                textContentType="emailAddress"
+                                returnKeyType="send"
+                                onSubmitEditing={handleSubmit}
                             />
                         </View>
 
-                        <TouchableOpacity
-                            onPress={handleSubmit}
-                            disabled={submitting}
-                            style={[styles.submitWrap, submitting && { opacity: 0.7 }]}
-                        >
-                            <LinearGradient colors={[J.garnetLight, J.garnet]} style={styles.submitBtn}>
-                                {submitting
-                                    ? <ActivityIndicator color={J.white} />
-                                    : <Text style={styles.submitText}>Generate Reset Link</Text>
-                                }
-                            </LinearGradient>
-                        </TouchableOpacity>
+                        <Animated.View style={{ transform: [{ scale: btnScale }] }}>
+                            <TouchableOpacity onPress={handleSubmit} disabled={submitting} activeOpacity={0.88}>
+                                <LinearGradient
+                                    colors={[BROWN.DarkColor, BROWN.SecondaryBackground, BROWN.lightColor]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.submitBtn}
+                                >
+                                    {submitting ? <ActivityIndicator color={C.white} /> : <Text style={styles.submitText}>Generate Reset Link</Text>}
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </Animated.View>
 
-                        <TouchableOpacity onPress={() => router.push('/login' as any)} style={styles.loginLink}>
-                            <Text style={styles.loginLinkText}>Remember your password? </Text>
-                            <Text style={[styles.loginLinkText, { color: J.garnet, fontWeight: '700' }]}>Sign In</Text>
-                        </TouchableOpacity>
-                    </View>
-                </ScrollView>
-            </KeyboardAvoidingView>
-        </LinearGradient>
+                        <View style={styles.notePanel}>
+                            <View style={styles.noteHeader}>
+                                <Feather name="info" size={15} color={C.accent} />
+                                <Text style={styles.noteTitle}>Development behavior</Text>
+                            </View>
+                            <Text style={styles.noteBody}>
+                                When the API returns a reset URL, it is shown in an alert so you can continue the reset flow locally without email delivery.
+                            </Text>
+                        </View>
+                    </AuthStage>
+                </PageShell>
+            </Animated.ScrollView>
+        </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1 },
-    ring1: { position: 'absolute', width: 300, height: 300, borderRadius: 150, borderWidth: 1, borderColor: J.gold + '25', top: -80, right: -80 },
-    ring2: { position: 'absolute', width: 200, height: 200, borderRadius: 100, borderWidth: 1, borderColor: J.goldLight + '20', bottom: 60, left: -60 },
-    scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-    backBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 32 },
-    backText: { color: J.goldLight, fontWeight: '600' },
-    card: { backgroundColor: J.ivory, borderRadius: 24, padding: 28, shadowColor: J.ink, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 8, borderWidth: 1, borderColor: J.border },
-    brandMark: { alignItems: 'center', marginBottom: 18 },
-    brandCircle: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: J.gold },
-    eyebrow: { textAlign: 'center', color: J.gold, fontSize: 11, fontWeight: '700', letterSpacing: 2, marginBottom: 8 },
-    title: { textAlign: 'center', color: J.ink, fontSize: 26, fontWeight: '800', marginBottom: 8 },
-    subtitle: { textAlign: 'center', color: J.muted, fontSize: 14, lineHeight: 22, marginBottom: 4 },
-    divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 18 },
-    dividerLine: { flex: 1, height: 1, backgroundColor: J.border },
-    label: { color: J.ink, fontWeight: '700', fontSize: 13, marginBottom: 8 },
-    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: J.white, borderWidth: 1.5, borderColor: J.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, marginBottom: 20 },
-    input: { flex: 1, fontSize: 15, color: J.ink },
-    submitWrap: { borderRadius: 14, overflow: 'hidden', marginBottom: 18 },
-    submitBtn: { paddingVertical: 15, alignItems: 'center', borderRadius: 14 },
-    submitText: { color: J.white, fontWeight: '800', fontSize: 16 },
-    loginLink: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-    loginLinkText: { color: J.muted, fontSize: 14 },
+    root: {
+        flex: 1,
+        backgroundColor: C.screen,
+    },
+    scrollContent: {
+        flexGrow: 1,
+    },
+    formGroup: {
+        gap: 12,
+    },
+    submitBtn: {
+        minHeight: 56,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: BROWN.DarkColor,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.18,
+        shadowRadius: 14,
+        elevation: 4,
+    },
+    submitText: {
+        fontFamily: BRAND_FONTS.body,
+        fontSize: 13,
+        fontWeight: '700',
+        color: C.white,
+        letterSpacing: 1.5,
+        textTransform: 'uppercase',
+    },
+    notePanel: {
+        borderRadius: 18,
+        padding: 16,
+        backgroundColor: C.softBg,
+        borderWidth: 1,
+        borderColor: C.line,
+    },
+    noteHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 8,
+    },
+    noteTitle: {
+        fontFamily: BRAND_FONTS.body,
+        fontSize: 13,
+        fontWeight: '700',
+        color: C.text,
+    },
+    noteBody: {
+        fontFamily: BRAND_FONTS.body,
+        fontSize: 12,
+        lineHeight: 20,
+        color: C.muted,
+    },
 });
