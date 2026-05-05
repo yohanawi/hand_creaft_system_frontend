@@ -31,7 +31,6 @@ function SocialBtn({ name }: { name: keyof typeof Feather.glyphMap }) {
 
 const Footer = () => {
 
-    const [email, setEmail] = useState('');
     const [isVisible, setIsVisible] = useState(false);
     const router = useRouter();
 
@@ -52,22 +51,22 @@ const Footer = () => {
         customer: [
             { name: 'My Account', href: '#' },
             { name: 'Order Tracking', href: '#' },
-            { name: 'Wishlist', href: '#' },
-            { name: 'Help & FAQs', href: '#' },
+            { name: 'Wishlist', href: '/wishlist' },
+            { name: 'Help & FAQs', href: '/help-faq' },
             { name: 'Returns', href: '#' },
         ],
         company: [
-            { name: 'About Us', href: '#' },
-            { name: 'Contact Us', href: '#' },
+            { name: 'About Us', href: '/about' },
+            { name: 'Contact Us', href: '/contact' },
             { name: 'Careers', href: '#' },
             { name: 'Press', href: '#' },
             { name: 'Blog', href: '#' },
         ],
         legal: [
-            { name: 'Privacy Policy', href: '#' },
-            { name: 'Terms of Service', href: '#' },
+            { name: 'Privacy Policy', href: '/privacy-policy' },
+            { name: 'Terms of Service', href: '/terms-conditions' },
             { name: 'Cookie Policy', href: '#' },
-            { name: 'Shipping Policy', href: '#' },
+            { name: 'Shipping Policy', href: '/shipping-policy' },
         ],
     };
 
@@ -97,7 +96,7 @@ const Footer = () => {
                             </View>
                         </TouchableOpacity>
                         <Text className="max-w-sm text-base leading-relaxed text-stone-400 font-body">
-                            Curating the world's finest products with a focus on quality, sustainability, and exceptional customer service.
+                            Curating the world&apos;s finest products with a focus on quality, sustainability, and exceptional customer service.
                         </Text>
                         <View className="flex-row items-center gap-1.5 pt-8">
                             <a href="#" className="p-1 transition-colors rounded-lg hover:bg-stone-500">

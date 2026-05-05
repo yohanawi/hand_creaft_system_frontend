@@ -1,81 +1,136 @@
-import AuthField from '@/components/Auth/AuthField';
-import AuthStage from '@/components/Auth/AuthStage';
 import PageShell from '@/components/PageShell';
-import { BRAND_FONTS, BROWN } from '@/constants/brandTheme';
 import { useAuth } from '@/context/AuthContext';
-import useHeaderScroll from '@/hooks/useHeaderScroll';
 import { API_URL, registerUser, setAuthToken } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
     Alert,
-    Animated,
     KeyboardAvoidingView,
     Platform,
     Pressable,
-    StyleSheet,
+    ScrollView,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
+    useWindowDimensions,
+    type KeyboardTypeOptions,
+    type ReturnKeyTypeOptions,
 } from 'react-native';
-
-const C = {
-    screen: BROWN.Background,
-    text: BROWN.TextPrimary,
-    muted: BROWN.TextSecondary,
-    accent: BROWN.DarkColor,
-    accentDeep: BROWN.DarkColor,
-    bronze: BROWN.SecondaryBackground,
-    line: BROWN.Border,
-    card: '#FFFFFF',
-    white: '#FFFFFF',
-    success: '#4A8C5C',
-    warning: '#C69A52',
-    error: '#B5483D',
-    softBg: 'rgba(255,255,255,0.72)',
-};
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
+type RegisterInputProps = {
+    icon: keyof typeof Feather.glyphMap;
+    label: string;
+    value: string;
+    onChangeText: (value: string) => void;
+    focused: boolean;
+    onFocus: () => void;
+    onBlur: () => void;
+    secureTextEntry?: boolean;
+    keyboardType?: KeyboardTypeOptions;
+    autoCapitalize?: 'none' | 'words';
+    autoComplete?: 'name' | 'email' | 'new-password';
+    textContentType?: 'name' | 'emailAddress' | 'newPassword';
+    returnKeyType?: ReturnKeyTypeOptions;
+    onSubmitEditing?: () => void;
+    right?: ReactNode;
+};
+
+function RegisterInput({
+    icon,
+    label,
+    value,
+    onChangeText,
+    focused,
+    onFocus,
+    onBlur,
+    secureTextEntry,
+    keyboardType,
+    autoCapitalize,
+    autoComplete,
+    textContentType,
+    returnKeyType,
+    onSubmitEditing,
+    right,
+}: RegisterInputProps) {
+    const active = focused || value.length > 0;
+
+    return (
+        <View className={`overflow-hidden rounded-[14px] border bg-white ${active ? 'border-[#B9937B]' : 'border-[#E9DDD4]'}`}>
+            <View className="flex-row items-center gap-3 px-2 py-1">
+                <View className={`h-11 w-11 items-center justify-center rounded-[14px] ${active ? 'bg-[#EBDACD]' : 'bg-[#F6EEE8]'}`}>
+                    <Feather name={icon} size={17} color={active ? '#714329' : '#6B6B6B'} />
+                </View>
+
+                <View className="flex-1">
+                    <TextInput
+                        value={value}
+                        onChangeText={onChangeText}
+                        onFocus={onFocus}
+                        onBlur={onBlur}
+                        secureTextEntry={secureTextEntry}
+                        keyboardType={keyboardType}
+                        autoComplete={autoComplete}
+                        textContentType={textContentType}
+                        returnKeyType={returnKeyType}
+                        onSubmitEditing={onSubmitEditing}
+                        autoCapitalize={autoCapitalize ?? 'none'}
+                        placeholder={label}
+                        placeholderTextColor="#9A8475"
+                        className="py-2 font-body text-[15px] leading-5 text-[#1C1C1C]"
+                    />
+                </View>
+
+                {right ? <View>{right}</View> : null}
+            </View>
+        </View>
+    );
+}
+
 function getStrength(password: string): { level: number; label: string; color: string } {
     if (!password) return { level: 0, label: '', color: 'transparent' };
-    if (password.length < 6) return { level: 1, label: 'Too short', color: C.error };
-    if (password.length < 10) return { level: 2, label: 'Fair', color: C.warning };
+    if (password.length < 6) return { level: 1, label: 'Too short', color: '#B5483D' };
+    if (password.length < 10) return { level: 2, label: 'Fair', color: '#C69A52' };
 
     const hasUpper = /[A-Z]/.test(password);
     const hasNumber = /\d/.test(password);
     const hasSpecial = /[^A-Za-z0-9]/.test(password);
 
-    if (hasUpper && hasNumber && hasSpecial) return { level: 4, label: 'Very strong', color: C.success };
+    if (hasUpper && hasNumber && hasSpecial) return { level: 4, label: 'Very strong', color: '#4A8C5C' };
     if (hasUpper || hasSpecial || hasNumber) return { level: 3, label: 'Strong', color: '#6BAF7A' };
     return { level: 3, label: 'Strong', color: '#6BAF7A' };
 }
 
 function StrengthMeter({ password }: { password: string }) {
     const { level, label, color } = getStrength(password);
+
     if (!password) return null;
 
     return (
-        <View style={styles.strengthWrap}>
-            <View style={styles.strengthBars}>
+        <View className="flex-row items-center gap-2.5 rounded-[14px] border border-[#E9DDD4] bg-[#FFF7F1] px-3 py-3">
+            <View className="flex-1 flex-row gap-1.5">
                 {[1, 2, 3, 4].map((step) => (
                     <View
                         key={step}
-                        style={[styles.strengthBar, { backgroundColor: step <= level ? color : 'rgba(185,147,123,0.24)' }]}
+                        className="h-[5px] flex-1 rounded-full"
+                        style={{ backgroundColor: step <= level ? color : 'rgba(185,147,123,0.24)' }}
                     />
                 ))}
             </View>
-            <Text style={[styles.strengthLabel, { color }]}>{label}</Text>
+            <Text className="min-w-[76px] text-right font-body text-[11px] font-bold" style={{ color }}>
+                {label}
+            </Text>
         </View>
     );
 }
 
 export default function RegisterScreen() {
     const router = useRouter();
-    const { scrollY, onScroll } = useHeaderScroll();
     const { login, user, userToken, isLoading: authIsLoading } = useAuth();
+    const { width } = useWindowDimensions();
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -85,16 +140,17 @@ export default function RegisterScreen() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [acceptTerms, setAcceptTerms] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [focusedField, setFocusedField] = useState<'name' | 'email' | 'password' | 'confirmPassword' | null>(null);
 
-    const btnScale = useRef(new Animated.Value(1)).current;
+    const isTablet = width >= 768;
+    const isDesktop = width >= 1180;
+    const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword;
+    const passwordMismatch = confirmPassword.length > 0 && password !== confirmPassword;
 
     useEffect(() => {
         if (authIsLoading || !userToken) return;
         router.replace(user?.role === 'admin' ? '/admin' : '/customer-dashboard');
     }, [authIsLoading, router, user?.role, userToken]);
-
-    const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword;
-    const passwordMismatch = confirmPassword.length > 0 && password !== confirmPassword;
 
     const handleRegister = async () => {
         const normalizedEmail = normalizeEmail(email);
@@ -120,7 +176,6 @@ export default function RegisterScreen() {
         }
 
         setSubmitting(true);
-        Animated.spring(btnScale, { toValue: 0.97, useNativeDriver: true }).start();
 
         try {
             const response = await registerUser({
@@ -143,279 +198,207 @@ export default function RegisterScreen() {
             Alert.alert('Registration failed', message);
         } finally {
             setSubmitting(false);
-            Animated.spring(btnScale, { toValue: 1, tension: 180, friction: 7, useNativeDriver: true }).start();
         }
     };
 
     return (
-        <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <Animated.ScrollView
-                style={styles.root}
-                contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-                onScroll={onScroll}
-                scrollEventThrottle={16}
-            >
-                <PageShell scrollY={scrollY}>
-                    <AuthStage
-                        badgeIcon="user-plus"
-                        badgeLabel="Create Account"
-                        cardTitle="Open your studio-side account."
-                        cardDescription="Create an account to save pieces, track orders, and move through checkout without re-entering every detail."
-                        heroEyebrow="Join The Atelier"
-                        heroTitle="Designed for gift givers, collectors, and customers who return with intention."
-                        heroDescription="The account experience mirrors the product story: warm materials, clear details, and a checkout path that feels thoughtful rather than rushed."
-                        heroQuote="From discovery to delivery, every touchpoint should feel as carefully composed as the piece in the box."
-                        heroQuoteAuthor="craft-led commerce"
-                        features={[
-                            { icon: 'bookmark', title: 'Personal wishlists', body: 'Keep favorite finds ready for later gifting, styling, or repeat purchase.' },
-                            { icon: 'map-pin', title: 'Faster checkout', body: 'Store delivery details so handcrafted orders move through checkout smoothly.' },
-                            { icon: 'message-circle', title: 'Better support', body: 'Reach support with your order context already attached to your account history.' },
-                        ]}
-                        footerPrompt="Already registered?"
-                        footerActionLabel="Sign in"
-                        onFooterAction={() => router.push('/login' as any)}
-                    >
-                        <View style={styles.formGroup}>
-                            <AuthField
-                                icon="user"
-                                value={name}
-                                placeholder="Full name"
-                                onChange={setName}
-                                autoCapitalize="words"
-                                autoComplete="name"
-                                textContentType="name"
-                                returnKeyType="next"
-                            />
-                            <AuthField
-                                icon="mail"
-                                value={email}
-                                placeholder="Email address"
-                                onChange={setEmail}
-                                keyboardType="email-address"
-                                autoComplete="email"
-                                textContentType="emailAddress"
-                                returnKeyType="next"
-                            />
-                            <AuthField
-                                icon="lock"
-                                value={password}
-                                placeholder="Password"
-                                onChange={setPassword}
-                                secureTextEntry={!showPassword}
-                                autoComplete="new-password"
-                                textContentType="newPassword"
-                                returnKeyType="next"
-                                right={
-                                    <TouchableOpacity onPress={() => setShowPassword((value) => !value)} activeOpacity={0.7}>
-                                        <Feather name={showPassword ? 'eye' : 'eye-off'} size={16} color={C.muted} />
-                                    </TouchableOpacity>
-                                }
-                            />
+        <KeyboardAvoidingView className="flex-1 bg-[#D0B9A7]" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <ScrollView className="flex-1" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <PageShell>
+                    <View className="bg-[#D0B9A7] px-3 py-24 sm:px-5 lg:px-6">
+                        <View className="mx-auto w-full max-w-6xl overflow-hidden rounded-[34px] border border-white/35 bg-[#F6EEE8] p-3">
+                            <View className={isDesktop ? 'grid md:grid-cols-2 items-stretch gap-4' : 'gap-4'}>
+                                <View className="relative min-w-0 flex-1 overflow-hidden rounded-[30px] bg-[#5F341C] px-6 py-7">
+                                    <View className="self-start px-3 py-2 border rounded-full border-white/20 bg-white/10">
+                                        <View className="flex-row items-center gap-2">
+                                            <Feather name="user-plus" size={13} color="#FFFFFF" />
+                                            <Text className="font-body text-[10px] uppercase tracking-[2px] text-white">Create Account</Text>
+                                        </View>
+                                    </View>
 
-                            <StrengthMeter password={password} />
-
-                            <AuthField
-                                icon="shield"
-                                value={confirmPassword}
-                                placeholder="Confirm password"
-                                onChange={setConfirmPassword}
-                                secureTextEntry={!showConfirmPassword}
-                                autoComplete="new-password"
-                                textContentType="newPassword"
-                                returnKeyType="go"
-                                onSubmitEditing={handleRegister}
-                                right={
-                                    <TouchableOpacity onPress={() => setShowConfirmPassword((value) => !value)} activeOpacity={0.7}>
-                                        <Feather name={showConfirmPassword ? 'eye' : 'eye-off'} size={16} color={C.muted} />
-                                    </TouchableOpacity>
-                                }
-                            />
-                        </View>
-
-                        {(passwordsMatch || passwordMismatch) && (
-                            <View style={styles.matchRow}>
-                                <Feather
-                                    name={passwordsMatch ? 'check-circle' : 'x-circle'}
-                                    size={14}
-                                    color={passwordsMatch ? C.success : C.error}
-                                />
-                                <Text style={[styles.matchText, { color: passwordsMatch ? C.success : C.error }]}>
-                                    {passwordsMatch ? 'Passwords match' : 'Passwords do not match'}
-                                </Text>
-                            </View>
-                        )}
-
-                        <Pressable style={styles.termsRow} onPress={() => setAcceptTerms((value) => !value)}>
-                            <View style={[styles.check, acceptTerms && styles.checkActive]}>
-                                {acceptTerms && <Feather name="check" size={11} color={C.white} />}
-                            </View>
-                            <View style={styles.termsCopy}>
-                                <Text style={styles.termsText}>
-                                    I agree to the{' '}
-                                    <Text style={styles.inlineLink} onPress={() => router.push('/terms-conditions' as any)}>
-                                        Terms & Conditions
+                                    <Text className="mt-5 max-w-[620px] font-heading text-[30px] leading-[38px] text-white sm:text-[36px] sm:leading-[44px] lg:text-[42px] lg:leading-[50px]">
+                                        Start an account for faster checkout, saved favorites, and order tracking.
                                     </Text>
-                                    {' '}and{' '}
-                                    <Text style={styles.inlineLink} onPress={() => router.push('/privacy-policy' as any)}>
-                                        Privacy Policy
+
+                                    <Text className="mt-10 max-w-[560px] font-body text-[15px] leading-[25px] text-white/75">
+                                        This follows the same storefront flow as sign in, but opens the customer journey from the start so shoppers can save details, revisit products, and manage future orders in one place.
                                     </Text>
-                                    .
-                                </Text>
-                            </View>
-                        </Pressable>
 
-                        <Animated.View style={{ transform: [{ scale: btnScale }] }}>
-                            <TouchableOpacity disabled={submitting} activeOpacity={0.88} onPress={handleRegister}>
-                                <LinearGradient
-                                    colors={[BROWN.DarkColor, BROWN.SecondaryBackground, BROWN.lightColor]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.submitBtn}
-                                >
-                                    <Text style={styles.submitText}>{submitting ? 'Creating Account...' : 'Create Account'}</Text>
-                                    {!submitting && <Feather name="arrow-right" size={16} color={C.white} />}
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </Animated.View>
+                                    <View className="gap-3 mt-16 rounded-[24px] border border-[#E9DDD4] bg-[#FFF7F1] p-4">
+                                        <View className="flex-row gap-3">
+                                            <View className="h-11 w-11 items-center justify-center rounded-[14px] bg-[#F6EEE8]">
+                                                <Feather name="shopping-bag" size={18} color="#714329" />
+                                            </View>
+                                            <View className="flex-1">
+                                                <Text className="font-heading text-[18px] leading-6 text-[#1C1C1C]">Your account is ready for the full buying flow</Text>
+                                                <Text className="mt-1.5 font-body text-[12px] leading-[19px] text-[#6B6B6B]">
+                                                    Keep delivery details, track purchases, save shortlisted products, and reach support without starting over.
+                                                </Text>
+                                            </View>
+                                        </View>
 
-                        <View style={styles.notePanel}>
-                            <View style={styles.noteHeader}>
-                                <Feather name="gift" size={15} color={C.accent} />
-                                <Text style={styles.noteTitle}>What your account unlocks</Text>
+                                        <View className={isTablet ? 'flex-row gap-3' : 'gap-3'}>
+                                            <View className="flex-1 rounded-[18px] border border-[#E9DDD4] bg-white px-3 py-3">
+                                                <Text className="font-body text-[11px] font-bold uppercase tracking-[1.1px] text-[#714329]">Saved Checkout</Text>
+                                                <Text className="mt-1 font-body text-[12px] leading-[18px] text-[#6B6B6B]">
+                                                    Store your customer details for a faster return purchase.
+                                                </Text>
+                                            </View>
+                                            <View className="flex-1 rounded-[18px] border border-[#E9DDD4] bg-white px-3 py-3">
+                                                <Text className="font-body text-[11px] font-bold uppercase tracking-[1.1px] text-[#714329]">Order Visibility</Text>
+                                                <Text className="mt-1 font-body text-[12px] leading-[18px] text-[#6B6B6B]">
+                                                    Review order history and status updates from one account.
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    </View>
+                                </View>
+
+                                <View className={`${isDesktop ? 'shrink-0' : 'w-full'} rounded-[30px] px-5 py-6`}>
+                                    <Text className="mt-5 font-heading text-[28px] leading-[34px] text-[#1C1C1C]">
+                                        Create your profile and move through checkout with less friction.
+                                    </Text>
+                                    <Text className="mt-8 font-body text-[14px] leading-[23px] text-[#6B6B6B]">
+                                        Set up your account once to recover carts, save products, and keep order support attached to the right customer profile.
+                                    </Text>
+
+                                    <View className="gap-3 mt-10">
+                                        <RegisterInput
+                                            icon="user"
+                                            label="Full name"
+                                            value={name}
+                                            onChangeText={setName}
+                                            focused={focusedField === 'name'}
+                                            onFocus={() => setFocusedField('name')}
+                                            onBlur={() => setFocusedField(null)}
+                                            autoCapitalize="words"
+                                            autoComplete="name"
+                                            textContentType="name"
+                                            returnKeyType="next"
+                                        />
+
+                                        <RegisterInput
+                                            icon="mail"
+                                            label="Email address"
+                                            value={email}
+                                            onChangeText={setEmail}
+                                            focused={focusedField === 'email'}
+                                            onFocus={() => setFocusedField('email')}
+                                            onBlur={() => setFocusedField(null)}
+                                            keyboardType="email-address"
+                                            autoComplete="email"
+                                            textContentType="emailAddress"
+                                            returnKeyType="next"
+                                        />
+
+                                        <RegisterInput
+                                            icon="lock"
+                                            label="Password"
+                                            value={password}
+                                            onChangeText={setPassword}
+                                            focused={focusedField === 'password'}
+                                            onFocus={() => setFocusedField('password')}
+                                            onBlur={() => setFocusedField(null)}
+                                            secureTextEntry={!showPassword}
+                                            autoComplete="new-password"
+                                            textContentType="newPassword"
+                                            returnKeyType="next"
+                                            right={
+                                                <TouchableOpacity onPress={() => setShowPassword((value) => !value)} activeOpacity={0.7}>
+                                                    <Feather name={showPassword ? 'eye' : 'eye-off'} size={16} color="#6B6B6B" />
+                                                </TouchableOpacity>
+                                            }
+                                        />
+
+                                        <StrengthMeter password={password} />
+
+                                        <RegisterInput
+                                            icon="shield"
+                                            label="Confirm password"
+                                            value={confirmPassword}
+                                            onChangeText={setConfirmPassword}
+                                            focused={focusedField === 'confirmPassword'}
+                                            onFocus={() => setFocusedField('confirmPassword')}
+                                            onBlur={() => setFocusedField(null)}
+                                            secureTextEntry={!showConfirmPassword}
+                                            autoComplete="new-password"
+                                            textContentType="newPassword"
+                                            returnKeyType="go"
+                                            onSubmitEditing={handleRegister}
+                                            right={
+                                                <TouchableOpacity onPress={() => setShowConfirmPassword((value) => !value)} activeOpacity={0.7}>
+                                                    <Feather name={showConfirmPassword ? 'eye' : 'eye-off'} size={16} color="#6B6B6B" />
+                                                </TouchableOpacity>
+                                            }
+                                        />
+
+                                        {passwordsMatch || passwordMismatch ? (
+                                            <View
+                                                className={`flex-row items-center gap-2 rounded-[14px] border px-3 py-3 ${passwordsMatch ? 'border-[rgba(74,140,92,0.18)] bg-[rgba(74,140,92,0.08)]' : 'border-[rgba(181,72,61,0.18)] bg-[rgba(181,72,61,0.08)]'}`}
+                                            >
+                                                <Feather
+                                                    name={passwordsMatch ? 'check-circle' : 'x-circle'}
+                                                    size={14}
+                                                    color={passwordsMatch ? '#4A8C5C' : '#B5483D'}
+                                                />
+                                                <Text
+                                                    className="font-body text-[12px] font-bold"
+                                                    style={{ color: passwordsMatch ? '#4A8C5C' : '#B5483D' }}
+                                                >
+                                                    {passwordsMatch ? 'Passwords match' : 'Passwords do not match'}
+                                                </Text>
+                                            </View>
+                                        ) : null}
+
+                                        <Pressable onPress={() => setAcceptTerms((value) => !value)} className="my-3 flex-row items-start gap-3 rounded-[24px] border border-[#E9DDD4] bg-[#FFF7F1] p-4">
+                                            <View className={`h-[22px] w-[22px] items-center justify-center rounded-[7px] border ${acceptTerms ? 'border-[#714329] bg-[#714329]' : 'border-[#D9C8BC] bg-white'}`}>
+                                                {acceptTerms ? <Feather name="check" size={11} color="#FFFFFF" /> : null}
+                                            </View>
+                                            <View className="flex-1">
+                                                <Text className="font-body text-[13px] font-semibold leading-[18px] text-[#1C1C1C]">I agree to the account terms</Text>
+                                                <Text className="mt-0.5 font-body text-[11px] leading-4 text-[#6B6B6B]">
+                                                    Continue only if you accept the{' '}
+                                                    <Text className="font-bold text-[#714329]" onPress={() => router.push('/terms-conditions' as any)}>
+                                                        Terms & Conditions
+                                                    </Text>
+                                                    {' '}and{' '}
+                                                    <Text className="font-bold text-[#714329]" onPress={() => router.push('/privacy-policy' as any)}>
+                                                        Privacy Policy
+                                                    </Text>
+                                                    .
+                                                </Text>
+                                            </View>
+                                        </Pressable>
+
+                                        <TouchableOpacity
+                                            disabled={submitting}
+                                            onPress={handleRegister}
+                                            activeOpacity={0.9}
+                                            className={`rounded-[22px] px-5 py-5 ${submitting ? 'bg-[#8A684F]' : 'bg-[#714329]'}`}
+                                        >
+                                            <View className="flex items-center justify-center gap-4">
+                                                <View className="flex-row items-center gap-2">
+                                                    <Text className="font-body text-[12px] font-extrabold uppercase tracking-[1.8px] text-white">
+                                                        {submitting ? 'Creating Account...' : 'Create Account'}
+                                                    </Text>
+                                                    <Feather name={submitting ? 'clock' : 'arrow-right'} size={20} color="#FFFFFF" />
+                                                </View>
+                                            </View>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View className="mt-6 flex-row items-center justify-center gap-1.5">
+                                        <Text className="font-body text-[13px] leading-5 text-[#6B6B6B]">Already have an account?</Text>
+                                        <TouchableOpacity onPress={() => router.push('/login' as any)} activeOpacity={0.75}>
+                                            <Text className="font-body text-[13px] font-bold leading-5 text-[#714329]">Sign in</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
                             </View>
-                            <Text style={styles.noteBody}>
-                                Saved delivery details, order history, curated favorites, and a faster path back to the pieces you loved.
-                            </Text>
                         </View>
-                    </AuthStage>
+                    </View>
                 </PageShell>
-            </Animated.ScrollView>
+            </ScrollView>
         </KeyboardAvoidingView>
     );
 }
-
-const styles = StyleSheet.create({
-    root: {
-        flex: 1,
-        backgroundColor: C.screen,
-    },
-    scrollContent: {
-        flexGrow: 1,
-    },
-    formGroup: {
-        gap: 12,
-    },
-    strengthWrap: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    strengthBars: {
-        flex: 1,
-        flexDirection: 'row',
-        gap: 5,
-    },
-    strengthBar: {
-        flex: 1,
-        height: 4,
-        borderRadius: 999,
-    },
-    strengthLabel: {
-        fontFamily: BRAND_FONTS.body,
-        fontSize: 11,
-        fontWeight: '700',
-        minWidth: 72,
-        textAlign: 'right',
-    },
-    matchRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    matchText: {
-        fontFamily: BRAND_FONTS.body,
-        fontSize: 12,
-        fontWeight: '700',
-    },
-    termsRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 10,
-    },
-    check: {
-        width: 20,
-        height: 20,
-        borderRadius: 6,
-        borderWidth: 1.5,
-        borderColor: C.bronze,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: C.card,
-        marginTop: 2,
-    },
-    checkActive: {
-        backgroundColor: C.accent,
-        borderColor: C.accent,
-    },
-    termsCopy: {
-        flex: 1,
-    },
-    termsText: {
-        fontFamily: BRAND_FONTS.body,
-        fontSize: 12,
-        lineHeight: 20,
-        color: C.muted,
-    },
-    inlineLink: {
-        color: C.accentDeep,
-        fontWeight: '700',
-    },
-    submitBtn: {
-        minHeight: 56,
-        borderRadius: 18,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 10,
-        shadowColor: BROWN.DarkColor,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.18,
-        shadowRadius: 14,
-        elevation: 4,
-    },
-    submitText: {
-        fontFamily: BRAND_FONTS.body,
-        fontSize: 13,
-        fontWeight: '700',
-        color: C.white,
-        letterSpacing: 1.5,
-        textTransform: 'uppercase',
-    },
-    notePanel: {
-        borderRadius: 18,
-        padding: 16,
-        backgroundColor: C.softBg,
-        borderWidth: 1,
-        borderColor: C.line,
-    },
-    noteHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 8,
-    },
-    noteTitle: {
-        fontFamily: BRAND_FONTS.body,
-        fontSize: 13,
-        fontWeight: '700',
-        color: C.text,
-    },
-    noteBody: {
-        fontFamily: BRAND_FONTS.body,
-        fontSize: 12,
-        lineHeight: 20,
-        color: C.muted,
-    },
-});

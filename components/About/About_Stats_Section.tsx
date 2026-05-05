@@ -1,34 +1,29 @@
 import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Dimensions, Text, View } from "react-native";
 
 export default function About_Stats_Section() {
+
     const { width: W } = Dimensions.get('window');
     const isMobile = W < 768;
-    const isTablet = W >= 768 && W < 1024;
     const px = isMobile ? 20 : 48;
+
     const stats = [
-        { icon: 'users', value: '28K+', label: 'Happy Clients' },
-        { icon: 'award', value: '5K+', label: 'Pieces Crafted' },
-        { icon: 'scissors', value: '18+', label: 'Years of Craft' },
-        { icon: 'globe', value: '80+', label: 'Countries Reached' },
+        { icon: 'heart', value: '10K+', label: 'Happy Customers' },
+        { icon: 'tool', value: '500+', label: 'Handcrafted Pieces' },
+        { icon: 'scissors', value: '10+', label: 'Years of Expertise' },
+        { icon: 'globe', value: '30+', label: 'Countries Shipped' },
     ];
+
     return (
-        <LinearGradient
-            colors={["#714329", "#B5A192", "#B9937B"]}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-            style={{ paddingVertical: 60, paddingHorizontal: px }}
-        >
-            <View className="self-center w-full" style={{ maxWidth: 1200 }}>
+        <View className="py-32 bg-[#FAF6F2]" style={{ paddingHorizontal: px }}>
+            <View className="self-center w-full max-w-6xl">
                 <View className={`${isMobile ? 'flex-col' : 'flex-row'} items-center justify-around`}>
                     {stats.map((stat, i) => (
                         <React.Fragment key={i}>
                             <View className="items-center" style={{ marginBottom: isMobile ? 36 : 0 }}>
-                                <View
-                                    className="items-center justify-center w-16 h-16 mb-3 border-2 rounded-full bg-brown-Background border-brown-lightColor"
-                                >
-                                    <Feather name={stat.icon as any} size={28} color="#B08463" />
+                                <View className="items-center justify-center w-16 h-16 mb-3 border-2 rounded-full bg-brown-Background border-brown-lightColor">
+                                    <Feather name={stat.icon as any} size={28} color="#FFF" />
                                 </View>
                                 <Text className="mb-1 font-extrabold text-brown-lightColor" style={{ fontSize: 42 }}>{stat.value}</Text>
                                 <Text className="text-sm font-medium text-brown-TextSecondary" style={{ letterSpacing: 0.5 }}>{stat.label}</Text>
@@ -40,6 +35,6 @@ export default function About_Stats_Section() {
                     ))}
                 </View>
             </View>
-        </LinearGradient>
+        </View>
     );
 }

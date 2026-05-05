@@ -9,16 +9,6 @@ import {
     View,
 } from 'react-native';
 
-export const INQUIRY_TYPES = [
-    { label: 'General', value: 'general' },
-    { label: 'Orders', value: 'order' },
-    { label: 'Shipping', value: 'shipping' },
-    { label: 'Product care', value: 'product' },
-    { label: 'Account', value: 'account' },
-] as const;
-
-export type InquiryTypeValue = (typeof INQUIRY_TYPES)[number]['value'];
-
 interface InputShellProps {
     field: string;
     icon: keyof typeof Feather.glyphMap;
@@ -31,27 +21,18 @@ function InputShell({ field, icon, children, multiline = false, focusedField }: 
     const isFocused = focusedField === field;
 
     return (
-        <View
-            className={`rounded-[22px] border bg-white ${multiline ? 'p-4' : 'flex-row items-center px-4 py-4'}`}
+        <View className={`rounded-[22px] border bg-white ${multiline ? 'p-4' : 'flex-row items-center px-4 py-4'}`}
             style={{
                 borderColor: isFocused ? BROWN.DarkColor : '#E8D7C8',
                 backgroundColor: isFocused ? '#FFFCF8' : '#FFFFFF',
-                shadowColor: isFocused ? BROWN.DarkColor : 'transparent',
-                shadowOpacity: isFocused ? 0.08 : 0,
-                shadowRadius: 16,
-                shadowOffset: { width: 0, height: 10 },
                 elevation: isFocused ? 4 : 0,
-            }}
-        >
+            }} >
             {!multiline ? <Feather name={icon} size={18} color={BROWN.lightColor} /> : null}
 
             {multiline ? (
                 <View className="flex-row items-center mb-3">
                     <Feather name={icon} size={18} color={BROWN.lightColor} />
-                    <Text
-                        className="ml-2 font-body text-[12px] uppercase tracking-[1.6px]"
-                        style={{ color: '#A06F54' }}
-                    >
+                    <Text className="ml-2 font-body text-[12px] uppercase tracking-[1.6px]" style={{ color: '#A06F54' }}>
                         Your note
                     </Text>
                 </View>
@@ -68,7 +49,6 @@ interface ContactFormProps {
     phone: string;
     subject: string;
     message: string;
-    category: InquiryTypeValue;
     focusedField: string;
     submitting: boolean;
     setName: (v: string) => void;
@@ -76,7 +56,6 @@ interface ContactFormProps {
     setPhone: (v: string) => void;
     setSubject: (v: string) => void;
     setMessage: (v: string) => void;
-    setCategory: (v: InquiryTypeValue) => void;
     setFocusedField: (v: string) => void;
     isDesktop: boolean;
     isTablet: boolean;
@@ -91,7 +70,6 @@ export default function ContactForm({
     phone,
     subject,
     message,
-    category,
     focusedField,
     submitting,
     setName,
@@ -99,7 +77,6 @@ export default function ContactForm({
     setPhone,
     setSubject,
     setMessage,
-    setCategory,
     setFocusedField,
     isDesktop,
     isTablet,
@@ -129,77 +106,27 @@ export default function ContactForm({
                 transform: [{ translateX: formSlideAnim }],
             }}
         >
-            <View
-                className="rounded-[34px] border px-5 py-6"
-                style={{ borderColor: '#ECD9CA', backgroundColor: '#FFFCF8' }}
-            >
-                {/* Header */}
-                <Text
-                    className="font-body text-[12px] uppercase tracking-[2px]"
-                    style={{ color: '#A16D52' }}
-                >
-                    Send a message
-                </Text>
-
-                <Text
-                    className="mt-3 font-heading text-[34px]"
-                    style={{ color: BROWN.TextPrimary, lineHeight: 42 }}
-                >
-                    Tell us what you need, and we will route it to the right craft and care team.
-                </Text>
-
-                <Text
-                    className="mt-4 font-body text-[14px] leading-7"
-                    style={{ color: BROWN.TextSecondary }}
-                >
-                    Every submission creates a support ticket in the same system used by the customer
-                    dashboard, so follow-up stays organized from first contact to resolution.
-                </Text>
-
-                {/* Inquiry type selector */}
-                <View className="mt-7">
-                    <Text
-                        className="font-body text-[13px] font-semibold"
-                        style={{ color: BROWN.TextPrimary }}
-                    >
-                        Inquiry type
-                    </Text>
-
-                    <View className="flex-row flex-wrap gap-3 mt-3">
-                        {INQUIRY_TYPES.map((item) => {
-                            const active = item.value === category;
-
-                            return (
-                                <TouchableOpacity
-                                    key={item.value}
-                                    onPress={() => setCategory(item.value)}
-                                    activeOpacity={0.9}
-                                    className="px-4 py-3 border rounded-full"
-                                    style={{
-                                        borderColor: active ? BROWN.DarkColor : '#E7D6C8',
-                                        backgroundColor: active ? '#F6ECDF' : '#FFFFFF',
-                                    }}
-                                >
-                                    <Text
-                                        className="font-body text-[13px] font-semibold"
-                                        style={{ color: active ? BROWN.DarkColor : BROWN.TextSecondary }}
-                                    >
-                                        {item.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
+            <View className="rounded-[34px] border px-5 py-6" style={{ borderColor: '#ECD9CA', backgroundColor: '#FFFCF8' }}>
+                <View className="flex-row items-center justify-center gap-3 mx-auto mb-4">
+                    <div className="h-px w-8 bg-[rgba(113,67,41,0.35)]" />
+                    <span className="text-[#714329] uppercase tracking-[0.3em] text-xs font-bold">
+                        Send a message
+                    </span>
+                    <div className="h-px w-8 bg-[rgba(113,67,41,0.35)]" />
                 </View>
+                <Text className="mt-3 font-heading text-[28px]" style={{ color: BROWN.TextPrimary, lineHeight: 42 }}>
+                    Have a question or need assistance? <br />Our support team is here to help!
+                </Text>
+
+                <Text className="mt-4 font-body text-[14px] leading-7" style={{ color: BROWN.TextSecondary }}>
+                    Whether you have a question about your order, need help with sizing, or want to learn more about our custom design services - just send us a message. We’re dedicated to providing personalized support and will get back to you as quickly as possible.
+                </Text>
 
                 {/* Two-column fields */}
-                <View className="flex-row flex-wrap justify-between mt-7 gap-y-4">
+                <View className="flex-row flex-wrap justify-between mt-12 gap-y-4">
                     {/* Full name */}
                     <View style={{ width: formFieldWidth }}>
-                        <Text
-                            className="mb-2 font-body text-[13px] font-semibold"
-                            style={{ color: BROWN.TextPrimary }}
-                        >
+                        <Text className="mb-2 font-body text-[13px] font-semibold" style={{ color: BROWN.TextPrimary }}>
                             Full name
                         </Text>
                         <InputShell field="name" icon="user" focusedField={focusedField}>
@@ -218,10 +145,7 @@ export default function ContactForm({
 
                     {/* Email */}
                     <View style={{ width: formFieldWidth }}>
-                        <Text
-                            className="mb-2 font-body text-[13px] font-semibold"
-                            style={{ color: BROWN.TextPrimary }}
-                        >
+                        <Text className="mb-2 font-body text-[13px] font-semibold" style={{ color: BROWN.TextPrimary }}>
                             Email address
                         </Text>
                         <InputShell field="email" icon="mail" focusedField={focusedField}>
@@ -242,10 +166,7 @@ export default function ContactForm({
 
                     {/* Phone */}
                     <View style={{ width: formFieldWidth }}>
-                        <Text
-                            className="mb-2 font-body text-[13px] font-semibold"
-                            style={{ color: BROWN.TextPrimary }}
-                        >
+                        <Text className="mb-2 font-body text-[13px] font-semibold" style={{ color: BROWN.TextPrimary }}>
                             Phone number
                         </Text>
                         <InputShell field="phone" icon="phone" focusedField={focusedField}>
@@ -265,10 +186,7 @@ export default function ContactForm({
 
                     {/* Subject */}
                     <View style={{ width: formFieldWidth }}>
-                        <Text
-                            className="mb-2 font-body text-[13px] font-semibold"
-                            style={{ color: BROWN.TextPrimary }}
-                        >
+                        <Text className="mb-2 font-body text-[13px] font-semibold" style={{ color: BROWN.TextPrimary }}>
                             Subject
                         </Text>
                         <InputShell field="subject" icon="tag" focusedField={focusedField}>
@@ -288,10 +206,7 @@ export default function ContactForm({
 
                 {/* Message */}
                 <View className="mt-4">
-                    <Text
-                        className="mb-2 font-body text-[13px] font-semibold"
-                        style={{ color: BROWN.TextPrimary }}
-                    >
+                    <Text className="mb-2 font-body text-[13px] font-semibold" style={{ color: BROWN.TextPrimary }}>
                         Message
                     </Text>
                     <InputShell field="message" icon="edit-3" multiline focusedField={focusedField}>
@@ -312,20 +227,7 @@ export default function ContactForm({
                 </View>
 
                 {/* Footer – notice + submit */}
-                <View
-                    className={`mt-6 ${isTablet ? 'flex-row items-center justify-between' : 'flex-col'} gap-4`}
-                >
-                    <View className={isTablet ? 'flex-1 pr-4' : 'w-full'}>
-                        <Text
-                            className="font-body text-[12px] leading-6"
-                            style={{ color: BROWN.TextSecondary }}
-                        >
-                            {userToken
-                                ? 'Signed-in messages are stored under your account as support tickets.'
-                                : 'Guest messages are still saved in the support database with the email you provide.'}
-                        </Text>
-                    </View>
-
+                <View className={`mt-6 ${isTablet ? 'flex-row items-center justify-center' : 'flex-col'} gap-4`}>
                     <TouchableOpacity
                         onPress={onSubmit}
                         disabled={submitting}
@@ -337,11 +239,7 @@ export default function ContactForm({
                         }}
                     >
                         <View className="flex-row items-center justify-center">
-                            <Feather
-                                name={submitting ? 'loader' : 'send'}
-                                size={18}
-                                color="#FFFFFF"
-                            />
+                            <Feather name={submitting ? 'loader' : 'send'} size={18} color="#FFFFFF" />
                             <Text className="ml-2 font-body text-[14px] font-semibold text-white">
                                 {submitting ? 'Saving ticket...' : 'Send to support'}
                             </Text>

@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 
 export default function ContactUsScreen() {
+
     const { scrollY, onScroll } = useHeaderScroll();
     const auth = useContext(AuthContext);
     const router = useRouter();
@@ -119,39 +120,26 @@ export default function ContactUsScreen() {
                 showsVerticalScrollIndicator={false}
                 onScroll={onScroll}
                 scrollEventThrottle={16}
-                contentContainerStyle={{ paddingBottom: 48 }}
             >
                 <PageShell scrollY={scrollY}>
                     <View style={{ paddingHorizontal: containerHorizontalPadding, paddingTop: isCompact ? 18 : 24 }}>
                         {/* Hero banner */}
-                        <ContactHero
-                            isDesktop={isDesktop}
-                            isTablet={isTablet}
-                            isCompact={isCompact}
-                            userToken={auth?.userToken}
-                            onEmailPress={() => openExternalTarget('mailto:support@shophub.com')}
-                            onViewTicketsPress={() => router.push('/support-tickets' as any)}
-                        />
+                        <ContactHero isDesktop={isDesktop} isTablet={isTablet} isCompact={isCompact} />
 
                         {/* Contact method cards */}
-                        <View className="self-center w-full" style={{ maxWidth: 1160, marginTop: 26 }}>
-                            <ContactMethods
-                                isDesktop={isDesktop}
-                                isTablet={isTablet}
-                                onMethodPress={openExternalTarget}
-                            />
+                        <View className="self-center w-full my-10 max-w-7xl">
+                            <ContactMethods isDesktop={isDesktop} isTablet={isTablet} onMethodPress={openExternalTarget} />
                         </View>
 
                         {/* Form + sidebar */}
                         <View className="self-center w-full" style={{ maxWidth: 1160, marginTop: 26 }}>
-                            <View className={`w-full ${isDesktop ? 'flex-row items-start' : 'flex-col'} gap-6`}>
+                            <View className={`w-full mb-32 ${isDesktop ? 'flex-row items-start' : 'flex-col'} gap-6`}>
                                 <ContactForm
                                     name={name}
                                     email={email}
                                     phone={phone}
                                     subject={subject}
                                     message={message}
-                                    category={category}
                                     focusedField={focusedField}
                                     submitting={submitting}
                                     setName={setName}
@@ -159,7 +147,6 @@ export default function ContactUsScreen() {
                                     setPhone={setPhone}
                                     setSubject={setSubject}
                                     setMessage={setMessage}
-                                    setCategory={setCategory}
                                     setFocusedField={setFocusedField}
                                     isDesktop={isDesktop}
                                     isTablet={isTablet}
@@ -171,11 +158,6 @@ export default function ContactUsScreen() {
                                 <ContactSidebar
                                     isDesktop={isDesktop}
                                     isCompact={isCompact}
-                                    onDirectionsPress={() =>
-                                        openExternalTarget(
-                                            'https://maps.google.com/?q=123+Shopping+Street+New+York+NY+10001'
-                                        )
-                                    }
                                 />
                             </View>
                         </View>
