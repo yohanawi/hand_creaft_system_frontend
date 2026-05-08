@@ -1,3 +1,4 @@
+import { adminTheme as T } from '@/constants/adminTheme';
 import {
   createAdminCoupon,
   deleteAdminCoupon,
@@ -19,19 +20,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
-const T = {
-  bg: '#1E150C',
-  card: '#2C1810',
-  cardBorder: '#3D2415',
-  text: '#F5EDE0',
-  muted: '#8C7B6E',
-  active: '#C1622F',
-  green: '#38A169',
-  red: '#E53E3E',
-  white: '#FFFFFF',
-  input: '#241610',
-};
 
 const EMPTY_FORM = {
   code: '',
@@ -93,12 +81,31 @@ export default function AdminCoupons() {
       return;
     }
 
+    const numericValue = Number(form.value);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+      Alert.alert('Validation', 'Coupon value must be greater than 0.');
+      return;
+    }
+
+    if (form.type === 'percentage' && numericValue > 100) {
+      Alert.alert('Validation', 'Percentage discounts must be between 0 and 100.');
+      return;
+    }
+
+    if (form.expiresAt) {
+      const expiresAt = new Date(form.expiresAt);
+      if (Number.isNaN(expiresAt.getTime()) || expiresAt <= new Date()) {
+        Alert.alert('Validation', 'Expiry date must be a valid future date.');
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const payload = {
         ...form,
         code: form.code.trim().toUpperCase(),
-        value: Number(form.value),
+        value: numericValue,
         minOrderAmount: Number(form.minOrderAmount || 0),
         maxDiscount: form.maxDiscount ? Number(form.maxDiscount) : null,
         usageLimit: form.usageLimit ? Number(form.usageLimit) : null,

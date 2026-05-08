@@ -1,4 +1,5 @@
 import CustomerPageFrame, { CustomerSectionCard } from '@/components/Customer/CustomerPageFrame';
+import CustomerSidebar from '@/components/Customer/CustomerSidebar';
 import { BRAND_FONTS, BROWN } from '@/constants/brandTheme';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
 import useProtectedRoute from '@/hooks/useProtectedRoute';
@@ -48,7 +49,7 @@ export default function PaymentSuccessScreen() {
         );
     }
 
-    const isVerified = order.paymentStatus === 'paid' || mode === 'cod';
+    const isVerified = order?.paymentStatus === 'paid' || mode === 'cod';
 
     return (
         <CustomerPageFrame
@@ -65,6 +66,7 @@ export default function PaymentSuccessScreen() {
                             ? 'Your order is in the fulfilment flow and ready to track.'
                             : 'The redirect succeeded, but server-side payment confirmation is still pending.'
             }
+            sidebar={<CustomerSidebar />}
             heroAside={
                 !loading && order ? (
                     <View className="rounded-[30px] border p-5" style={{ borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.1)' }}>

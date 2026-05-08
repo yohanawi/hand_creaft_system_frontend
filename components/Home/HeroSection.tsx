@@ -1,9 +1,9 @@
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { router, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Image, Text, TouchableOpacity, View } from 'react-native';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const isMobile = SCREEN_WIDTH < 768;
 const isTablet = SCREEN_WIDTH >= 768 && SCREEN_WIDTH < 1024;
@@ -162,7 +162,7 @@ function SlideView({
                     {/* CTA row */}
                     <View style={{ flexDirection: 'row', gap: 14, flexWrap: 'wrap', marginBottom: isMobile ? 32 : 40 }}>
                         <TouchableOpacity
-                            onPress={onShopPress}
+                            onPress={() => router.push("/shop")}
                             style={{
                                 backgroundColor: '#fff',
                                 paddingHorizontal: 28,
@@ -179,12 +179,12 @@ function SlideView({
                             }}
                         >
                             <Text style={{ color: '#8B4513', fontSize: 15, fontWeight: '800', letterSpacing: 0.2 }}>
-                                {slide.buttonText}
+                                Explore Collection
                             </Text>
                             <Feather name="arrow-right" size={16} color="#8B4513" />
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={{
+                        {/* <TouchableOpacity style={{
                             borderWidth: 1.5,
                             borderColor: 'rgba(255,255,255,0.55)',
                             paddingHorizontal: 28,
@@ -198,7 +198,7 @@ function SlideView({
                             <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>
                                 Watch Video
                             </Text>
-                        </TouchableOpacity>
+                        </TouchableOpacity> */}
                     </View>
                 </Animated.View>
             </View>

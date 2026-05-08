@@ -1,4 +1,5 @@
 import CustomerPageFrame, { CustomerSectionCard } from '@/components/Customer/CustomerPageFrame';
+import CustomerSidebar from '@/components/Customer/CustomerSidebar';
 import { BRAND_FONTS, BROWN } from '@/constants/brandTheme';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
 import useProtectedRoute from '@/hooks/useProtectedRoute';
@@ -121,6 +122,7 @@ export default function SupportTicketsScreen() {
                 title="Stay close to every customer service conversation."
                 subtitle="Review existing tickets, filter by resolution state, and continue the conversation from the same account workspace used for orders and checkout."
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={BROWN.DarkColor} />}
+                sidebar={<CustomerSidebar />}
                 actions={
                     <TouchableOpacity onPress={() => router.push('/contact' as any)} className="rounded-full px-5 py-3" style={{ backgroundColor: '#FFFFFF' }}>
                         <Text className="font-body text-[14px] font-semibold" style={{ color: BROWN.TextPrimary }}>Create ticket</Text>

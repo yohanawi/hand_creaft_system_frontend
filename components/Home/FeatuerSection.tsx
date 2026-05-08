@@ -99,20 +99,12 @@ const FeatureCard = ({ feature, index }: { feature: Feature; index: number }) =>
             onMouseLeave={() => { setIsHovered(false); setMousePos({ x: 50, y: 50 }); }}
             onMouseMove={handleMouseMove}
             className={`flex-1 min-w-0 relative p-8 rounded-lg border border-[#E5E5E5] cursor-default overflow-hidden transition-all duration-700 ease-out
-                ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}
-                ${isHovered ? 'shadow-lg' : 'shadow-sm'}
-            `}
+                ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'} `}
             style={{
                 opacity: isVisible ? 1 : 0,
-                transform: isVisible
-                    ? `translateY(${isHovered ? -10 : 0}px) perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`
-                    : 'translateY(40px)',
-                boxShadow: isHovered
-                    ? `0 30px 60px ${feature.glowColor}, 0 8px 20px rgba(113,67,41,0.08)`
-                    : '0 2px 12px rgba(0,0,0,0.06)',
-                background: isHovered
-                    ? `radial-gradient(circle at ${mousePos.x}% ${mousePos.y}%, rgba(255,255,255,1) 0%, #fff 70%)`
-                    : '#fff',
+                transform: isVisible ? `translateY(${isHovered ? -10 : 0}px) perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)` : 'translateY(40px)',
+                boxShadow: isHovered ? `0 30px 60px ${feature.glowColor}, 0 8px 20px rgba(113,67,41,0.08)` : '0 2px 12px rgba(0,0,0,0.06)',
+                background: isHovered ? `radial-gradient(circle at ${mousePos.x}% ${mousePos.y}%, rgba(255,255,255,1) 0%, #fff 70%)` : '#fff',
             }}
         >
             {/* Shimmer border */}
@@ -165,7 +157,7 @@ export default function FeatureSection() {
     }, []);
 
     return (
-        <div className="bg-gradient-to-br from-[#D8C3B0] via-[#C8AD99] to-[#BFA08A] font-sans text-[#1C1C1C] relative overflow-hidden">
+        <div className="bg-[#FBF7F3] via-[#C8AD99] to-[#BFA08A] font-sans text-[#1C1C1C] relative overflow-hidden">
             <div className="flex flex-col items-center gap-12 px-6 py-32 mx-auto max-w-7xl">
                 {/* Header */}
                 <header className={`text-center max-w-3xl ${headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'} transition-all duration-700 ease-out`}>

@@ -1,0 +1,28 @@
+export const sellerTheme = {
+  bg: "#F6F0E8",
+  content: "#FBF7F1",
+  surface: "#FFFDF9",
+  sidebar: "#FFF8EF",
+  sidebarBorder: "#E6D6C3",
+  header: "#FFFDF9",
+  headerBorder: "#E6D6C3",
+  card: "#FFF9F2",
+  card2: "#F2E6D5",
+  cardBorder: "#E3D2BE",
+  input: "#FFFDF9",
+  inputBorder: "#D9C4A9",
+  border: "#E6D6C3",
+  active: "#9C5A26",
+  activeBg: "#F5E4D1",
+  text: "#2E231A",
+  muted: "#7E6A59",
+  green: "#2F855A",
+  yellow: "#B7791F",
+  red: "#C53030",
+  blue: "#2C5282",
+  teal: "#2C7A7B",
+  danger: "#C53030",
+  white: "#FFFFFF",
+} as const;
+
+export default sellerTheme;

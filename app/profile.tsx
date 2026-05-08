@@ -1,5 +1,7 @@
 import CustomerPageFrame, { CustomerSectionCard } from '@/components/Customer/CustomerPageFrame';
+import CustomerSidebar from '@/components/Customer/CustomerSidebar';
 import { BROWN } from '@/constants/brandTheme';
+import { useToast } from '@/context/ToastContext';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
 import useProtectedRoute from '@/hooks/useProtectedRoute';
 import {
@@ -7,6 +9,7 @@ import {
   changeMyPassword,
   deleteAddress,
   getAddresses,
+  getApiErrorMessage,
   getMyProfile,
   setDefaultAddress,
   updateAddress,
@@ -51,11 +54,16 @@ const EMPTY_ADDRESS: AddressForm = {
   isDefault: false,
 };
 
+const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
+const PHONE_REGEX = /^[+]?[0-9()\-\s]{7,20}$/;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+
 export default function ProfileScreen() {
   const router = useRouter();
   const { scrollY, onScroll } = useHeaderScroll();
   const auth = useProtectedRoute();
   const { logout, updateUser, userToken } = auth;
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -87,13 +95,15 @@ export default function ProfileScreen() {
         phone: user?.phone,
         addresses: addressesRes.data || [],
       });
-    } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message ?? 'Failed to load profile.');
+    } catch (error) {
+      showToast('Profile load failed', 'error', {
+        subMessage: getApiErrorMessage(error, 'Failed to load profile.'),
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [updateUser, userToken]);
+  }, [showToast, updateUser, userToken]);
 
   useFocusEffect(
     useCallback(() => {
@@ -118,7 +128,19 @@ export default function ProfileScreen() {
 
   const handleSaveProfile = async () => {
     if (!profile.name.trim() || !profile.email.trim()) {
-      Alert.alert('Required', 'Name and email are required.');
+      showToast('Profile details are incomplete', 'warning', {
+        subMessage: 'Name and email are required.',
+      });
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(profile.email.trim())) {
+      showToast('Invalid email format', 'error');
+      return;
+    }
+
+    if (profile.phone.trim() && !PHONE_REGEX.test(profile.phone.trim())) {
+      showToast('Invalid phone format', 'error');
       return;
     }
 
@@ -131,9 +153,13 @@ export default function ProfileScreen() {
         phone: data.user.phone || '',
       });
       updateUser(data.user);
-      Alert.alert('Success', 'Profile updated successfully.');
-    } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message ?? 'Failed to update profile.');
+      showToast('Profile updated', 'success', {
+        subMessage: 'Your account details were saved successfully.',
+      });
+    } catch (error) {
+      showToast('Profile update failed', 'error', {
+        subMessage: getApiErrorMessage(error, 'Failed to update profile.'),
+      });
     } finally {
       setSavingProfile(false);
     }
@@ -141,7 +167,16 @@ export default function ProfileScreen() {
 
   const handleChangePassword = async () => {
     if (!passwordForm.currentPassword.trim() || !passwordForm.newPassword.trim()) {
-      Alert.alert('Required', 'Current password and new password are required.');
+      showToast('Password details are incomplete', 'warning', {
+        subMessage: 'Current password and new password are required.',
+      });
+      return;
+    }
+
+    if (!PASSWORD_REGEX.test(passwordForm.newPassword.trim())) {
+      showToast('Password is too weak', 'error', {
+        subMessage: 'Use at least 8 characters with uppercase, lowercase, and a number.',
+      });
       return;
     }
 
@@ -149,17 +184,26 @@ export default function ProfileScreen() {
     try {
       await changeMyPassword(passwordForm);
       setPasswordForm({ currentPassword: '', newPassword: '' });
-      Alert.alert('Success', 'Password changed successfully.');
-    } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message ?? 'Failed to change password.');
+      showToast('Password changed', 'success');
+    } catch (error) {
+      showToast('Password change failed', 'error', {
+        subMessage: getApiErrorMessage(error, 'Failed to change password.'),
+      });
     } finally {
       setSavingPassword(false);
     }
   };
 
   const handleSaveAddress = async () => {
-    if (!addressForm.fullName || !addressForm.phone || !addressForm.addressLine1 || !addressForm.city || !addressForm.zipCode) {
-      Alert.alert('Required', 'Please fill in the required address fields.');
+    if (!addressForm.fullName || !addressForm.phone || !addressForm.addressLine1 || !addressForm.city || !addressForm.state || !addressForm.zipCode || !addressForm.country) {
+      showToast('Address details are incomplete', 'warning', {
+        subMessage: 'Street, city, state, postal code, country, and phone are required.',
+      });
+      return;
+    }
+
+    if (!PHONE_REGEX.test(addressForm.phone.trim())) {
+      showToast('Invalid phone format', 'error');
       return;
     }
 
@@ -173,8 +217,11 @@ export default function ProfileScreen() {
       setAddressForm(EMPTY_ADDRESS);
       setEditingAddressId(null);
       updateUser({ addresses: data.addresses || [] });
-    } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message ?? 'Failed to save address.');
+      showToast(editingAddressId ? 'Address updated' : 'Address added', 'success');
+    } catch (error) {
+      showToast('Address save failed', 'error', {
+        subMessage: getApiErrorMessage(error, 'Failed to save address.'),
+      });
     } finally {
       setSavingAddress(false);
     }
@@ -207,8 +254,11 @@ export default function ProfileScreen() {
             const { data } = await deleteAddress(id);
             setAddresses(data.addresses || []);
             updateUser({ addresses: data.addresses || [] });
-          } catch (error: any) {
-            Alert.alert('Error', error?.response?.data?.message ?? 'Failed to delete address.');
+            showToast('Address deleted', 'success');
+          } catch (error) {
+            showToast('Address delete failed', 'error', {
+              subMessage: getApiErrorMessage(error, 'Failed to delete address.'),
+            });
           }
         },
       },
@@ -220,8 +270,11 @@ export default function ProfileScreen() {
       const { data } = await setDefaultAddress(id);
       setAddresses(data.addresses || []);
       updateUser({ addresses: data.addresses || [] });
-    } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message ?? 'Failed to set default address.');
+      showToast('Default address updated', 'success');
+    } catch (error) {
+      showToast('Default address update failed', 'error', {
+        subMessage: getApiErrorMessage(error, 'Failed to set default address.'),
+      });
     }
   };
 
@@ -254,6 +307,7 @@ export default function ProfileScreen() {
       title="Your account, delivery details, and support tools in one place."
       subtitle="Update personal details, manage saved addresses, change your password, and open support conversations without leaving the customer area."
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BROWN.DarkColor} />}
+      sidebar={<CustomerSidebar />}
       actions={
         <>
           <TouchableOpacity onPress={() => router.push('/support-tickets' as any)} className="px-5 py-3 rounded-full" style={{ backgroundColor: '#FFFFFF' }}>

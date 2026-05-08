@@ -1,4 +1,5 @@
 import CustomerPageFrame, { CustomerSectionCard } from '@/components/Customer/CustomerPageFrame';
+import CustomerSidebar from '@/components/Customer/CustomerSidebar';
 import { BRAND_FONTS, BROWN } from '@/constants/brandTheme';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
 import useProtectedRoute from '@/hooks/useProtectedRoute';
@@ -10,6 +11,7 @@ import {
     ActivityIndicator,
     RefreshControl,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -48,18 +50,39 @@ export default function OrderTrackingScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState('');
+    const [orderInput, setOrderInput] = useState('');
+    const [activeOrderNumber, setActiveOrderNumber] = useState('');
 
-    const fetchOrder = useCallback(async () => {
-        if (!orderNumber) { setLoading(false); return; }
+    const fetchOrder = useCallback(async (targetOrderNumber?: string) => {
+        const nextOrderNumber = String(targetOrderNumber || orderInput || orderNumber || '').trim().toUpperCase();
+
+        if (!nextOrderNumber) {
+            setError('Choose an order from your dashboard or orders page to start tracking.');
+            setOrder(null);
+            setLoading(false);
+            setRefreshing(false);
+            return;
+        }
+
         try {
-            const { data } = await trackOrder(orderNumber);
+            const { data } = await trackOrder(nextOrderNumber);
             setOrder(data.order);
             setError('');
+            setActiveOrderNumber(nextOrderNumber);
         } catch (err: any) {
-            setError(err?.response?.data?.message ?? 'Order not found.');
+            setOrder(null);
+            setActiveOrderNumber(nextOrderNumber);
+            setError(err?.response?.data?.message ?? 'Order not found');
         } finally {
             setLoading(false);
             setRefreshing(false);
+        }
+    }, [orderInput, orderNumber]);
+
+    useEffect(() => {
+        const nextOrderNumber = String(orderNumber || '').trim().toUpperCase();
+        if (nextOrderNumber) {
+            setOrderInput(nextOrderNumber);
         }
     }, [orderNumber]);
 
@@ -68,13 +91,19 @@ export default function OrderTrackingScreen() {
             return;
         }
 
-        fetchOrder();
-    }, [auth.isAuthorized, fetchOrder]);
+        if (!orderNumber) {
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        fetchOrder(String(orderNumber).trim().toUpperCase());
+    }, [auth.isAuthorized, fetchOrder, orderNumber]);
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
-        fetchOrder();
-    }, [fetchOrder]);
+        fetchOrder(activeOrderNumber || orderInput || String(orderNumber || '').trim().toUpperCase());
+    }, [activeOrderNumber, fetchOrder, orderInput, orderNumber]);
 
     const activeSteps = order?.paymentMethod === 'payhere' ? PAYHERE_ORDER_STEPS : ORDER_STEPS;
     const currentStepIdx = order ? activeSteps.indexOf(order.status) : -1;
@@ -103,6 +132,7 @@ export default function OrderTrackingScreen() {
                         : 'Live status, payment state, shipment details, and full order contents in one customer view.'
             }
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BROWN.DarkColor} />}
+            sidebar={<CustomerSidebar />}
             actions={
                 <>
                     <TouchableOpacity onPress={() => router.replace('/orders' as any)} className="rounded-full px-5 py-3" style={{ backgroundColor: '#FFFFFF' }}>
@@ -132,6 +162,35 @@ export default function OrderTrackingScreen() {
                 ) : undefined
             }
         >
+            <CustomerSectionCard title="Track an order" subtitle="Enter an order number to view the latest fulfilment and payment updates.">
+                <View className="gap-3 md:flex-row md:items-center">
+                    <TextInput
+                        value={orderInput}
+                        onChangeText={(value) => setOrderInput(value.toUpperCase())}
+                        placeholder="Enter order number"
+                        autoCapitalize="characters"
+                        autoCorrect={false}
+                        className="flex-1 rounded-[18px] border px-4 py-4 text-[14px]"
+                        style={{ borderColor: '#EAD7C3', backgroundColor: '#FFFAF5', color: BROWN.TextPrimary, fontFamily: BRAND_FONTS.body }}
+                        placeholderTextColor={BROWN.TextSecondary}
+                    />
+                    <TouchableOpacity
+                        onPress={() => {
+                            setLoading(true);
+                            fetchOrder(orderInput);
+                        }}
+                        className="items-center rounded-full px-5 py-4"
+                        style={{ backgroundColor: BROWN.DarkColor, opacity: loading ? 0.8 : 1 }}
+                        disabled={loading}
+                    >
+                        <Text className="font-body text-[13px] font-semibold text-white">Track order</Text>
+                    </TouchableOpacity>
+                </View>
+                <Text className="font-body text-[12px]" style={{ color: BROWN.TextSecondary }}>
+                    {activeOrderNumber ? `Showing results for ${activeOrderNumber}.` : 'You can paste an order number from your confirmation email or orders page.'}
+                </Text>
+            </CustomerSectionCard>
+
             {loading ? (
                 <CustomerSectionCard title="Loading order" subtitle="Checking the current order state.">
                     <View className="items-center justify-center py-12 gap-3">

@@ -1,3 +1,4 @@
+import { adminTheme as T } from '@/constants/adminTheme';
 import {
     createSubcategory,
     deleteSubcategory,
@@ -20,13 +21,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-
-const T = {
-    bg: '#1E150C', card: '#2C1810', cardBorder: '#3D2415',
-    text: '#F5EDE0', muted: '#8C7B6E', active: '#C1622F',
-    green: '#38A169', red: '#E53E3E', input: '#241610',
-    inputBorder: '#4A2515', white: '#FFFFFF', yellow: '#D69E2E',
-};
 
 const EMPTY_FORM = { name: '', description: '', status: 'active', isFeatured: false, category: '' };
 

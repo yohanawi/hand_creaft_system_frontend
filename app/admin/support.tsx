@@ -1,3 +1,4 @@
+import { adminTheme as T } from '@/constants/adminTheme';
 import {
     getAdminSupportTicketById,
     getAdminSupportTicketStats,
@@ -21,20 +22,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-
-const T = {
-    bg: '#1E150C',
-    card: '#2C1810',
-    cardBorder: '#3D2415',
-    text: '#F5EDE0',
-    muted: '#8C7B6E',
-    active: '#C1622F',
-    green: '#38A169',
-    yellow: '#D69E2E',
-    red: '#E53E3E',
-    blue: '#3182CE',
-    input: '#241610',
-};
 
 const FILTERS = ['all', 'open', 'in_progress', 'pending_customer', 'resolved', 'closed'];
 

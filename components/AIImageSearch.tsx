@@ -1,707 +1,867 @@
-/**
- * AIImageSearch Component
- *
- * Lets the user pick an image (gallery or camera) and displays AI-powered
- * visually similar product results from the backend.
- *
- * Used inside: app/ai-search.tsx
- */
-
-import { getAssetUrl, searchProductsByImage } from "@/services/api";
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { Feather } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import React, { startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
-    Image,
+    Modal,
     ScrollView,
     Text,
     TouchableOpacity,
     View,
-} from "react-native";
+    useWindowDimensions,
+} from 'react-native';
 
-// ─── Design Tokens (consistent with the rest of the app) ─────────────────────
-const C = {
-    primary: "#7C4A1E",
-    primaryLight: "#A0622A",
-    primaryDark: "#4E2D0E",
-    accent: "#D4956A",
-    accentLight: "#F0C9A8",
-    cream: "#FAF6F0",
-    parchment: "#F2EBE0",
-    ink: "#2C1A0E",
-    muted: "#9B7B6A",
-    border: "#E0D0C0",
-    white: "#FFFFFF",
-    green: "#16A085",
-    red: "#C0392B",
+import AISearchAssistantPanel from '@/components/AISearch/AISearchAssistantPanel';
+import AISearchFilterPanel from '@/components/AISearch/AISearchFilterPanel';
+import AISearchHero from '@/components/AISearch/AISearchHero';
+import AISearchIntentPanel from '@/components/AISearch/AISearchIntentPanel';
+import AISearchProductCard from '@/components/AISearch/AISearchProductCard';
+import AISearchQuickActionsBar from '@/components/AISearch/AISearchQuickActionsBar';
+import AISearchQuickViewModal from '@/components/AISearch/AISearchQuickViewModal';
+import AISearchSectionHeader from '@/components/AISearch/AISearchSectionHeader';
+import AISearchSocialProof from '@/components/AISearch/AISearchSocialProof';
+import AISearchSuggestionStrip from '@/components/AISearch/AISearchSuggestionStrip';
+import { AI_SEARCH_COLORS } from '@/components/AISearch/aiSearchTheme';
+import {
+    AI_CHAT_PROMPTS,
+    AI_SOCIAL_PROOF,
+    buildAiAssistantReply,
+    buildAiSearchRecommendations,
+    buildAiSearchStyleCollections,
+    buildAiSearchSuggestions,
+    buildAiSearchTrending,
+    filterAiSearchProducts,
+    getAiSearchPrice,
+    getAiSearchProductImage,
+    getAiVisualMatchLabel,
+    normalizeAiSearchCatalog,
+    parseAiSearchIntent,
+    sortAiSearchResults,
+    type AiFilterState,
+    type AiSearchProduct,
+    type AiSearchVisualMatch,
+    type AiSuggestion,
+} from '@/components/AISearch/aiSearchUtils';
+import { useCart } from '@/context/CartContext';
+import { useToast } from '@/context/ToastContext';
+import { useWishlist } from '@/context/WishlistContext';
+import { getAiServiceHealth, getProductById, getProducts, searchProductsByImage } from '@/services/api';
+
+const INITIAL_FILTERS: AiFilterState = {
+    materials: [],
+    styles: [],
+    occasions: [],
+    priceRange: 'all',
+    onlyInStock: true,
+    onlyDiscounted: false,
 };
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-type SimilarProduct = {
-    product: {
-        _id: string;
-        name: string;
-        slug: string;
-        price: number;
-        salePrice?: number;
-        currency: string;
-        thumbnailImage?: string;
-        images?: string[];
-        category?: { name: string };
-        material?: string;
-        color?: string;
-        availabilityStatus: string;
+const SORT_OPTIONS = [
+    { id: 'recommended', label: 'Recommended' },
+    { id: 'top-rated', label: 'Top rated' },
+    { id: 'price-low', label: 'Price low' },
+    { id: 'price-high', label: 'Price high' },
+];
+
+function toggleValue(values: string[], next: string) {
+    return values.includes(next) ? values.filter((value) => value !== next) : [...values, next];
+}
+
+function getPriceRangeFromBudget(budget?: string) {
+    if (!budget) return 'all';
+    const amount = Number(budget.replace(/[^0-9]/g, ''));
+    if (!amount) return 'all';
+    if (amount <= 100) return 'under-100';
+    if (amount <= 250) return '100-250';
+    if (amount <= 500) return '250-500';
+    return '500-plus';
+}
+
+function normalizeProductPayload(payload: any): AiSearchProduct {
+    const raw = payload?.product || payload?.data || payload;
+    return normalizeAiSearchCatalog([raw])[0] || raw;
+}
+
+type AiSearchHealthResponse = {
+    healthy: boolean;
+    ready: boolean;
+    serviceUrl?: string;
+    model?: string;
+    message?: string;
+    error?: string;
+    feature_vector_size?: number;
+    catalog?: {
+        total: number;
+        indexed: number;
+        pending: number;
+        productsWithImages: number;
+        productsMissingImages: number;
+        percentComplete: number;
+        ready: boolean;
     };
-    score: number;
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function getImageUri(product: SimilarProduct["product"]): string {
-    const raw = product.thumbnailImage || (product.images && product.images.length > 0 ? product.images[0] : "");
-    if (raw) {
-        return getAssetUrl(raw) || "https://via.placeholder.com/300x300?text=No+Image";
-    }
-    return "https://via.placeholder.com/300x300?text=No+Image";
+async function fetchAiSearchHealth() {
+    const response = await getAiServiceHealth();
+    return response.data as AiSearchHealthResponse;
 }
 
-function formatPrice(
-    price: number,
-    salePrice?: number,
-    currency = "USD"
-): string {
-    const symbol = currency === "USD" ? "$" : currency;
-    const display = salePrice && salePrice < price ? salePrice : price;
-    return `${symbol}${display.toFixed(2)}`;
-}
-
-function similarityLabel(score: number): { label: string; color: string } {
-    if (score >= 0.8) return { label: "Excellent match", color: C.green };
-    if (score >= 0.6) return { label: "Good match", color: C.primaryLight };
-    if (score >= 0.4) return { label: "Possible match", color: C.accent };
-    return { label: "Low match", color: C.muted };
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
 export default function AIImageSearch() {
     const router = useRouter();
-    const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [results, setResults] = useState<SimilarProduct[]>([]);
-    const [searchDone, setSearchDone] = useState(false);
-    const [errorMsg, setErrorMsg] = useState<string | null>(null);
-    const [searchTime, setSearchTime] = useState<number | null>(null);
+    const { width } = useWindowDimensions();
+    const { addToCart } = useCart();
+    const { showToast } = useToast();
+    const { isInWishlist, toggleItem } = useWishlist();
 
-    // ── Image Picker ──────────────────────────────────────────────────────────
-    const pickFromGallery = async () => {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== "granted") {
-            Alert.alert(
-                "Permission required",
-                "Please allow access to your photo library to use this feature."
+    const isTablet = width >= 768;
+    const isDesktop = width >= 1100;
+    const cardWidth = isDesktop ? '48.4%' : isTablet ? '48.4%' : '100%';
+    const railCardWidth = isDesktop ? 280 : 250;
+
+    const [catalog, setCatalog] = useState<AiSearchProduct[]>([]);
+    const [catalogLoading, setCatalogLoading] = useState(true);
+    const [catalogError, setCatalogError] = useState<string | null>(null);
+    const [aiStatus, setAiStatus] = useState<AiSearchHealthResponse | null>(null);
+    const [aiStatusLoading, setAiStatusLoading] = useState(true);
+    const [aiStatusRefreshing, setAiStatusRefreshing] = useState(false);
+
+    const [query, setQuery] = useState('');
+    const deferredQuery = useDeferredValue(query);
+    const [filters, setFilters] = useState<AiFilterState>(INITIAL_FILTERS);
+    const [sortBy, setSortBy] = useState('recommended');
+    const [hasEngaged, setHasEngaged] = useState(false);
+
+    const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+    const [visualMatches, setVisualMatches] = useState<AiSearchVisualMatch[]>([]);
+    const [visualLoading, setVisualLoading] = useState(false);
+    const [visualError, setVisualError] = useState<string | null>(null);
+    const [visualSearchTime, setVisualSearchTime] = useState<number | null>(null);
+
+    const [assistantPrompt, setAssistantPrompt] = useState('');
+    const [assistantReply, setAssistantReply] = useState('Tell me the style, material, or moment you are shopping for and I will tighten the edit.');
+
+    const [showFilterModal, setShowFilterModal] = useState(false);
+    const [quickViewProduct, setQuickViewProduct] = useState<AiSearchProduct | null>(null);
+    const [quickViewVisible, setQuickViewVisible] = useState(false);
+
+    useEffect(() => {
+        let mounted = true;
+
+        (async () => {
+            try {
+                setCatalogLoading(true);
+                setCatalogError(null);
+                const response = await getProducts();
+                const normalized = normalizeAiSearchCatalog(response.data);
+                if (!mounted) return;
+                startTransition(() => setCatalog(normalized));
+            } catch (error: any) {
+                if (!mounted) return;
+                setCatalogError(error?.response?.data?.message || error?.message || 'Unable to load catalog for AI search.');
+            } finally {
+                if (mounted) setCatalogLoading(false);
+            }
+        })();
+
+        (async () => {
+            try {
+                setAiStatusLoading(true);
+                const health = await fetchAiSearchHealth();
+                if (!mounted) return;
+                setAiStatus(health);
+            } catch (error: any) {
+                if (!mounted) return;
+                setAiStatus({
+                    healthy: false,
+                    ready: false,
+                    message: error?.response?.data?.message || 'Unable to reach the AI feature extraction service.',
+                    error: error?.response?.data?.error || error?.message,
+                    serviceUrl: error?.response?.data?.serviceUrl,
+                    catalog: error?.response?.data?.catalog,
+                });
+            } finally {
+                if (mounted) setAiStatusLoading(false);
+            }
+        })();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    const suggestions = useMemo(() => buildAiSearchSuggestions(deferredQuery, catalog), [catalog, deferredQuery]);
+    const materialOptions = useMemo(
+        () => Array.from(new Set(catalog.map((product) => product.material).filter((value): value is string => Boolean(value)))).sort((left, right) => left.localeCompare(right)),
+        [catalog],
+    );
+    const activeIntent = useMemo(() => parseAiSearchIntent(deferredQuery, Boolean(selectedImageUri)), [deferredQuery, selectedImageUri]);
+
+    const rankedResults = useMemo(() => {
+        const filtered = filterAiSearchProducts(catalog, deferredQuery, filters);
+        return sortAiSearchResults(filtered, sortBy);
+    }, [catalog, deferredQuery, filters, sortBy]);
+
+    const primaryResults = useMemo(() => {
+        const active = Boolean(deferredQuery.trim()) || filters.materials.length || filters.styles.length || filters.occasions.length || filters.priceRange !== 'all' || filters.onlyDiscounted;
+        if (!active) {
+            return buildAiSearchTrending(catalog);
+        }
+        return rankedResults.map((entry) => entry.product);
+    }, [catalog, deferredQuery, filters.materials.length, filters.occasions.length, filters.onlyDiscounted, filters.priceRange, filters.styles.length, rankedResults]);
+
+    const recommendations = useMemo(() => buildAiSearchRecommendations(catalog, primaryResults, activeIntent), [activeIntent, catalog, primaryResults]);
+    const styleCollections = useMemo(() => buildAiSearchStyleCollections(catalog), [catalog]);
+    const trendingProducts = useMemo(() => buildAiSearchTrending(catalog), [catalog]);
+    const activeFilterCount = filters.materials.length
+        + filters.styles.length
+        + filters.occasions.length
+        + (filters.priceRange !== 'all' ? 1 : 0)
+        + (filters.onlyDiscounted ? 1 : 0);
+
+    const visualSearchReady = Boolean(aiStatus?.healthy && aiStatus?.ready);
+    const indexedCount = aiStatus?.catalog?.indexed ?? 0;
+    const indexedCoverage = aiStatus?.catalog?.percentComplete ?? 0;
+    const indexedTotal = aiStatus?.catalog?.total ?? catalog.length;
+    const pendingCount = aiStatus?.catalog?.pending ?? Math.max(indexedTotal - indexedCount, 0);
+    const imagesReadyCount = aiStatus?.catalog?.productsWithImages ?? 0;
+    const aiSystemPalette = aiStatusLoading
+        ? { background: '#f8efe7', border: AI_SEARCH_COLORS.line, accent: AI_SEARCH_COLORS.espresso }
+        : !aiStatus?.healthy
+            ? { background: '#fff4f1', border: '#f2b9ae', accent: AI_SEARCH_COLORS.red }
+            : visualSearchReady
+                ? { background: '#eef5ee', border: '#bfd0bc', accent: AI_SEARCH_COLORS.sage }
+                : { background: '#fff8ec', border: '#ecd4a7', accent: AI_SEARCH_COLORS.gold };
+    const aiStatusLabel = aiStatusLoading
+        ? 'Checking AI vision system'
+        : !aiStatus?.healthy
+            ? 'Python AI service offline'
+            : visualSearchReady
+                ? 'Visual search ready'
+                : 'Catalog indexing still required';
+    const aiStatusMessage = aiStatusLoading
+        ? 'Connecting to the Python image-embedding service and checking how many products are ready for similarity ranking.'
+        : !aiStatus?.healthy
+            ? aiStatus?.message || 'The Python AI service is not responding. Refresh the status after restarting it.'
+            : visualSearchReady
+                ? `${indexedCount} products are indexed and ready for similarity matching with ${aiStatus?.model || 'MobileNetV2'}.`
+                : imagesReadyCount > 0
+                    ? `The model is online, but only ${indexedCount} of ${indexedTotal} products have embeddings. Run indexing before relying on visual search.`
+                    : 'The model is online, but the catalog still needs product images before embeddings can be generated.';
+
+    const noResults = hasEngaged && primaryResults.length === 0 && visualMatches.length === 0 && !visualLoading;
+
+    const handleRefreshAiStatus = async (showFeedback = true) => {
+        try {
+            setAiStatusRefreshing(true);
+            const health = await fetchAiSearchHealth();
+            setAiStatus(health);
+
+            if (showFeedback) {
+                showToast('AI status refreshed', health.ready ? 'success' : 'info', {
+                    subMessage: health.ready
+                        ? `${health.catalog?.indexed || 0} products are ready for visual search.`
+                        : 'The model is online, but indexing is still needed for image matching.',
+                });
+            }
+        } catch (error: any) {
+            const nextStatus: AiSearchHealthResponse = {
+                healthy: false,
+                ready: false,
+                message: error?.response?.data?.message || 'Unable to reach the AI feature extraction service.',
+                error: error?.response?.data?.error || error?.message,
+                serviceUrl: error?.response?.data?.serviceUrl,
+                catalog: error?.response?.data?.catalog,
+            };
+
+            setAiStatus(nextStatus);
+
+            if (showFeedback) {
+                showToast('AI status refresh failed', 'warning', {
+                    subMessage: nextStatus.message || nextStatus.error || 'Check whether the Python service is running on port 5001.',
+                });
+            }
+        } finally {
+            setAiStatusRefreshing(false);
+        }
+    };
+
+    const handleSubmitSearch = async () => {
+        if (!query.trim() && !selectedImageUri) {
+            showToast('Describe a style or upload an image to begin.', 'info', { icon: 'search' });
+            return;
+        }
+
+        setHasEngaged(true);
+        setVisualError(null);
+
+        if (!selectedImageUri) return;
+
+        if (!aiStatus?.healthy) {
+            showToast('Visual search is offline', 'warning', {
+                subMessage: aiStatus?.message || 'The Python AI service is unavailable. Refresh the AI status after starting it.',
+            });
+            return;
+        }
+
+        if (!aiStatus.ready) {
+            showToast('Catalog indexing required', 'info', {
+                subMessage: 'The model is online, but products still need image embeddings before visual search can rank matches.',
+            });
+            return;
+        }
+
+        const startedAt = Date.now();
+
+        try {
+            setVisualLoading(true);
+            setVisualMatches([]);
+            setVisualSearchTime(null);
+            const formData = new FormData();
+            const extension = selectedImageUri.split('.').pop() || 'jpg';
+            formData.append('image', {
+                uri: selectedImageUri,
+                name: `ai-search.${extension}`,
+                type: `image/${extension === 'jpg' ? 'jpeg' : extension}`,
+            } as any);
+
+            const response = await searchProductsByImage(formData);
+            const results = Array.isArray(response.data?.results) ? response.data.results : [];
+            const normalized = results
+                .map((entry: any) => ({
+                    product: normalizeProductPayload(entry.product),
+                    score: typeof entry.score === 'number' ? entry.score : 0,
+                }))
+                .filter((entry: AiSearchVisualMatch) => entry.product?._id);
+
+            setVisualMatches(normalized);
+            setVisualSearchTime(Number(((Date.now() - startedAt) / 1000).toFixed(1)));
+            showToast(
+                normalized.length > 0 ? 'Visual search updated' : 'No visual matches found',
+                normalized.length > 0 ? 'success' : 'info',
+                {
+                    subMessage: normalized.length > 0
+                        ? `${normalized.length} close matches ranked by similarity.`
+                        : response.data?.message || 'Try a different image or widen the catalog filters.',
+                },
             );
+        } catch (error: any) {
+            setVisualMatches([]);
+            setVisualSearchTime(null);
+            setVisualError(error?.response?.data?.message || error?.message || 'Visual search failed.');
+            void handleRefreshAiStatus(false);
+        } finally {
+            setVisualLoading(false);
+        }
+    };
+
+    const handlePickFromGallery = async () => {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+            showToast('Gallery access is required to upload inspiration.', 'warning', { icon: 'image' });
             return;
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: "images",
-            quality: 0.85,
-            allowsMultipleSelection: false,
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 0.9,
         });
 
-        if (!result.canceled && result.assets.length > 0) {
-            const asset = result.assets[0];
-            setSelectedImageUri(asset.uri);
-            setResults([]);
-            setSearchDone(false);
-            setErrorMsg(null);
-            setSearchTime(null);
-        }
+        if (result.canceled) return;
+        setSelectedImageUri(result.assets[0]?.uri || null);
+        setVisualMatches([]);
+        setVisualError(null);
+        setVisualSearchTime(null);
+        setHasEngaged(true);
     };
 
-    const takePhoto = async () => {
-        const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== "granted") {
-            Alert.alert(
-                "Permission required",
-                "Please allow camera access to use this feature."
-            );
+    const handleTakePhoto = async () => {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+            showToast('Camera access is required to capture inspiration.', 'warning', { icon: 'camera' });
             return;
         }
 
         const result = await ImagePicker.launchCameraAsync({
-            quality: 0.85,
+            allowsEditing: true,
+            quality: 0.9,
         });
 
-        if (!result.canceled && result.assets.length > 0) {
-            const asset = result.assets[0];
-            setSelectedImageUri(asset.uri);
-            setResults([]);
-            setSearchDone(false);
-            setErrorMsg(null);
-            setSearchTime(null);
-        }
+        if (result.canceled) return;
+        setSelectedImageUri(result.assets[0]?.uri || null);
+        setVisualMatches([]);
+        setVisualError(null);
+        setVisualSearchTime(null);
+        setHasEngaged(true);
     };
 
-    // ── AI Search ─────────────────────────────────────────────────────────────
-    const performSearch = async () => {
-        if (!selectedImageUri) {
-            Alert.alert("No image", "Please select or take a photo first.");
+    const handleSelectSuggestion = (suggestion: AiSuggestion) => {
+        setQuery(suggestion.query);
+        setAssistantPrompt(suggestion.query);
+        setHasEngaged(true);
+    };
+
+    const handleApplyAssistantPrompt = () => {
+        if (!assistantPrompt.trim()) {
+            showToast('Write a prompt for the assistant first.', 'info', { icon: 'message-circle' });
             return;
         }
 
-        setLoading(true);
-        setErrorMsg(null);
-        setResults([]);
-        setSearchDone(false);
-        const startTime = Date.now();
+        const intent = parseAiSearchIntent(assistantPrompt, Boolean(selectedImageUri));
+        setQuery(assistantPrompt);
+        setAssistantReply(buildAiAssistantReply(assistantPrompt, intent));
+        setFilters((current) => ({
+            ...current,
+            materials: intent.material && materialOptions.includes(intent.material) ? [intent.material] : current.materials,
+            styles: intent.style ? [intent.style] : current.styles,
+            occasions: intent.occasion ? [intent.occasion] : current.occasions,
+            priceRange: intent.budget ? getPriceRangeFromBudget(intent.budget) : current.priceRange,
+        }));
+        setHasEngaged(true);
+    };
 
+    const handleAddToCart = async (product: AiSearchProduct) => {
+        await addToCart({
+            product: product._id,
+            name: product.name,
+            thumbnailImage: getAiSearchProductImage(product),
+            price: product.price,
+            salePrice: typeof product.salePrice === 'number' ? product.salePrice : null,
+            sku: product.sku || '',
+            quantity: 1,
+        });
+        showToast(`${product.name} added to cart`, 'success', { subMessage: getAiSearchPrice(product) });
+    };
+
+    const handleToggleWishlist = (product: AiSearchProduct) => {
+        const wished = isInWishlist(product._id);
+        toggleItem(product._id, {
+            _id: product._id,
+            name: product.name,
+            thumbnailImage: getAiSearchProductImage(product),
+            price: product.price,
+            salePrice: typeof product.salePrice === 'number' ? product.salePrice : null,
+            sku: product.sku,
+            availabilityStatus: product.availabilityStatus,
+            quantity: product.quantity,
+            material: product.material,
+            description: product.description,
+            images: product.images,
+        });
+        showToast(wished ? 'Removed from wishlist' : 'Saved to wishlist', 'wishlist', { subMessage: product.name });
+    };
+
+    const openQuickView = async (product: AiSearchProduct) => {
         try {
-            // Build multipart/form-data
-            const formData = new FormData();
-
-            // Derive filename and mime type from URI
-            const uriParts = selectedImageUri.split(".");
-            const ext = uriParts[uriParts.length - 1]?.toLowerCase() || "jpg";
-            const mimeType = ext === "png" ? "image/png" : "image/jpeg";
-
-            formData.append("image", {
-                uri: selectedImageUri,
-                name: `search.${ext}`,
-                type: mimeType,
-            } as any);
-
-            const response = await searchProductsByImage(formData);
-
-            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-            setSearchTime(parseFloat(elapsed));
-            setResults(response.data.results || []);
-            setSearchDone(true);
-        } catch (err: any) {
-            const msg =
-                err?.response?.data?.message ||
-                err?.message ||
-                "An error occurred. Please try again.";
-            setErrorMsg(msg);
+            const response = await getProductById(product._id);
+            const normalized = normalizeProductPayload(response.data);
+            setQuickViewProduct(normalized || product);
+        } catch {
+            setQuickViewProduct(product);
         } finally {
-            setLoading(false);
+            setQuickViewVisible(true);
         }
     };
 
-    // ── Render ────────────────────────────────────────────────────────────────
+    const handleCycleSort = () => {
+        const index = SORT_OPTIONS.findIndex((option) => option.id === sortBy);
+        const next = SORT_OPTIONS[(index + 1) % SORT_OPTIONS.length];
+        setSortBy(next.id);
+    };
+
     return (
-        <View style={{ flex: 1, backgroundColor: C.cream }}>
-            <ScrollView
-                contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-                showsVerticalScrollIndicator={false}
-            >
-                {/* ── Upload Area ───────────────────────────────────────────────────  */}
-                <View
-                    style={{
-                        backgroundColor: C.white,
-                        borderRadius: 16,
-                        borderWidth: 2,
-                        borderColor: selectedImageUri ? C.accent : C.border,
-                        borderStyle: selectedImageUri ? "solid" : "dashed",
-                        overflow: "hidden",
-                        marginBottom: 16,
-                        minHeight: 220,
-                        justifyContent: "center",
-                        alignItems: "center",
-                    }}
-                >
-                    {selectedImageUri ? (
-                        <View style={{ width: "100%" }}>
-                            <Image
-                                source={{ uri: selectedImageUri }}
-                                style={{ width: "100%", height: 260 }}
-                                resizeMode="cover"
-                            />
-                            {/* Change image overlay button */}
-                            <TouchableOpacity
-                                onPress={pickFromGallery}
-                                style={{
-                                    position: "absolute",
-                                    top: 10,
-                                    right: 10,
-                                    backgroundColor: "rgba(0,0,0,0.55)",
-                                    padding: 8,
-                                    borderRadius: 20,
-                                }}
-                            >
-                                <Feather name="edit-2" size={16} color={C.white} />
-                            </TouchableOpacity>
-                        </View>
-                    ) : (
-                        <View style={{ alignItems: "center", padding: 30 }}>
-                            <MaterialCommunityIcons
-                                name="camera-plus-outline"
-                                size={56}
-                                color={C.muted}
-                            />
-                            <Text
-                                style={{
-                                    color: C.ink,
-                                    fontSize: 16,
-                                    fontWeight: "600",
-                                    marginTop: 12,
-                                }}
-                            >
-                                Upload a Jewelry Photo
-                            </Text>
-                            <Text
-                                style={{
-                                    color: C.muted,
-                                    fontSize: 13,
-                                    textAlign: "center",
-                                    marginTop: 6,
-                                    lineHeight: 20,
-                                }}
-                            >
-                                Our CNN model will extract visual features and find the most
-                                similar items in the store
-                            </Text>
-                        </View>
-                    )}
-                </View>
+        <View className="relative px-4 pt-5 pb-12 overflow-hidden" style={{ backgroundColor: AI_SEARCH_COLORS.background }}>
+            <View className="absolute left-[-58px] top-8 h-44 w-44 rounded-full" style={{ backgroundColor: 'rgba(182, 115, 77, 0.08)' }} />
+            <View className="absolute right-[-70px] top-32 h-56 w-56 rounded-full" style={{ backgroundColor: 'rgba(112, 133, 109, 0.08)' }} />
 
-                {/* ── Action Buttons ────────────────────────────────────────────────── */}
-                <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
-                    <TouchableOpacity
-                        onPress={pickFromGallery}
-                        style={{
-                            flex: 1,
-                            flexDirection: "row",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 8,
-                            backgroundColor: C.parchment,
-                            borderRadius: 12,
-                            borderWidth: 1,
-                            borderColor: C.border,
-                            paddingVertical: 12,
-                        }}
-                    >
-                        <Feather name="image" size={18} color={C.primary} />
-                        <Text
-                            style={{ color: C.primary, fontWeight: "600", fontSize: 14 }}
-                        >
-                            Gallery
+            <AISearchHero
+                query={query}
+                onChangeQuery={setQuery}
+                onSubmitSearch={handleSubmitSearch}
+                onPickFromGallery={handlePickFromGallery}
+                onTakePhoto={handleTakePhoto}
+                selectedImageUri={selectedImageUri}
+                onClearImage={() => {
+                    setSelectedImageUri(null);
+                    setVisualMatches([]);
+                    setVisualError(null);
+                    setVisualSearchTime(null);
+                }}
+                loading={visualLoading}
+                totalProducts={catalog.length}
+                styleCount={styleCollections.length}
+                materialCount={materialOptions.length}
+                isWide={isDesktop}
+                aiStatusLabel={aiStatusLabel}
+                aiStatusMessage={aiStatusMessage}
+                aiAccentColor={aiSystemPalette.accent}
+                aiModelLabel={aiStatus?.model || 'MobileNetV2'}
+                indexedCount={indexedCount}
+                indexedCoverage={indexedCoverage}
+                onRefreshStatus={() => void handleRefreshAiStatus(true)}
+                refreshingStatus={aiStatusRefreshing}
+            />
+
+            <View className="mt-5 rounded-[28px] border px-5 py-5" style={{ borderColor: aiSystemPalette.border, backgroundColor: aiSystemPalette.background }}>
+                <View className="flex-row flex-wrap items-start justify-between gap-4">
+                    <View className="min-w-[220px] flex-1">
+                        <Text style={{ color: aiSystemPalette.accent, fontSize: 12 }}>AI system briefing</Text>
+                        <Text className="mt-2 text-[28px] leading-[34px]" style={{ color: AI_SEARCH_COLORS.ink, fontFamily: 'PlayfairDisplay' }}>
+                            {aiStatusLabel}
                         </Text>
-                    </TouchableOpacity>
+                        <Text className="mt-3 max-w-[720px] text-[14px] leading-7" style={{ color: AI_SEARCH_COLORS.muted }}>
+                            {aiStatusMessage}
+                        </Text>
+                    </View>
 
                     <TouchableOpacity
-                        onPress={takePhoto}
-                        style={{
-                            flex: 1,
-                            flexDirection: "row",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 8,
-                            backgroundColor: C.parchment,
-                            borderRadius: 12,
-                            borderWidth: 1,
-                            borderColor: C.border,
-                            paddingVertical: 12,
-                        }}
+                        onPress={() => void handleRefreshAiStatus(true)}
+                        disabled={aiStatusLoading || aiStatusRefreshing}
+                        className="px-4 py-3 rounded-full"
+                        style={{ backgroundColor: AI_SEARCH_COLORS.ink }}
                     >
-                        <Feather name="camera" size={18} color={C.primary} />
-                        <Text
-                            style={{ color: C.primary, fontWeight: "600", fontSize: 14 }}
-                        >
-                            Camera
+                        <Text style={{ color: AI_SEARCH_COLORS.white }}>
+                            {aiStatusRefreshing ? 'Refreshing...' : 'Refresh AI status'}
                         </Text>
                     </TouchableOpacity>
                 </View>
 
-                {/* ── Search Button ─────────────────────────────────────────────────── */}
-                <TouchableOpacity
-                    onPress={performSearch}
-                    disabled={!selectedImageUri || loading}
-                    style={{
-                        backgroundColor:
-                            !selectedImageUri || loading ? C.border : C.primary,
-                        borderRadius: 14,
-                        paddingVertical: 15,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 10,
-                        marginBottom: 24,
-                    }}
-                >
-                    {loading ? (
-                        <>
-                            <ActivityIndicator color={C.white} size="small" />
-                            <Text
-                                style={{ color: C.white, fontWeight: "700", fontSize: 16 }}
-                            >
-                                Analyzing Image...
-                            </Text>
-                        </>
-                    ) : (
-                        <>
-                            <MaterialCommunityIcons
-                                name="brain"
-                                size={20}
-                                color={selectedImageUri ? C.white : C.muted}
-                            />
-                            <Text
-                                style={{
-                                    color: selectedImageUri ? C.white : C.muted,
-                                    fontWeight: "700",
-                                    fontSize: 16,
-                                }}
-                            >
-                                Find Similar Products
-                            </Text>
-                        </>
-                    )}
-                </TouchableOpacity>
-
-                {/* ── Loading State ─────────────────────────────────────────────────── */}
-                {loading && (
-                    <View
-                        style={{
-                            backgroundColor: C.white,
-                            borderRadius: 14,
-                            padding: 24,
-                            alignItems: "center",
-                            marginBottom: 20,
-                            borderWidth: 1,
-                            borderColor: C.border,
-                        }}
-                    >
-                        <ActivityIndicator size="large" color={C.primary} />
-                        <Text
-                            style={{
-                                color: C.ink,
-                                fontWeight: "600",
-                                marginTop: 14,
-                                fontSize: 15,
-                            }}
-                        >
-                            Extracting visual features...
-                        </Text>
-                        <Text
-                            style={{ color: C.muted, fontSize: 13, marginTop: 6, textAlign: "center" }}
-                        >
-                            MobileNetV2 CNN is analyzing your image.{"\n"}This may take up to
-                            15 seconds.
-                        </Text>
-                    </View>
-                )}
-
-                {/* ── Error State ───────────────────────────────────────────────────── */}
-                {errorMsg && !loading && (
-                    <View
-                        style={{
-                            backgroundColor: "#FEF2F2",
-                            borderRadius: 12,
-                            padding: 16,
-                            borderWidth: 1,
-                            borderColor: "#FCA5A5",
-                            marginBottom: 20,
-                            flexDirection: "row",
-                            gap: 10,
-                        }}
-                    >
-                        <Feather name="alert-circle" size={20} color={C.red} />
-                        <Text style={{ color: C.red, flex: 1, fontSize: 14, lineHeight: 20 }}>
-                            {errorMsg}
-                        </Text>
-                    </View>
-                )}
-
-                {/* ── Results ───────────────────────────────────────────────────────── */}
-                {searchDone && !loading && (
-                    <>
-                        {/* Results header */}
-                        <View
-                            style={{
-                                flexDirection: "row",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                marginBottom: 14,
-                            }}
-                        >
-                            <Text
-                                style={{ color: C.ink, fontSize: 17, fontWeight: "700" }}
-                            >
-                                {results.length > 0
-                                    ? `${results.length} Similar Product${results.length !== 1 ? "s" : ""} Found`
-                                    : "No Similar Products Found"}
-                            </Text>
-                            {searchTime !== null && (
-                                <Text style={{ color: C.muted, fontSize: 12 }}>
-                                    {searchTime}s
-                                </Text>
-                            )}
+                <View className="flex-row flex-wrap gap-3 mt-5">
+                    {[
+                        { label: 'Vision model', value: aiStatus?.model || 'MobileNetV2' },
+                        { label: 'Embeddings', value: aiStatus?.feature_vector_size ? `${aiStatus.feature_vector_size} dimensions` : '1280 dimensions' },
+                        { label: 'Catalog total', value: `${indexedTotal || 0}` },
+                        { label: 'Indexed products', value: `${indexedCount}/${indexedTotal || 0}` },
+                        { label: 'Pending index', value: `${pendingCount}` },
+                        { label: 'Coverage', value: `${indexedCoverage}% ready` },
+                        { label: 'Products with images', value: `${imagesReadyCount}` },
+                    ].map((metric) => (
+                        <View key={metric.label} className="min-w-[132px] rounded-[20px] border px-4 py-4" style={{ borderColor: aiSystemPalette.border, backgroundColor: 'rgba(255,255,255,0.55)' }}>
+                            <Text style={{ color: AI_SEARCH_COLORS.muted, fontSize: 11 }}>{metric.label}</Text>
+                            <Text className="mt-1 text-[16px]" style={{ color: AI_SEARCH_COLORS.ink, fontFamily: 'Inter' }}>{metric.value}</Text>
                         </View>
+                    ))}
+                </View>
+            </View>
 
-                        {results.length === 0 && (
-                            <View
-                                style={{
-                                    backgroundColor: C.white,
-                                    borderRadius: 14,
-                                    padding: 28,
-                                    alignItems: "center",
-                                    borderWidth: 1,
-                                    borderColor: C.border,
-                                }}
-                            >
-                                <Feather name="search" size={44} color={C.muted} />
-                                <Text
-                                    style={{
-                                        color: C.ink,
-                                        fontSize: 16,
-                                        fontWeight: "600",
-                                        marginTop: 14,
-                                    }}
-                                >
-                                    No Close Matches
-                                </Text>
-                                <Text
-                                    style={{
-                                        color: C.muted,
-                                        fontSize: 13,
-                                        textAlign: "center",
-                                        marginTop: 6,
-                                        lineHeight: 20,
-                                    }}
-                                >
-                                    Try a different image or browse the shop manually.
-                                </Text>
+            <AISearchSuggestionStrip suggestions={suggestions} onSelect={handleSelectSuggestion} />
+
+            {hasEngaged || query.trim() || selectedImageUri ? (
+                <View className="mt-6">
+                    <AISearchIntentPanel intent={activeIntent} imageUsed={Boolean(selectedImageUri)} />
+                </View>
+            ) : null}
+
+            <View className="mt-6">
+                <AISearchQuickActionsBar
+                    resultCount={primaryResults.length}
+                    visualCount={visualMatches.length}
+                    sortLabel={SORT_OPTIONS.find((option) => option.id === sortBy)?.label || 'Recommended'}
+                    activeFilterCount={activeFilterCount}
+                    aiStatusLabel={aiStatusLabel}
+                    indexedCount={indexedCount}
+                    onRefreshStatus={() => void handleRefreshAiStatus(true)}
+                    refreshingStatus={aiStatusRefreshing}
+                    onOpenFilters={() => setShowFilterModal(true)}
+                    onCycleSort={handleCycleSort}
+                />
+            </View>
+
+            {(catalogLoading || catalogError) && (
+                <View className="mt-6 rounded-[24px] border bg-[#fffdfb] p-5" style={{ borderColor: AI_SEARCH_COLORS.line }}>
+                    {catalogLoading ? (
+                        <View className="flex-row items-center gap-3">
+                            <ActivityIndicator color={AI_SEARCH_COLORS.espresso} />
+                            <Text style={{ color: AI_SEARCH_COLORS.ink }}>Loading AI-ready catalog...</Text>
+                        </View>
+                    ) : (
+                        <View className="flex-row items-start gap-3">
+                            <Feather name="alert-circle" size={18} color={AI_SEARCH_COLORS.red} />
+                            <Text className="flex-1 leading-6" style={{ color: AI_SEARCH_COLORS.red }}>{catalogError}</Text>
+                        </View>
+                    )}
+                </View>
+            )}
+
+            <View className="mt-6" style={{ flexDirection: isDesktop ? 'row' : 'column', gap: 20 }}>
+                <View style={{ flex: 1 }}>
+                    {visualLoading ? (
+                        <View className="mb-6 rounded-[24px] border bg-[#fffdfb] p-5" style={{ borderColor: AI_SEARCH_COLORS.line }}>
+                            <View className="flex-row items-center gap-3">
+                                <ActivityIndicator color={AI_SEARCH_COLORS.espresso} />
+                                <Text style={{ color: AI_SEARCH_COLORS.ink }}>Analyzing the uploaded image and ranking close matches...</Text>
                             </View>
-                        )}
+                        </View>
+                    ) : null}
 
-                        {/* Product Cards */}
-                        {results.map(({ product, score }) => {
-                            const imgUri = getImageUri(product);
-                            const priceStr = formatPrice(
-                                product.price,
-                                product.salePrice,
-                                product.currency
-                            );
-                            const { label, color } = similarityLabel(score);
-                            const pct = Math.round(score * 100);
+                    {visualError ? (
+                        <View className="mb-6 rounded-[24px] border bg-[#fff4f1] p-5" style={{ borderColor: '#f2b9ae' }}>
+                            <View className="flex-row items-start gap-3">
+                                <Feather name="alert-circle" size={18} color={AI_SEARCH_COLORS.red} />
+                                <Text className="flex-1 leading-6" style={{ color: AI_SEARCH_COLORS.red }}>{visualError}</Text>
+                            </View>
+                        </View>
+                    ) : null}
 
-                            return (
-                                <TouchableOpacity
-                                    key={product._id}
-                                    onPress={() => router.push(`/product-single?slug=${product.slug}`)}
-                                    activeOpacity={0.88}
-                                    style={{
-                                        backgroundColor: C.white,
-                                        borderRadius: 14,
-                                        marginBottom: 14,
-                                        borderWidth: 1,
-                                        borderColor: C.border,
-                                        overflow: "hidden",
-                                        flexDirection: "row",
-                                    }}
-                                >
-                                    {/* Image */}
-                                    <Image
-                                        source={{ uri: imgUri }}
-                                        style={{ width: 100, height: 110 }}
-                                        resizeMode="cover"
-                                    />
-
-                                    {/* Details */}
-                                    <View style={{ flex: 1, padding: 12, justifyContent: "space-between" }}>
-                                        <View>
-                                            <Text
-                                                style={{
-                                                    color: C.ink,
-                                                    fontSize: 14,
-                                                    fontWeight: "700",
-                                                    lineHeight: 20,
-                                                }}
-                                                numberOfLines={2}
-                                            >
-                                                {product.name}
-                                            </Text>
-
-                                            {product.category && (
-                                                <Text
-                                                    style={{
-                                                        color: C.muted,
-                                                        fontSize: 12,
-                                                        marginTop: 2,
-                                                    }}
-                                                >
-                                                    {product.category.name}
-                                                </Text>
-                                            )}
-                                        </View>
-
-                                        {/* Price + similarity */}
-                                        <View
-                                            style={{
-                                                flexDirection: "row",
-                                                justifyContent: "space-between",
-                                                alignItems: "flex-end",
-                                                marginTop: 8,
-                                            }}
-                                        >
-                                            <Text
-                                                style={{
-                                                    color: C.primary,
-                                                    fontSize: 16,
-                                                    fontWeight: "800",
-                                                }}
-                                            >
-                                                {priceStr}
-                                            </Text>
-
-                                            {/* Similarity badge */}
-                                            <View
-                                                style={{
-                                                    backgroundColor: color + "20",
-                                                    borderRadius: 8,
-                                                    paddingHorizontal: 8,
-                                                    paddingVertical: 3,
-                                                    borderWidth: 1,
-                                                    borderColor: color + "50",
-                                                }}
-                                            >
-                                                <Text
-                                                    style={{
-                                                        color,
-                                                        fontSize: 11,
-                                                        fontWeight: "700",
-                                                    }}
-                                                >
-                                                    {pct}% — {label}
-                                                </Text>
-                                            </View>
-                                        </View>
-
-                                        {/* Similarity bar */}
-                                        <View
-                                            style={{
-                                                height: 4,
-                                                borderRadius: 2,
-                                                backgroundColor: C.border,
-                                                marginTop: 8,
-                                                overflow: "hidden",
-                                            }}
-                                        >
-                                            <View
-                                                style={{
-                                                    height: "100%",
-                                                    width: `${pct}%`,
-                                                    backgroundColor: color,
-                                                    borderRadius: 2,
-                                                }}
+                    {visualMatches.length > 0 ? (
+                        <View className="mb-8">
+                            <AISearchSectionHeader
+                                eyebrow="Visual search"
+                                title="Visual matches"
+                                description={`AI found ${visualMatches.length} similar silhouettes${visualSearchTime ? ` in ${visualSearchTime}s` : ''}.`}
+                            />
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                <View className="flex-row gap-4 pr-4">
+                                    {visualMatches.map((match) => (
+                                        <View key={`${match.product._id}-visual`} style={{ width: railCardWidth }}>
+                                            <AISearchProductCard
+                                                product={match.product}
+                                                onPress={() => router.push({ pathname: '/product-single', params: { id: match.product._id } } as never)}
+                                                onQuickView={() => openQuickView(match.product)}
+                                                onToggleWishlist={() => handleToggleWishlist(match.product)}
+                                                onAddToCart={() => handleAddToCart(match.product)}
+                                                isWishlisted={isInWishlist(match.product._id)}
+                                                accentLabel="AI match"
+                                                accentValue={`${Math.round(match.score * 100)}% · ${getAiVisualMatchLabel(match.score)}`}
+                                                compact
                                             />
                                         </View>
-                                    </View>
-
-                                    {/* Chevron */}
-                                    <View
-                                        style={{
-                                            justifyContent: "center",
-                                            paddingRight: 12,
-                                        }}
-                                    >
-                                        <Feather name="chevron-right" size={18} color={C.muted} />
-                                    </View>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </>
-                )}
-
-                {/* ── How It Works info card ─────────────────────────────────────── */}
-                {!searchDone && !loading && (
-                    <View
-                        style={{
-                            backgroundColor: C.white,
-                            borderRadius: 14,
-                            padding: 18,
-                            borderWidth: 1,
-                            borderColor: C.border,
-                        }}
-                    >
-                        <Text
-                            style={{
-                                color: C.ink,
-                                fontSize: 15,
-                                fontWeight: "700",
-                                marginBottom: 12,
-                            }}
-                        >
-                            How It Works
-                        </Text>
-
-                        {[
-                            {
-                                icon: "upload",
-                                title: "Upload a Photo",
-                                desc: "Pick a jewelry image from your gallery or take a photo.",
-                            },
-                            {
-                                icon: "cpu",
-                                title: "CNN Feature Extraction",
-                                desc: "MobileNetV2 extracts a 1280-dim visual feature vector.",
-                            },
-                            {
-                                icon: "bar-chart-2",
-                                title: "Cosine Similarity",
-                                desc: "Your image features are compared against every product.",
-                            },
-                            {
-                                icon: "package",
-                                title: "Top Matches Returned",
-                                desc: "The most visually similar jewellery items are shown.",
-                            },
-                        ].map((step, i) => (
-                            <View
-                                key={i}
-                                style={{
-                                    flexDirection: "row",
-                                    alignItems: "flex-start",
-                                    gap: 12,
-                                    marginBottom: i < 3 ? 14 : 0,
-                                }}
-                            >
-                                <View
-                                    style={{
-                                        width: 34,
-                                        height: 34,
-                                        borderRadius: 17,
-                                        backgroundColor: C.primaryDark,
-                                        justifyContent: "center",
-                                        alignItems: "center",
-                                    }}
-                                >
-                                    <Feather name={step.icon as any} size={15} color={C.white} />
+                                    ))}
                                 </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text
-                                        style={{
-                                            color: C.ink,
-                                            fontSize: 13,
-                                            fontWeight: "700",
-                                        }}
-                                    >
-                                        {step.title}
-                                    </Text>
-                                    <Text
-                                        style={{ color: C.muted, fontSize: 12, marginTop: 2, lineHeight: 18 }}
-                                    >
-                                        {step.desc}
-                                    </Text>
+                            </ScrollView>
+                        </View>
+                    ) : null}
+
+                    <View>
+                        <AISearchSectionHeader
+                            eyebrow={primaryResults.length ? 'Search results grid' : 'Discovery'}
+                            title={primaryResults.length ? (hasEngaged ? 'Pieces matched to your search' : 'Trending now with AI signals') : 'No direct search matches yet'}
+                            description={primaryResults.length ? 'Sorted using search cues, product metadata, reviews, discounts, and live filters.' : 'Try another phrase or use a visual upload to widen the search.'}
+                        />
+
+                        {noResults ? (
+                            <View className="rounded-[28px] border bg-[#fffdfb] p-6" style={{ borderColor: AI_SEARCH_COLORS.line }}>
+                                <Text className="text-[28px] leading-[36px]" style={{ color: AI_SEARCH_COLORS.ink, fontFamily: 'PlayfairDisplay' }}>
+                                    No exact matches yet.
+                                </Text>
+                                <Text className="mt-3 text-[14px] leading-7" style={{ color: AI_SEARCH_COLORS.muted }}>
+                                    The AI could not find a precise fit for your current brief. Try loosening one filter, changing the material, or starting with an inspiration photo.
+                                </Text>
+
+                                <View className="flex-row flex-wrap gap-3 mt-5">
+                                    {suggestions.slice(0, 3).map((suggestion) => (
+                                        <TouchableOpacity key={suggestion.id} onPress={() => handleSelectSuggestion(suggestion)} className="px-4 py-3 border rounded-full" style={{ borderColor: AI_SEARCH_COLORS.line, backgroundColor: '#f8efe7' }}>
+                                            <Text style={{ color: AI_SEARCH_COLORS.espresso }}>{suggestion.label}</Text>
+                                        </TouchableOpacity>
+                                    ))}
                                 </View>
                             </View>
-                        ))}
+                        ) : (
+                            <View className="flex-row flex-wrap" style={{ gap: 16 }}>
+                                {primaryResults.map((product) => (
+                                    <View key={product._id} style={{ width: cardWidth }}>
+                                        <AISearchProductCard
+                                            product={product}
+                                            onPress={() => router.push({ pathname: '/product-single', params: { id: product._id } } as never)}
+                                            onQuickView={() => openQuickView(product)}
+                                            onToggleWishlist={() => handleToggleWishlist(product)}
+                                            onAddToCart={() => handleAddToCart(product)}
+                                            isWishlisted={isInWishlist(product._id)}
+                                        />
+                                    </View>
+                                ))}
+                            </View>
+                        )}
                     </View>
-                )}
-            </ScrollView>
+
+                    {recommendations.length > 0 ? (
+                        <View className="mt-8">
+                            <AISearchSectionHeader
+                                eyebrow="AI recommended results"
+                                title="You may also like"
+                                description="Products that share the same style story, material direction, or gifting context as your current search."
+                            />
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                <View className="flex-row gap-4 pr-4">
+                                    {recommendations.map((product) => (
+                                        <View key={`${product._id}-recommendation`} style={{ width: railCardWidth }}>
+                                            <AISearchProductCard
+                                                product={product}
+                                                onPress={() => router.push({ pathname: '/product-single', params: { id: product._id } } as never)}
+                                                onQuickView={() => openQuickView(product)}
+                                                onToggleWishlist={() => handleToggleWishlist(product)}
+                                                onAddToCart={() => handleAddToCart(product)}
+                                                isWishlisted={isInWishlist(product._id)}
+                                                accentLabel="Why"
+                                                accentValue="Similar taste profile"
+                                                compact
+                                            />
+                                        </View>
+                                    ))}
+                                </View>
+                            </ScrollView>
+                        </View>
+                    ) : null}
+
+                    {styleCollections.length > 0 ? (
+                        <View className="mt-8">
+                            <AISearchSectionHeader
+                                eyebrow="Style-based search"
+                                title="Browse by aesthetic"
+                                description="Switch between distinct style lanes without rewriting the whole brief."
+                            />
+
+                            <View className="gap-6">
+                                {styleCollections.map((collection) => (
+                                    <View key={collection.id} className="rounded-[24px] border bg-[#fffdfb] p-5" style={{ borderColor: AI_SEARCH_COLORS.line }}>
+                                        <View className="flex-row items-end justify-between gap-3 mb-4">
+                                            <View className="flex-1">
+                                                <Text className="text-[24px]" style={{ color: AI_SEARCH_COLORS.ink, fontFamily: 'PlayfairDisplay' }}>
+                                                    {collection.title}
+                                                </Text>
+                                                <Text className="mt-2 leading-6" style={{ color: AI_SEARCH_COLORS.muted }}>
+                                                    {collection.description}
+                                                </Text>
+                                            </View>
+                                            <TouchableOpacity
+                                                onPress={() => {
+                                                    setQuery(collection.title.toLowerCase());
+                                                    setFilters((current) => ({ ...current, styles: [collection.id === 'minimal' ? 'Minimal' : collection.id === 'statement' ? 'Statement' : 'Bridal'] }));
+                                                    setHasEngaged(true);
+                                                }}
+                                                className="px-4 py-3 border rounded-full"
+                                                style={{ borderColor: AI_SEARCH_COLORS.line }}
+                                            >
+                                                <Text style={{ color: AI_SEARCH_COLORS.espresso }}>Explore</Text>
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                            <View className="flex-row gap-4 pr-4">
+                                                {collection.products.map((product) => (
+                                                    <View key={`${collection.id}-${product._id}`} style={{ width: railCardWidth }}>
+                                                        <AISearchProductCard
+                                                            product={product}
+                                                            onPress={() => router.push({ pathname: '/product-single', params: { id: product._id } } as never)}
+                                                            onQuickView={() => openQuickView(product)}
+                                                            onToggleWishlist={() => handleToggleWishlist(product)}
+                                                            onAddToCart={() => handleAddToCart(product)}
+                                                            isWishlisted={isInWishlist(product._id)}
+                                                            compact
+                                                        />
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        </ScrollView>
+                                    </View>
+                                ))}
+                            </View>
+                        </View>
+                    ) : null}
+                </View>
+
+                <View style={{ width: isDesktop ? 340 : '100%' }}>
+                    {isDesktop ? (
+                        <AISearchFilterPanel
+                            filters={filters}
+                            materialOptions={materialOptions}
+                            onToggleMaterial={(value) => setFilters((current) => ({ ...current, materials: toggleValue(current.materials, value) }))}
+                            onToggleStyle={(value) => setFilters((current) => ({ ...current, styles: toggleValue(current.styles, value) }))}
+                            onToggleOccasion={(value) => setFilters((current) => ({ ...current, occasions: toggleValue(current.occasions, value) }))}
+                            onSetPriceRange={(value) => setFilters((current) => ({ ...current, priceRange: value }))}
+                            onToggleInStock={() => setFilters((current) => ({ ...current, onlyInStock: !current.onlyInStock }))}
+                            onToggleDiscounted={() => setFilters((current) => ({ ...current, onlyDiscounted: !current.onlyDiscounted }))}
+                            onReset={() => setFilters(INITIAL_FILTERS)}
+                        />
+                    ) : null}
+
+                    <View className={isDesktop ? 'mt-5' : 'mt-8'}>
+                        <AISearchAssistantPanel
+                            prompt={assistantPrompt}
+                            onChangePrompt={setAssistantPrompt}
+                            onSend={handleApplyAssistantPrompt}
+                            response={assistantReply}
+                            promptChips={AI_CHAT_PROMPTS}
+                            onSelectPrompt={(value) => {
+                                setAssistantPrompt(value);
+                                setQuery(value);
+                            }}
+                        />
+                    </View>
+
+                    <View className="mt-5">
+                        <AISearchSocialProof metrics={AI_SOCIAL_PROOF} />
+                    </View>
+
+                    <View className="mt-5 rounded-[24px] border bg-[#fffdfb] p-5" style={{ borderColor: AI_SEARCH_COLORS.line }}>
+                        <Text style={{ color: AI_SEARCH_COLORS.clay, fontSize: 12 }}>Top searched products</Text>
+                        <Text className="mt-1 text-[24px]" style={{ color: AI_SEARCH_COLORS.ink, fontFamily: 'PlayfairDisplay' }}>
+                            Community favorites
+                        </Text>
+
+                        <View className="gap-3 mt-4">
+                            {trendingProducts.slice(0, 3).map((product, index) => (
+                                <TouchableOpacity
+                                    key={`${product._id}-trend`}
+                                    onPress={() => router.push({ pathname: '/product-single', params: { id: product._id } } as never)}
+                                    className="rounded-[20px] border px-4 py-4"
+                                    style={{ borderColor: AI_SEARCH_COLORS.line, backgroundColor: '#f8efe7' }}
+                                >
+                                    <Text style={{ color: AI_SEARCH_COLORS.muted, fontSize: 11 }}>{`0${index + 1}`}</Text>
+                                    <Text className="mt-1" style={{ color: AI_SEARCH_COLORS.ink, fontSize: 15, fontFamily: 'Inter' }}>{product.name}</Text>
+                                    <Text className="mt-1" style={{ color: AI_SEARCH_COLORS.espresso, fontSize: 13 }}>{getAiSearchPrice(product)}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                </View>
+            </View>
+
+            <Modal visible={showFilterModal && !isDesktop} transparent animationType="slide" onRequestClose={() => setShowFilterModal(false)}>
+                <View className="justify-end flex-1 bg-black/30">
+                    <View className="max-h-[88%] rounded-t-[30px] border bg-[#fffaf6] px-4 pb-8 pt-4" style={{ borderColor: AI_SEARCH_COLORS.line }}>
+                        <View className="items-center mb-4">
+                            <View className="h-1.5 w-14 rounded-full bg-[#d4c1b1]" />
+                        </View>
+                        <View className="flex-row items-center justify-between mb-4">
+                            <Text className="text-[24px]" style={{ color: AI_SEARCH_COLORS.ink, fontFamily: 'PlayfairDisplay' }}>
+                                Refine your edit
+                            </Text>
+                            <TouchableOpacity onPress={() => setShowFilterModal(false)} className="h-10 w-10 items-center justify-center rounded-full bg-[#f4e7db]">
+                                <Feather name="x" size={16} color={AI_SEARCH_COLORS.ink} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <AISearchFilterPanel
+                            filters={filters}
+                            materialOptions={materialOptions}
+                            onToggleMaterial={(value) => setFilters((current) => ({ ...current, materials: toggleValue(current.materials, value) }))}
+                            onToggleStyle={(value) => setFilters((current) => ({ ...current, styles: toggleValue(current.styles, value) }))}
+                            onToggleOccasion={(value) => setFilters((current) => ({ ...current, occasions: toggleValue(current.occasions, value) }))}
+                            onSetPriceRange={(value) => setFilters((current) => ({ ...current, priceRange: value }))}
+                            onToggleInStock={() => setFilters((current) => ({ ...current, onlyInStock: !current.onlyInStock }))}
+                            onToggleDiscounted={() => setFilters((current) => ({ ...current, onlyDiscounted: !current.onlyDiscounted }))}
+                            onReset={() => setFilters(INITIAL_FILTERS)}
+                        />
+                    </View>
+                </View>
+            </Modal>
+
+            <AISearchQuickViewModal
+                visible={quickViewVisible}
+                product={quickViewProduct}
+                onClose={() => setQuickViewVisible(false)}
+                onAddToCart={() => {
+                    if (!quickViewProduct) return;
+                    handleAddToCart(quickViewProduct);
+                }}
+                onOpenProduct={() => {
+                    if (!quickViewProduct) return;
+                    setQuickViewVisible(false);
+                    router.push({ pathname: '/product-single', params: { id: quickViewProduct._id } } as never);
+                }}
+            />
         </View>
     );
 }

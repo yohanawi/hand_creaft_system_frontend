@@ -2,12 +2,12 @@ import PageShell from '@/components/PageShell';
 import { useCart } from '@/context/CartContext';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
 import useProtectedRoute from '@/hooks/useProtectedRoute';
-import { getAddresses, initiatePayHerePayment, placeOrder, validateCoupon } from '@/services/api';
+import { getAddresses, getPayHereStatus, initiatePayHerePayment, placeOrder, validateCoupon } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -48,7 +48,7 @@ export default function CheckoutScreen() {
 
     const [step, setStep] = useState(1);
     const [form, setForm] = useState<ShippingForm>(EMPTY_FORM);
-    const [paymentMethod, setPaymentMethod] = useState<'payhere' | 'cod'>('payhere');
+    const [paymentMethod, setPaymentMethod] = useState<'payhere' | 'cod'>('cod');
     const [customerNote, setCustomerNote] = useState('');
     const [loading, setLoading] = useState(false);
     const [addresses, setAddresses] = useState<any[]>([]);
@@ -56,6 +56,9 @@ export default function CheckoutScreen() {
     const [couponCode, setCouponCode] = useState('');
     const [couponDiscount, setCouponDiscount] = useState(0);
     const [couponLoading, setCouponLoading] = useState(false);
+    const [payHereAvailable, setPayHereAvailable] = useState(false);
+    const [payHereMessage, setPayHereMessage] = useState('');
+    const skipEmptyCartRedirectRef = useRef(false);
 
     const isMobile = SCREEN_WIDTH < 768;
     const fadeAnim = useState(new Animated.Value(0))[0];
@@ -96,10 +99,44 @@ export default function CheckoutScreen() {
         })();
     }, [auth?.userToken]);
 
+    useEffect(() => {
+        let isMounted = true;
+
+        (async () => {
+            try {
+                const { data } = await getPayHereStatus();
+                if (!isMounted) {
+                    return;
+                }
+
+                const available = Boolean(data?.available);
+                setPayHereAvailable(available);
+                setPayHereMessage(String(data?.message || '').trim());
+                if (!available) {
+                    setPaymentMethod('cod');
+                }
+            } catch {
+                if (!isMounted) {
+                    return;
+                }
+
+                setPayHereAvailable(false);
+                setPayHereMessage('Online card payment is currently unavailable.');
+                setPaymentMethod('cod');
+            }
+        })();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
     // Guard: cart must have items
     useEffect(() => {
-        if (items.length === 0) router.replace('/cart' as any);
-    }, [items.length, router]);
+        if (items.length === 0 && !loading && !skipEmptyCartRedirectRef.current) {
+            router.replace('/cart' as any);
+        }
+    }, [items.length, loading, router]);
 
     const setField = (key: keyof ShippingForm, val: string) =>
         setForm(prev => ({ ...prev, [key]: val }));
@@ -148,7 +185,15 @@ export default function CheckoutScreen() {
             return;
         }
 
+        if (paymentMethod === 'payhere' && !payHereAvailable) {
+            Alert.alert('PayHere Unavailable', payHereMessage || 'Online payment is currently unavailable. Please use Cash on Delivery.');
+            setPaymentMethod('cod');
+            setStep(2);
+            return;
+        }
+
         setLoading(true);
+        let createdOrder: any = null;
         try {
             const payload = {
                 items: items.map((item) => ({
@@ -164,22 +209,24 @@ export default function CheckoutScreen() {
                 couponCode: couponDiscount > 0 ? couponCode.trim() : undefined,
             };
             const { data } = await placeOrder(payload);
-            const order = data.order;
-            await clearCart();
+            createdOrder = data.order;
 
             if (paymentMethod === 'payhere') {
                 const returnUrl = Linking.createURL('/payment-success', {
-                    queryParams: { orderId: order._id, orderNumber: order.orderNumber },
+                    queryParams: { orderId: createdOrder._id, orderNumber: createdOrder.orderNumber },
                 });
                 const cancelUrl = Linking.createURL('/payment-failure', {
-                    queryParams: { orderId: order._id, orderNumber: order.orderNumber },
+                    queryParams: { orderId: createdOrder._id, orderNumber: createdOrder.orderNumber },
                 });
                 const sessionRes = await initiatePayHerePayment({
-                    orderId: order._id,
+                    orderId: createdOrder._id,
                     returnUrl,
                     cancelUrl,
                 });
                 const checkoutUrl = sessionRes.data.checkoutUrl;
+
+                skipEmptyCartRedirectRef.current = true;
+                await clearCart();
 
                 if (Platform.OS === 'web' && typeof window !== 'undefined') {
                     window.location.assign(checkoutUrl);
@@ -190,8 +237,26 @@ export default function CheckoutScreen() {
                 return;
             }
 
-            router.replace(`/payment-success?orderId=${order._id}&orderNumber=${order.orderNumber}&mode=cod` as any);
+            skipEmptyCartRedirectRef.current = true;
+            await clearCart();
+            router.replace(`/payment-success?orderId=${createdOrder._id}&orderNumber=${createdOrder.orderNumber}&mode=cod` as any);
         } catch (err: any) {
+            if (paymentMethod === 'payhere' && createdOrder?._id) {
+                skipEmptyCartRedirectRef.current = true;
+                await clearCart();
+                Alert.alert(
+                    'Payment Setup Failed',
+                    err?.response?.data?.message ?? 'Your order was created, but the PayHere session could not be started. You can retry payment from the next screen.',
+                    [
+                        {
+                            text: 'Open Order',
+                            onPress: () => router.replace(`/payment-failure?orderId=${createdOrder._id}` as any),
+                        },
+                    ],
+                );
+                return;
+            }
+
             Alert.alert('Order Failed', err?.response?.data?.message ?? 'Please try again.');
         } finally {
             setLoading(false);
@@ -378,13 +443,15 @@ export default function CheckoutScreen() {
                                             <Text className="mb-5 text-xl font-bold text-gray-900">Payment Method</Text>
 
                                             {([
-                                                { id: 'payhere', icon: 'shield', label: 'PayHere Secure Payment' },
+                                                { id: 'payhere', icon: 'shield', label: 'PayHere Secure Payment', disabled: !payHereAvailable },
                                                 { id: 'cod', icon: 'package', label: 'Cash on Delivery' },
                                             ] as const).map(opt => (
                                                 <TouchableOpacity
                                                     key={opt.id}
-                                                    onPress={() => setPaymentMethod(opt.id)}
+                                                    onPress={() => !opt.disabled && setPaymentMethod(opt.id)}
+                                                    disabled={opt.disabled}
                                                     className={`flex-row items-center p-4 rounded-xl mb-3 border-2 ${paymentMethod === opt.id ? 'border-brown-primary bg-craft-50' : 'border-gray-200'}`}
+                                                    style={{ opacity: opt.disabled ? 0.55 : 1 }}
                                                     activeOpacity={0.8}
                                                 >
                                                     <View className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 ${paymentMethod === opt.id ? 'border-brown-primary' : 'border-gray-300'}`}>
@@ -393,9 +460,23 @@ export default function CheckoutScreen() {
                                                         )}
                                                     </View>
                                                     <Feather name={opt.icon} size={22} color="#8B4513" />
-                                                    <Text className="ml-3 font-semibold text-gray-900">{opt.label}</Text>
+                                                    <View className="ml-3 flex-1">
+                                                        <Text className="font-semibold text-gray-900">{opt.label}</Text>
+                                                        {opt.disabled ? (
+                                                            <Text className="mt-1 text-xs text-amber-700">Currently unavailable in this environment</Text>
+                                                        ) : null}
+                                                    </View>
                                                 </TouchableOpacity>
                                             ))}
+
+                                            {!payHereAvailable && payHereMessage ? (
+                                                <View className="flex-row items-start p-4 mt-2 mb-4 bg-amber-50 rounded-xl">
+                                                    <Feather name="alert-circle" size={16} color="#B45309" />
+                                                    <Text className="flex-1 ml-2 text-xs text-amber-700">
+                                                        {payHereMessage}. Cash on Delivery remains available for checkout.
+                                                    </Text>
+                                                </View>
+                                            ) : null}
 
                                             {paymentMethod === 'payhere' && (
                                                 <View className="p-4 mt-2 mb-4 bg-craft-50 rounded-xl">

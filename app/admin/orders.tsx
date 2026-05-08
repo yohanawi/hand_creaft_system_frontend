@@ -1,4 +1,5 @@
-import { adminGetOrderById, adminGetOrders, adminUpdateOrderStatus } from '@/services/api';
+import { adminTheme as T } from '@/constants/adminTheme';
+import { adminGetOrderById, adminGetOrders, adminUpdateOrderStatus, bulkUpdateAdminOrderStatus } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -14,23 +15,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-
-const T = {
-    bg: '#1A1209',
-    card: '#2C1810',
-    card2: '#241610',
-    input: '#1E150C',
-    border: '#3D2415',
-    active: '#C1622F',
-    activeBg: 'rgba(193,98,47,0.15)',
-    text: '#F5EDE0',
-    muted: '#8C7B6E',
-    green: '#4CAF50',
-    yellow: '#F5A623',
-    red: '#E53E3E',
-    blue: '#4299E1',
-    white: '#FFFFFF',
-};
 
 const STATUS_CONFIG: Record<string, { color: string; icon: string; label: string }> = {
     awaiting_payment: { color: T.blue, icon: 'credit-card', label: 'Awaiting Payment' },
@@ -49,6 +33,7 @@ const ALL_STATUSES = Object.keys(STATUS_CONFIG);
 const FILTERS = ['all', ...ALL_STATUSES];
 const EDITABLE_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'returned'];
 const PAYMENT_STATUSES = ['awaiting_payment', 'cod_due', 'paid', 'failed', 'cancelled', 'refunded'];
+const BULK_STATUSES = ['confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
 
 export default function AdminOrdersScreen() {
     // ── List State ─────────────────────────────────────────────────────────────
@@ -60,6 +45,8 @@ export default function AdminOrdersScreen() {
     const [searchInput, setSearchInput] = useState('');
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [bulkUpdating, setBulkUpdating] = useState(false);
 
     // ── Detail Modal State ─────────────────────────────────────────────────────
     const [selected, setSelected] = useState<any>(null);
@@ -88,6 +75,7 @@ export default function AdminOrdersScreen() {
                 const { data } = await adminGetOrders(params);
                 const fetched = data.orders ?? [];
                 setOrders(prev => (append ? [...prev, ...fetched] : fetched));
+                if (!append) setSelectedIds([]);
                 setHasMore(p < (data.totalPages ?? 1));
             } catch {
                 Alert.alert('Error', 'Could not load orders.');
@@ -170,34 +158,78 @@ export default function AdminOrdersScreen() {
         }
     };
 
+    const toggleSelection = (id: string) => {
+        setSelectedIds((current) => (
+            current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]
+        ));
+    };
+
+    const handleBulkUpdate = (status: string) => {
+        if (selectedIds.length === 0) return;
+
+        Alert.alert(
+            'Bulk Update Orders',
+            `Update ${selectedIds.length} selected order${selectedIds.length === 1 ? '' : 's'} to ${STATUS_CONFIG[status]?.label ?? status}?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Continue',
+                    onPress: async () => {
+                        setBulkUpdating(true);
+                        try {
+                            const { data } = await bulkUpdateAdminOrderStatus({ ids: selectedIds, status });
+                            const summary = data?.summary ?? {};
+                            const failed = Array.isArray(summary.failed) ? summary.failed.length : 0;
+                            Alert.alert('Bulk Update Complete', `${summary.updated ?? 0} updated, ${failed} failed.`);
+                            setSelectedIds([]);
+                            setPage(1);
+                            fetchOrders(1, filter, search);
+                        } catch (err: any) {
+                            Alert.alert('Error', err?.response?.data?.message ?? 'Bulk update failed.');
+                        } finally {
+                            setBulkUpdating(false);
+                        }
+                    },
+                },
+            ],
+        );
+    };
+
     // ── Row ────────────────────────────────────────────────────────────────────
     const renderRow = ({ item }: { item: any }) => {
         const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pending;
         return (
-            <TouchableOpacity style={s.row} onPress={() => openDetail(item._id)} activeOpacity={0.8}>
-                <View style={s.rowLeft}>
-                    <Text style={s.rowOrderNum}>{item.orderNumber}</Text>
-                    <Text style={s.rowUser} numberOfLines={1}>
-                        {item.user?.name ?? 'Unknown'} · {item.user?.email ?? ''}
-                    </Text>
-                    <Text style={s.rowDate}>
-                        {new Date(item.createdAt).toLocaleDateString('en-US', {
-                            day: 'numeric', month: 'short', year: 'numeric',
-                        })}
-                    </Text>
-                </View>
-                <View style={s.rowRight}>
-                    <Text style={[s.rowTotal, { color: T.active }]}>${item.total?.toFixed(2)}</Text>
-                    <View style={[s.badge, { backgroundColor: cfg.color + '22', borderColor: cfg.color }]}>
-                        <Feather name={cfg.icon as any} size={10} color={cfg.color} />
-                        <Text style={[s.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
+            <View style={s.rowShell}>
+                <TouchableOpacity style={s.checkboxBtn} onPress={() => toggleSelection(item._id)}>
+                    <Feather name={selectedIds.includes(item._id) ? 'check-square' : 'square'} size={18} color={selectedIds.includes(item._id) ? T.active : T.muted} />
+                </TouchableOpacity>
+                <TouchableOpacity style={s.row} onPress={() => openDetail(item._id)} activeOpacity={0.8}>
+                    <View style={s.rowLeft}>
+                        <Text style={s.rowOrderNum}>{item.orderNumber}</Text>
+                        <Text style={s.rowUser} numberOfLines={1}>
+                            {item.user?.name ?? 'Unknown'} · {item.user?.email ?? ''}
+                        </Text>
+                        <Text style={s.rowDate}>
+                            {new Date(item.createdAt).toLocaleDateString('en-US', {
+                                day: 'numeric', month: 'short', year: 'numeric',
+                            })}
+                        </Text>
                     </View>
-                    <Text style={s.paymentBadge}>{String(item.paymentStatus || '').replace(/_/g, ' ')}</Text>
-                    <Feather name="chevron-right" size={16} color={T.muted} />
-                </View>
-            </TouchableOpacity>
+                    <View style={s.rowRight}>
+                        <Text style={[s.rowTotal, { color: T.active }]}>${item.total?.toFixed(2)}</Text>
+                        <View style={[s.badge, { backgroundColor: cfg.color + '22', borderColor: cfg.color }]}>
+                            <Feather name={cfg.icon as any} size={10} color={cfg.color} />
+                            <Text style={[s.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
+                        </View>
+                        <Text style={s.paymentBadge}>{String(item.paymentStatus || '').replace(/_/g, ' ')}</Text>
+                        <Feather name="chevron-right" size={16} color={T.muted} />
+                    </View>
+                </TouchableOpacity>
+            </View>
         );
     };
+
+    const allLoadedSelected = orders.length > 0 && orders.every((order) => selectedIds.includes(order._id));
 
     return (
         <View style={s.root}>
@@ -241,6 +273,29 @@ export default function AdminOrdersScreen() {
                     </TouchableOpacity>
                 )}
             />
+
+            <View style={s.bulkToolbar}>
+                <TouchableOpacity style={s.bulkSelectBtn} onPress={() => setSelectedIds(allLoadedSelected ? [] : orders.map((order) => order._id))}>
+                    <Feather name={allLoadedSelected ? 'check-square' : 'square'} size={16} color={T.active} />
+                    <Text style={s.bulkToolbarText}>Select loaded orders</Text>
+                </TouchableOpacity>
+                {selectedIds.length > 0 ? (
+                    <FlatList
+                        horizontal
+                        data={BULK_STATUSES}
+                        keyExtractor={(item) => item}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={s.bulkActionList}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity style={s.bulkChip} onPress={() => handleBulkUpdate(item)} disabled={bulkUpdating}>
+                                <Text style={s.bulkChipText}>{STATUS_CONFIG[item]?.label ?? item}</Text>
+                            </TouchableOpacity>
+                        )}
+                        ListHeaderComponent={<Text style={s.bulkCount}>{selectedIds.length} selected</Text>}
+                        ListFooterComponent={bulkUpdating ? <ActivityIndicator color={T.active} /> : <TouchableOpacity onPress={() => setSelectedIds([])}><Text style={s.bulkClearText}>Clear</Text></TouchableOpacity>}
+                    />
+                ) : null}
+            </View>
 
             {/* List */}
             {loading ? (
@@ -515,10 +570,20 @@ const s = StyleSheet.create({
     filterTabActive: { backgroundColor: T.activeBg, borderColor: T.active },
     filterText: { color: T.muted, fontSize: 12, fontWeight: '500' },
     filterTextActive: { color: T.active, fontWeight: '700' },
+    bulkToolbar: { paddingHorizontal: 16, paddingBottom: 8, gap: 10 },
+    bulkSelectBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' },
+    bulkToolbarText: { color: T.active, fontWeight: '700', fontSize: 12 },
+    bulkActionList: { gap: 8, alignItems: 'center' },
+    bulkCount: { color: T.text, fontSize: 12, fontWeight: '700', marginRight: 8, alignSelf: 'center' },
+    bulkChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: T.activeBg, borderWidth: 1, borderColor: T.active },
+    bulkChipText: { color: T.active, fontSize: 12, fontWeight: '700' },
+    bulkClearText: { color: T.muted, fontSize: 12, fontWeight: '700', paddingHorizontal: 8, alignSelf: 'center' },
     list: { paddingHorizontal: 16, paddingVertical: 8 },
+    rowShell: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    checkboxBtn: { width: 28, alignItems: 'center', justifyContent: 'center' },
     row: {
         backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border,
-        flexDirection: 'row', alignItems: 'center', padding: 14, marginVertical: 4,
+        flexDirection: 'row', alignItems: 'center', padding: 14, marginVertical: 4, flex: 1,
     },
     rowLeft: { flex: 1 },
     rowOrderNum: { fontSize: 14, fontWeight: '700', color: T.text },

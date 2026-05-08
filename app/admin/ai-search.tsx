@@ -1,3 +1,4 @@
+import { adminTheme as T } from '@/constants/adminTheme';
 import {
     getAiIndexStatus,
     getAiServiceHealth,
@@ -18,20 +19,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-
-const T = {
-    bg: '#1E150C',
-    card: '#2C1810',
-    cardBorder: '#3D2415',
-    text: '#F5EDE0',
-    muted: '#8C7B6E',
-    active: '#C1622F',
-    green: '#38A169',
-    red: '#E53E3E',
-    yellow: '#D69E2E',
-    blue: '#3182CE',
-    white: '#FFFFFF',
-};
 
 export default function AdminAiSearchScreen() {
     const router = useRouter();
@@ -128,6 +115,11 @@ export default function AdminAiSearchScreen() {
                             <Text style={s.statValue}>{status?.indexed ?? 0}/{status?.total ?? 0}</Text>
                             <Text style={s.statLabel}>Indexed Products</Text>
                             <Text style={s.statSub}>{status?.percentComplete ?? 0}% complete</Text>
+                        </View>
+                        <View style={[s.statCard, { borderTopColor: T.yellow }]}>
+                            <Text style={s.statValue}>{status?.pending ?? 0}</Text>
+                            <Text style={s.statLabel}>Pending Indexing</Text>
+                            <Text style={s.statSub}>{status?.ready ? 'Visual search ready' : 'Index at least one product'}</Text>
                         </View>
                         <View style={[s.statCard, { borderTopColor: T.yellow }]}>
                             <Text style={s.statValue}>{status?.productsWithImages ?? 0}</Text>

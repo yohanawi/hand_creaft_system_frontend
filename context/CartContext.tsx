@@ -1,6 +1,8 @@
+import { useToast } from '@/context/ToastContext';
 import api, {
     addToCartAPI,
     clearCartAPI,
+    getApiErrorMessage,
     getCart,
     removeFromCartAPI,
     updateCartItemAPI,
@@ -79,6 +81,7 @@ const CartContext = createContext<CartContextType | null>(null);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [items, setItems] = useState<CartItem[]>([]);
+    const { showToast } = useToast();
 
     /** Fetch cart from server and hydrate local state */
     const loadFromServer = useCallback(async () => {
@@ -98,6 +101,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const addToCart = useCallback(
         async (incoming: Omit<CartItem, 'quantity'> & { quantity?: number }) => {
             const qty = incoming.quantity ?? 1;
+            const previousItems = items;
 
             // Optimistic local update first
             setItems(prev => {
@@ -115,25 +119,37 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 try {
                     const res = await addToCartAPI(incoming.product, qty, incoming.selectedVariant?.variantId);
                     setItems((res.data || []).map(serverItemToCartItem));
-                } catch { /* keep optimistic */ }
+                } catch (error) {
+                    setItems(previousItems);
+                    showToast('Cart update failed', 'error', {
+                        subMessage: getApiErrorMessage(error, 'Unable to add this item to your cart right now.'),
+                    });
+                }
             }
         },
-        [],
+        [items, showToast],
     );
 
     const removeFromCart = useCallback(async (productId: string, variantId?: string) => {
+        const previousItems = items;
         // Optimistic
         setItems(prev => prev.filter(i => !(i.product === productId && (i.selectedVariant?.variantId || '') === (variantId || ''))));
         if (isLoggedIn()) {
             try {
                 const res = await removeFromCartAPI(productId, variantId);
                 setItems((res.data || []).map(serverItemToCartItem));
-            } catch { /* keep optimistic */ }
+            } catch (error) {
+                setItems(previousItems);
+                showToast('Cart update failed', 'error', {
+                    subMessage: getApiErrorMessage(error, 'Unable to remove this item from your cart right now.'),
+                });
+            }
         }
-    }, []);
+    }, [items, showToast]);
 
     const updateQty = useCallback(async (productId: string, qty: number, variantId?: string) => {
         if (qty < 1) return;
+        const previousItems = items;
         // Optimistic
         setItems(prev =>
             prev.map(i => (
@@ -146,16 +162,32 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
                 const res = await updateCartItemAPI(productId, qty, variantId);
                 setItems((res.data || []).map(serverItemToCartItem));
-            } catch { /* keep optimistic */ }
+            } catch (error) {
+                setItems(previousItems);
+                showToast('Cart update failed', 'error', {
+                    subMessage: getApiErrorMessage(error, 'Unable to update the quantity for this item.'),
+                });
+            }
         }
-    }, []);
+    }, [items, showToast]);
 
     const clearCart = useCallback(async () => {
+        const previousItems = items;
         setItems([]);
         if (isLoggedIn()) {
             try { await clearCartAPI(); } catch { /* silently fail */ }
         }
-    }, []);
+        if (isLoggedIn()) {
+            try {
+                await clearCartAPI();
+            } catch (error) {
+                setItems(previousItems);
+                showToast('Cart update failed', 'error', {
+                    subMessage: getApiErrorMessage(error, 'Unable to clear your cart right now.'),
+                });
+            }
+        }
+    }, [items, showToast]);
 
     // ── Derived values ─────────────────────────────────────────────────────────
     const cartCount = useMemo(

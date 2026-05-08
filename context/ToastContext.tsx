@@ -3,6 +3,7 @@ import React, {
     createContext,
     useCallback,
     useContext,
+    useEffect,
     useRef,
     useState,
 } from 'react';
@@ -56,7 +57,7 @@ const TOAST_COLORS: Record<ToastType, { bg: string; border: string; icon: string
 };
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const DURATION = 3200; // ms before auto-dismiss
+const DURATION = 3000;
 
 // ─── Single Toast Item ────────────────────────────────────────────────────────
 
@@ -99,7 +100,6 @@ function ToastItem({
             style={{
                 transform: [{ translateY }, { scale }],
                 opacity,
-                marginBottom: 8,
             }}
         >
             <View
@@ -121,53 +121,52 @@ function ToastItem({
                     maxWidth: Math.min(SCREEN_WIDTH - 32, 420),
                 }}
             >
-                {/* Icon */}
-                <View
-                    style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 10,
-                        backgroundColor: cfg.icon + '20',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginRight: 12,
-                        flexShrink: 0,
-                    }}
-                >
-                    <Feather name={iconName} size={18} color={cfg.icon} />
-                </View>
-
-                {/* Text */}
-                <View style={{ flex: 1 }}>
-                    <Text
+                <TouchableOpacity onPress={dismiss} activeOpacity={0.92} style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                    <View
                         style={{
-                            color: '#111827',
-                            fontWeight: '700',
-                            fontSize: 14,
-                            lineHeight: 19,
+                            width: 36,
+                            height: 36,
+                            borderRadius: 10,
+                            backgroundColor: cfg.icon + '20',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginRight: 12,
+                            flexShrink: 0,
                         }}
-                        numberOfLines={2}
                     >
-                        {toast.message}
-                    </Text>
-                    {toast.subMessage ? (
+                        <Feather name={iconName} size={18} color={cfg.icon} />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
                         <Text
                             style={{
-                                color: '#6B7280',
-                                fontSize: 12,
-                                marginTop: 2,
-                                lineHeight: 16,
+                                color: '#111827',
+                                fontWeight: '700',
+                                fontSize: 14,
+                                lineHeight: 19,
                             }}
                             numberOfLines={2}
                         >
-                            {toast.subMessage}
+                            {toast.message}
                         </Text>
-                    ) : null}
-                </View>
+                        {toast.subMessage ? (
+                            <Text
+                                style={{
+                                    color: '#6B7280',
+                                    fontSize: 12,
+                                    marginTop: 2,
+                                    lineHeight: 16,
+                                }}
+                                numberOfLines={2}
+                            >
+                                {toast.subMessage}
+                            </Text>
+                        ) : null}
+                    </View>
 
-                {/* Dismiss */}
-                <TouchableOpacity onPress={dismiss} style={{ marginLeft: 10, padding: 4 }}>
-                    <Feather name="x" size={15} color="#9CA3AF" />
+                    <View style={{ marginLeft: 10, padding: 4 }}>
+                        <Feather name="x" size={15} color="#9CA3AF" />
+                    </View>
                 </TouchableOpacity>
             </View>
         </Animated.View>
@@ -179,7 +178,8 @@ function ToastItem({
 let _nextId = 1;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-    const [toasts, setToasts] = useState<ToastMessage[]>([]);
+    const [queue, setQueue] = useState<ToastMessage[]>([]);
+    const [activeToast, setActiveToast] = useState<ToastMessage | null>(null);
 
     const showToast = useCallback(
         (
@@ -188,13 +188,23 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             options?: { subMessage?: string; icon?: keyof typeof Feather.glyphMap }
         ) => {
             const id = _nextId++;
-            setToasts(prev => [...prev.slice(-3), { id, message, type, ...options }]);
+            setQueue(prev => [...prev, { id, message, type, ...options }]);
         },
         [],
     );
 
+    useEffect(() => {
+        if (activeToast || queue.length === 0) {
+            return;
+        }
+
+        setActiveToast(queue[0]);
+        setQueue(prev => prev.slice(1));
+    }, [activeToast, queue]);
+
     const dismiss = useCallback((id: number) => {
-        setToasts(prev => prev.filter(t => t.id !== id));
+        setActiveToast((prev) => (prev?.id === id ? null : prev));
+        setQueue(prev => prev.filter(t => t.id !== id));
     }, []);
 
     return (
@@ -206,17 +216,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 style={{
                     pointerEvents: 'box-none',
                     position: 'absolute',
-                    top: Platform.OS === 'ios' ? 56 : 16,
-                    left: 0,
-                    right: 0,
-                    alignItems: 'center',
+                    top: Platform.OS === 'web' ? undefined : Platform.OS === 'ios' ? 56 : 16,
+                    bottom: Platform.OS === 'web' ? 20 : undefined,
+                    right: Platform.OS === 'web' ? 20 : 0,
+                    left: Platform.OS === 'web' ? undefined : 0,
+                    alignItems: Platform.OS === 'web' ? 'flex-end' : 'center',
                     zIndex: 9999,
                     paddingHorizontal: 16,
                 }}
             >
-                {toasts.map(t => (
-                    <ToastItem key={t.id} toast={t} onDismiss={dismiss} />
-                ))}
+                {activeToast ? <ToastItem key={activeToast.id} toast={activeToast} onDismiss={dismiss} /> : null}
             </View>
         </ToastContext.Provider>
     );

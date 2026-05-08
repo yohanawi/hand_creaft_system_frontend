@@ -62,6 +62,41 @@ const getApiUrl = () => {
 export const API_URL = getApiUrl();
 export const API_ORIGIN = API_URL.replace(/\/api$/, "");
 
+export const getApiErrorMessage = (
+  error: unknown,
+  fallback = "Something went wrong. Please try again.",
+) => {
+  if (axios.isAxiosError(error)) {
+    if (!error.response) {
+      return "Network error. Please check your connection";
+    }
+
+    const responseMessage = error.response.data?.message;
+    if (typeof responseMessage === "string" && responseMessage.trim()) {
+      return responseMessage.trim();
+    }
+
+    switch (error.response.status) {
+      case 401:
+        return "Please log in again";
+      case 403:
+        return "Access denied";
+      case 404:
+        return "Resource not found";
+      case 500:
+        return "Server error. Please try again later";
+      default:
+        return fallback;
+    }
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+
+  return fallback;
+};
+
 export const getAssetUrl = (value?: string | null) => {
   const raw = String(value || "").trim();
   if (!raw) {
@@ -82,6 +117,23 @@ const api = axios.create({
     "Content-Type": "application/json",
   },
 });
+
+let unauthorizedHandler: (() => void) | null = null;
+
+export const setUnauthorizedHandler = (handler: (() => void) | null) => {
+  unauthorizedHandler = handler;
+};
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      unauthorizedHandler?.();
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 // Attach token to every request if available
 export const setAuthToken = (token: string | null) => {
@@ -128,8 +180,64 @@ export const deleteAddress = (id: string) =>
 export const setDefaultAddress = (id: string) =>
   api.patch(`/auth/addresses/${id}/default`);
 
+// ─── Seller ─────────────────────────────────────────────────────────────────
+export const getSellerOverview = () => api.get("/seller/overview");
+export const getSellerProfile = () => api.get("/seller/profile");
+export const updateSellerProfile = (data: any) =>
+  api.put("/seller/profile", data);
+export const getSellerProducts = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+}) => api.get("/seller/products", { params });
+export const createSellerProduct = (data: any) =>
+  api.post("/seller/products", data);
+export const updateSellerProduct = (id: string, data: any) =>
+  api.put(`/seller/products/${id}`, data);
+export const deleteSellerProduct = (id: string) =>
+  api.delete(`/seller/products/${id}`);
+export const uploadSellerProductImages = (data: FormData) =>
+  api.post("/seller/products/upload-images", data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+export const getSellerInventoryOverview = () =>
+  api.get("/seller/inventory/overview");
+export const restockSellerOwnedProduct = (
+  id: string,
+  data: { quantity: number; note?: string },
+) => api.post(`/seller/inventory/products/${id}/restock`, data);
+export const adjustSellerOwnedProductStock = (
+  id: string,
+  data: { quantityDelta: number; reason?: string; note?: string },
+) => api.post(`/seller/inventory/products/${id}/adjust`, data);
+export const getSellerOrders = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+}) => api.get("/seller/orders", { params });
+export const getSellerOrderById = (id: string) =>
+  api.get(`/seller/orders/${id}`);
+export const updateSellerOrderStatus = (
+  id: string,
+  data: {
+    status: string;
+    message?: string;
+    location?: string;
+    trackingNumber?: string;
+    courier?: string;
+    estimatedDelivery?: string;
+  },
+) => api.put(`/seller/orders/${id}/status`, data);
+export const getSellerPayoutOverview = () =>
+  api.get("/seller/payouts/overview");
+export const requestSellerPayout = (data?: { note?: string }) =>
+  api.post("/seller/payouts/request", data || {});
+
 // ─── Admin: Stats ────────────────────────────────────────────────────────────
-export const getAdminStats = () => api.get("/admin/stats");
+export const getAdminStats = (params?: { rangeMonths?: number }) =>
+  api.get("/admin/stats", { params });
 export const getAdminInventoryOverview = () =>
   api.get("/admin/inventory/overview");
 export const getAdminStockMovements = (params?: {
@@ -180,6 +288,10 @@ export const replyAdminSupportTicket = (
 ) => api.post(`/admin/support/tickets/${id}/reply`, data);
 export const getAdminWishlistInsights = () =>
   api.get("/admin/wishlist/insights");
+export const bulkUpdateAdminProductStatus = (data: {
+  ids: string[];
+  status: "active" | "inactive";
+}) => api.put("/admin/products/bulk-status", data);
 
 // ─── Admin: Users ────────────────────────────────────────────────────────────
 export const getAdminUsers = (params?: {
@@ -192,6 +304,48 @@ export const getAdminUserById = (id: string) => api.get(`/admin/users/${id}`);
 export const updateAdminUser = (id: string, data: any) =>
   api.put(`/admin/users/${id}`, data);
 export const deleteAdminUser = (id: string) => api.delete(`/admin/users/${id}`);
+export const getAdminSellers = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+}) => api.get("/admin/sellers", { params });
+export const getAdminSellerById = (id: string) =>
+  api.get(`/admin/sellers/${id}`);
+export const updateAdminSeller = (id: string, data: any) =>
+  api.put(`/admin/sellers/${id}`, data);
+export const getAdminSellerPayouts = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+}) => api.get("/admin/seller-payouts", { params });
+export const getAdminActivityLogs = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  action?: string;
+  resourceType?: string;
+  userId?: string;
+  startDate?: string;
+  endDate?: string;
+}) => api.get("/admin/activity-logs", { params });
+export const exportAdminActivityLogs = (params?: {
+  search?: string;
+  action?: string;
+  resourceType?: string;
+  userId?: string;
+  startDate?: string;
+  endDate?: string;
+}) =>
+  api.get("/admin/activity-logs", {
+    params: { ...(params || {}), format: "csv" },
+    responseType: "text",
+  });
+export const updateAdminSellerPayout = (
+  id: string,
+  data: { status: "paid" | "rejected"; note?: string; bankReference?: string },
+) => api.put(`/admin/seller-payouts/${id}`, data);
 
 // ─── Admin: Products ─────────────────────────────────────────────────────────
 export const getProducts = (params?: any) => api.get("/products", { params });
@@ -210,6 +364,8 @@ export const createCategory = (data: any) => api.post("/categories", data);
 export const updateCategory = (id: string, data: any) =>
   api.put(`/categories/${id}`, data);
 export const deleteCategory = (id: string) => api.delete(`/categories/${id}`);
+export const reorderCategories = (data: { ids: string[] }) =>
+  api.put("/categories/reorder", data);
 
 // ─── Admin: Subcategories ─────────────────────────────────────────────────────
 export const getSubcategories = (params?: { category?: string }) =>
@@ -296,6 +452,8 @@ export const initiatePayHerePayment = (data: {
   returnUrl: string;
   cancelUrl: string;
 }) => api.post("/payments/payhere/initiate", data);
+
+export const getPayHereStatus = () => api.get("/payments/payhere/status");
 
 export const cancelPayHereOrder = (orderId: string) =>
   api.post(`/payments/payhere/orders/${orderId}/cancel`);
@@ -418,5 +576,9 @@ export const adminUpdateOrderStatus = (
     adminNote?: string;
   },
 ) => api.put(`/admin/orders/${id}/status`, data);
+export const bulkUpdateAdminOrderStatus = (data: {
+  ids: string[];
+  status: string;
+}) => api.put("/admin/orders/bulk-status", data);
 
 export default api;

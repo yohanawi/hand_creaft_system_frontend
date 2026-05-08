@@ -1,7 +1,9 @@
 import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
+import api, { getApiErrorMessage, getAssetUrl } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { usePathname, useRouter } from 'expo-router';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Linking, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -27,96 +29,107 @@ const NAV_LINKS = [
     { label: 'About', route: '/about' },
 ];
 
-const CATEGORIES = [
-    { name: 'Electronics', icon: 'smartphone' as const },
-    { name: 'Fashion', icon: 'shopping-bag' as const },
-    { name: 'Home', icon: 'home' as const },
-    { name: 'Books', icon: 'book' as const },
-    { name: 'Sports', icon: 'activity' as const },
-    { name: 'Beauty', icon: 'heart' as const },
+type MenuSubcategory = {
+    _id: string;
+    name: string;
+    slug: string;
+    description?: string;
+    image?: string | null;
+    isFeatured?: boolean;
+};
+
+type MenuCategory = {
+    _id: string;
+    name: string;
+    slug: string;
+    description?: string;
+    image?: string | null;
+    isFeatured?: boolean;
+    subcategoryCount?: number;
+    subcategories: MenuSubcategory[];
+};
+
+type VisualMenuSubcategory = MenuSubcategory & {
+    icon: keyof typeof Feather.glyphMap;
+    imageUri?: string | null;
+};
+
+type VisualMenuCategory = MenuCategory & {
+    icon: keyof typeof Feather.glyphMap;
+    color: string;
+    imageUri?: string | null;
+    subcategories: VisualMenuSubcategory[];
+};
+
+const CATEGORY_COLORS = ['#8B4513', '#CD853F', '#B76E3A', '#A45C2A', '#9C6644', '#6F4E37'];
+const FALLBACK_CATEGORY_ICONS: (keyof typeof Feather.glyphMap)[] = ['shopping-bag', 'star', 'gift', 'heart', 'bookmark', 'award'];
+const FALLBACK_SUBCATEGORY_ICONS: (keyof typeof Feather.glyphMap)[] = ['tag', 'star', 'gift', 'bookmark', 'award', 'package'];
+
+const CATEGORY_ICON_RULES: { keywords: string[]; icon: keyof typeof Feather.glyphMap }[] = [
+    { keywords: ['necklace', 'pendant', 'chain'], icon: 'disc' },
+    { keywords: ['earring', 'stud', 'drop', 'hoop'], icon: 'circle' },
+    { keywords: ['bracelet', 'bangle', 'cuff', 'watch'], icon: 'watch' },
+    { keywords: ['ring', 'gemstone'], icon: 'award' },
+    { keywords: ['anklet'], icon: 'sun' },
+    { keywords: ['brooch', 'pin'], icon: 'star' },
+    { keywords: ['hair'], icon: 'feather' },
+    { keywords: ['bridal', 'wedding'], icon: 'heart' },
+    { keywords: ['men', 'mens'], icon: 'user' },
+    { keywords: ['personalized', 'initial', 'birthstone', 'custom'], icon: 'tag' },
 ];
 
-// ─── Mega menu data ───────────────────────────────────────────────────────────
-const MEGA_CATEGORIES = [
-    {
-        name: 'Electronics', icon: 'smartphone' as const, color: '#3B82F6',
-        subcategories: [
-            { name: 'Smartphones', icon: 'smartphone' as const },
-            { name: 'Laptops', icon: 'monitor' as const },
-            { name: 'Cameras', icon: 'camera' as const },
-            { name: 'Headphones', icon: 'headphones' as const },
-            { name: 'Smart Watches', icon: 'watch' as const },
-            { name: 'TV & Audio', icon: 'tv' as const },
-            { name: 'Accessories', icon: 'cpu' as const },
-            { name: 'WiFi & Network', icon: 'wifi' as const },
-        ],
-    },
-    {
-        name: 'Fashion', icon: 'shopping-bag' as const, color: '#EC4899',
-        subcategories: [
-            { name: "Men's Wear", icon: 'user' as const },
-            { name: "Women's Wear", icon: 'user' as const },
-            { name: 'Footwear', icon: 'package' as const },
-            { name: 'Bags & Purses', icon: 'shopping-bag' as const },
-            { name: 'Jewelry', icon: 'star' as const },
-            { name: 'Sunglasses', icon: 'sun' as const },
-            { name: 'Watches', icon: 'watch' as const },
-            { name: 'Kids Wear', icon: 'gift' as const },
-        ],
-    },
-    {
-        name: 'Home & Living', icon: 'home' as const, color: '#10B981',
-        subcategories: [
-            { name: 'Furniture', icon: 'grid' as const },
-            { name: 'Bedding', icon: 'layers' as const },
-            { name: 'Kitchen', icon: 'coffee' as const },
-            { name: 'Lighting', icon: 'sun' as const },
-            { name: 'Garden', icon: 'feather' as const },
-            { name: 'Storage', icon: 'box' as const },
-            { name: 'Decor', icon: 'bookmark' as const },
-            { name: 'Tools', icon: 'tool' as const },
-        ],
-    },
-    {
-        name: 'Books', icon: 'book' as const, color: '#F59E0B',
-        subcategories: [
-            { name: 'Fiction', icon: 'book' as const },
-            { name: 'Non-Fiction', icon: 'file-text' as const },
-            { name: 'Science', icon: 'cpu' as const },
-            { name: 'History', icon: 'globe' as const },
-            { name: 'Self Help', icon: 'trending-up' as const },
-            { name: "Children's", icon: 'smile' as const },
-            { name: 'Comics', icon: 'image' as const },
-            { name: 'Textbooks', icon: 'archive' as const },
-        ],
-    },
-    {
-        name: 'Sports', icon: 'activity' as const, color: '#EF4444',
-        subcategories: [
-            { name: 'Fitness', icon: 'activity' as const },
-            { name: 'Outdoor', icon: 'compass' as const },
-            { name: 'Team Sports', icon: 'users' as const },
-            { name: 'Cycling', icon: 'navigation' as const },
-            { name: 'Running', icon: 'wind' as const },
-            { name: 'Yoga', icon: 'anchor' as const },
-            { name: 'Water Sports', icon: 'droplet' as const },
-            { name: 'Equipment', icon: 'tool' as const },
-        ],
-    },
-    {
-        name: 'Beauty', icon: 'heart' as const, color: '#8B5CF6',
-        subcategories: [
-            { name: 'Skincare', icon: 'droplet' as const },
-            { name: 'Makeup', icon: 'eye' as const },
-            { name: 'Hair Care', icon: 'scissors' as const },
-            { name: 'Perfumes', icon: 'star' as const },
-            { name: 'Nail Care', icon: 'pen-tool' as const },
-            { name: "Men's Grooming", icon: 'user' as const },
-            { name: 'Bath & Body', icon: 'sun' as const },
-            { name: 'Beauty Tools', icon: 'zap' as const },
-        ],
-    },
+const SUBCATEGORY_ICON_RULES: { keywords: string[]; icon: keyof typeof Feather.glyphMap }[] = [
+    { keywords: ['pendant', 'layered', 'chain'], icon: 'disc' },
+    { keywords: ['stud', 'drop', 'hoop'], icon: 'circle' },
+    { keywords: ['charm', 'cuff', 'bracelet'], icon: 'watch' },
+    { keywords: ['gemstone', 'stackable', 'ring'], icon: 'award' },
+    { keywords: ['beaded'], icon: 'sun' },
+    { keywords: ['floral'], icon: 'feather' },
+    { keywords: ['bridal', 'bridesmaid'], icon: 'heart' },
+    { keywords: ['clip', 'vine'], icon: 'bookmark' },
+    { keywords: ['initial', 'birthstone'], icon: 'tag' },
+    { keywords: ['men'], icon: 'user' },
 ];
+
+const getKeywordIcon = (
+    value: string,
+    rules: { keywords: string[]; icon: keyof typeof Feather.glyphMap }[],
+    fallbacks: (keyof typeof Feather.glyphMap)[],
+    index: number,
+) => {
+    const normalizedValue = value.toLowerCase();
+    const matched = rules.find((rule) => rule.keywords.some((keyword) => normalizedValue.includes(keyword)));
+    return matched?.icon ?? fallbacks[index % fallbacks.length];
+};
+
+const resolveCategoryVisual = (value: string, index: number) => ({
+    icon: getKeywordIcon(value, CATEGORY_ICON_RULES, FALLBACK_CATEGORY_ICONS, index),
+    color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
+});
+
+const resolveSubcategoryIcon = (value: string, index: number) => (
+    getKeywordIcon(value, SUBCATEGORY_ICON_RULES, FALLBACK_SUBCATEGORY_ICONS, index)
+);
+
+const buildShopRoute = ({
+    categorySlug,
+    subcategorySlug,
+}: {
+    categorySlug?: string;
+    subcategorySlug?: string;
+}) => {
+    const params: string[] = [];
+
+    if (categorySlug) {
+        params.push(`category=${encodeURIComponent(categorySlug)}`);
+    }
+
+    if (subcategorySlug) {
+        params.push(`subcategory=${encodeURIComponent(subcategorySlug)}`);
+    }
+
+    return params.length > 0 ? `/shop?${params.join('&')}` : '/shop';
+};
 
 // ─── Social icon button ───────────────────────────────────────────────────────
 function SocialBtn({ name }: { name: keyof typeof Feather.glyphMap }) {
@@ -169,6 +182,46 @@ function NavLink({ label, onPress, active }: { label: string; onPress: () => voi
                 }} />
             </View>
         </TouchableOpacity>
+    );
+}
+
+function MenuThumb({
+    imageUri,
+    icon,
+    size,
+    tintColor,
+    fallbackBackgroundColor,
+    borderRadius,
+}: {
+    imageUri?: string | null;
+    icon: keyof typeof Feather.glyphMap;
+    size: number;
+    tintColor: string;
+    fallbackBackgroundColor: string;
+    borderRadius: number;
+}) {
+    if (imageUri) {
+        return (
+            <Image
+                source={{ uri: imageUri }}
+                style={{ width: size, height: size, borderRadius }}
+                contentFit="cover"
+                transition={150}
+            />
+        );
+    }
+
+    return (
+        <View style={{
+            width: size,
+            height: size,
+            borderRadius,
+            backgroundColor: fallbackBackgroundColor,
+            alignItems: 'center',
+            justifyContent: 'center',
+        }}>
+            <Feather name={icon} size={Math.max(12, Math.round(size * 0.46))} color={tintColor} />
+        </View>
     );
 }
 
@@ -244,6 +297,8 @@ export default function Header({ scrollY }: HeaderProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [showMegaMenu, setShowMegaMenu] = useState(false);
     const [activeMegaCat, setActiveMegaCat] = useState(0);
+    const [menuCategories, setMenuCategories] = useState<MenuCategory[]>([]);
+    const [menuError, setMenuError] = useState<string | null>(null);
     const megaCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const internalScrollY = useRef(new Animated.Value(0)).current;
     const resolvedScrollY = scrollY ?? internalScrollY;
@@ -253,12 +308,42 @@ export default function Header({ scrollY }: HeaderProps) {
     const topBarVisibleRef = useRef(true);
     const topBarAnimatingRef = useRef(false);
 
+    const visualMenuCategories = React.useMemo<VisualMenuCategory[]>(() => (
+        menuCategories.map((category, index): VisualMenuCategory => ({
+            ...category,
+            ...resolveCategoryVisual(`${category.slug} ${category.name}`, index),
+            imageUri: getAssetUrl(category.image),
+            subcategories: Array.isArray(category.subcategories)
+                ? category.subcategories.map((subcategory, subIndex) => ({
+                    ...subcategory,
+                    icon: resolveSubcategoryIcon(`${subcategory.slug} ${subcategory.name}`, subIndex),
+                    imageUri: getAssetUrl(subcategory.image),
+                }))
+                : [],
+        }))
+    ), [menuCategories]);
+
+    const activeMegaCategory = visualMenuCategories[activeMegaCat] ?? null;
+
     const openMegaMenu = () => {
+        if (visualMenuCategories.length === 0) return;
         if (megaCloseTimer.current) clearTimeout(megaCloseTimer.current);
         setShowMegaMenu(true);
     };
     const closeMegaMenu = () => {
         megaCloseTimer.current = setTimeout(() => setShowMegaMenu(false), 150);
+    };
+
+    const navigateToCategory = (categorySlug?: string) => {
+        router.push(buildShopRoute({ categorySlug }) as any);
+        setShowMegaMenu(false);
+        setShowMenu(false);
+    };
+
+    const navigateToSubcategory = (categorySlug?: string, subcategorySlug?: string) => {
+        router.push(buildShopRoute({ categorySlug, subcategorySlug }) as any);
+        setShowMegaMenu(false);
+        setShowMenu(false);
     };
 
     const activeNav = React.useMemo(() => {
@@ -287,6 +372,50 @@ export default function Header({ scrollY }: HeaderProps) {
             Animated.spring(slideDown, { toValue: 0, tension: 55, friction: 9, useNativeDriver: true }),
         ]).start();
     }, []);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadMenuTree = async () => {
+            try {
+                setMenuError(null);
+                const response = await api.get('/categories/menu-tree');
+                if (!isMounted) return;
+
+                const categories = Array.isArray(response.data) ? response.data : [];
+                setMenuCategories(categories);
+            } catch (error) {
+                if (!isMounted) return;
+                setMenuCategories([]);
+                setMenuError(getApiErrorMessage(error, 'Unable to load categories right now.'));
+            }
+        };
+
+        loadMenuTree();
+
+        return () => {
+            isMounted = false;
+            if (megaCloseTimer.current) {
+                clearTimeout(megaCloseTimer.current);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        if (activeMegaCat < visualMenuCategories.length) {
+            return;
+        }
+
+        setActiveMegaCat(0);
+    }, [activeMegaCat, visualMenuCategories.length]);
+
+    useEffect(() => {
+        if (visualMenuCategories.length > 0) {
+            return;
+        }
+
+        setShowMegaMenu(false);
+    }, [visualMenuCategories.length]);
 
     useEffect(() => {
         if (scrollY || Platform.OS !== 'web') return;
@@ -730,7 +859,7 @@ export default function Header({ scrollY }: HeaderProps) {
                 {/* ══════════════════════════════════════════
                     MEGA MENU DROPDOWN
                 ══════════════════════════════════════════ */}
-                {showMegaMenu && !isMobile && !isTablet && Platform.OS === 'web' && (
+                {showMegaMenu && activeMegaCategory && !isMobile && !isTablet && Platform.OS === 'web' && (
                     <Animated.View
                         {...{ onMouseEnter: openMegaMenu, onMouseLeave: closeMegaMenu } as any}
                         style={{
@@ -777,11 +906,11 @@ export default function Header({ scrollY }: HeaderProps) {
                                         marginBottom: 12, marginLeft: 4,
                                     }}>All Categories</Text>
 
-                                    {MEGA_CATEGORIES.map((cat, i) => (
+                                    {visualMenuCategories.map((cat, i) => (
                                         <Pressable
-                                            key={cat.name}
+                                            key={cat._id}
                                             onHoverIn={() => setActiveMegaCat(i)}
-                                            onPress={() => { router.push('/categories' as any); setShowMegaMenu(false); }}
+                                            onPress={() => navigateToCategory(cat.slug)}
                                             style={{
                                                 flexDirection: 'row', alignItems: 'center',
                                                 paddingVertical: 9, paddingHorizontal: 10,
@@ -791,14 +920,17 @@ export default function Header({ scrollY }: HeaderProps) {
                                         >
                                             <View style={{
                                                 width: 30, height: 30, borderRadius: 8,
-                                                backgroundColor: activeMegaCat === i ? cat.color + '22' : '#EDD5C0',
                                                 alignItems: 'center', justifyContent: 'center',
                                                 marginRight: 10,
+                                                overflow: 'hidden',
                                             }}>
-                                                <Feather
-                                                    name={cat.icon}
-                                                    size={14}
-                                                    color={activeMegaCat === i ? cat.color : '#8B6B4A'}
+                                                <MenuThumb
+                                                    imageUri={cat.imageUri}
+                                                    icon={cat.icon}
+                                                    size={30}
+                                                    borderRadius={8}
+                                                    tintColor={activeMegaCat === i ? cat.color : '#8B6B4A'}
+                                                    fallbackBackgroundColor={activeMegaCat === i ? cat.color + '22' : '#EDD5C0'}
                                                 />
                                             </View>
                                             <Text style={{
@@ -826,26 +958,29 @@ export default function Header({ scrollY }: HeaderProps) {
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                                             <View style={{
                                                 width: 36, height: 36, borderRadius: 10,
-                                                backgroundColor: MEGA_CATEGORIES[activeMegaCat].color + '18',
                                                 alignItems: 'center', justifyContent: 'center',
+                                                overflow: 'hidden',
                                             }}>
-                                                <Feather
-                                                    name={MEGA_CATEGORIES[activeMegaCat].icon}
-                                                    size={18}
-                                                    color={MEGA_CATEGORIES[activeMegaCat].color}
+                                                <MenuThumb
+                                                    imageUri={activeMegaCategory.imageUri}
+                                                    icon={activeMegaCategory.icon}
+                                                    size={36}
+                                                    borderRadius={10}
+                                                    tintColor={activeMegaCategory.color}
+                                                    fallbackBackgroundColor={activeMegaCategory.color + '18'}
                                                 />
                                             </View>
                                             <View>
                                                 <Text style={{ fontSize: 16, fontWeight: '800', color: '#2D1B0E' }}>
-                                                    {MEGA_CATEGORIES[activeMegaCat].name}
+                                                    {activeMegaCategory.name}
                                                 </Text>
                                                 <Text style={{ fontSize: 11, color: '#9E7A5C' }}>
-                                                    Browse {MEGA_CATEGORIES[activeMegaCat].subcategories.length} subcategories
+                                                    Browse {activeMegaCategory.subcategories.length} subcategories
                                                 </Text>
                                             </View>
                                         </View>
                                         <TouchableOpacity
-                                            onPress={() => { router.push('/shop' as any); setShowMegaMenu(false); }}
+                                            onPress={() => navigateToCategory(activeMegaCategory.slug)}
                                             style={{
                                                 flexDirection: 'row', alignItems: 'center', gap: 4,
                                                 paddingHorizontal: 12, paddingVertical: 6,
@@ -862,10 +997,10 @@ export default function Header({ scrollY }: HeaderProps) {
 
                                     {/* Subcategories 2-column grid */}
                                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                                        {MEGA_CATEGORIES[activeMegaCat].subcategories.map((sub) => (
+                                        {activeMegaCategory.subcategories.map((sub: VisualMenuSubcategory) => (
                                             <Pressable
-                                                key={sub.name}
-                                                onPress={() => { router.push('/shop' as any); setShowMegaMenu(false); }}
+                                                key={sub._id}
+                                                onPress={() => navigateToSubcategory(activeMegaCategory.slug, sub.slug)}
                                                 style={({ hovered }) => ([{
                                                     flexDirection: 'row' as const,
                                                     alignItems: 'center' as const,
@@ -878,13 +1013,16 @@ export default function Header({ scrollY }: HeaderProps) {
                                             >
                                                 <View style={{
                                                     width: 28, height: 28, borderRadius: 7,
-                                                    backgroundColor: MEGA_CATEGORIES[activeMegaCat].color + '15',
                                                     alignItems: 'center', justifyContent: 'center',
+                                                    overflow: 'hidden',
                                                 }}>
-                                                    <Feather
-                                                        name={sub.icon}
-                                                        size={13}
-                                                        color={MEGA_CATEGORIES[activeMegaCat].color}
+                                                    <MenuThumb
+                                                        imageUri={sub.imageUri}
+                                                        icon={sub.icon}
+                                                        size={28}
+                                                        borderRadius={7}
+                                                        tintColor={activeMegaCategory.color}
+                                                        fallbackBackgroundColor={activeMegaCategory.color + '15'}
                                                     />
                                                 </View>
                                                 <Text style={{ fontSize: 12, fontWeight: '600', color: '#4B3621' }}>
@@ -967,14 +1105,27 @@ export default function Header({ scrollY }: HeaderProps) {
                                     Categories
                                 </Text>
                                 <View className="flex-row flex-wrap gap-2">
-                                    {CATEGORIES.map((cat, i) => (
-                                        <TouchableOpacity key={i} className="flex-row items-center gap-1.5 bg-[#FDF0E8] px-3 py-2 rounded-[10px] border border-[#EDD5C0]">
-                                            <Feather name={cat.icon} size={13} color="#8B4513" />
+                                    {visualMenuCategories.length > 0 ? visualMenuCategories.map((cat) => (
+                                        <TouchableOpacity key={cat._id} onPress={() => navigateToCategory(cat.slug)} className="flex-row items-center gap-1.5 bg-[#FDF0E8] px-3 py-2 rounded-[10px] border border-[#EDD5C0]">
+                                            <View style={{ overflow: 'hidden', borderRadius: 6 }}>
+                                                <MenuThumb
+                                                    imageUri={cat.imageUri}
+                                                    icon={cat.icon}
+                                                    size={18}
+                                                    borderRadius={6}
+                                                    tintColor="#8B4513"
+                                                    fallbackBackgroundColor="#EDD5C0"
+                                                />
+                                            </View>
                                             <Text className="text-[#8B4513] text-[12px] font-semibold">
                                                 {cat.name}
                                             </Text>
                                         </TouchableOpacity>
-                                    ))}
+                                    )) : (
+                                        <Text className="text-[12px] font-medium text-gray-500">
+                                            {menuError ?? 'Loading categories...'}
+                                        </Text>
+                                    )}
                                 </View>
                             </View>
 

@@ -1,4 +1,5 @@
 import PageShell from '@/components/PageShell';
+import { useToast } from '@/context/ToastContext';
 import { forgotPassword } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -18,6 +19,7 @@ import {
 } from 'react-native';
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
+const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
 
 type ForgotInputProps = {
     icon: keyof typeof Feather.glyphMap;
@@ -85,6 +87,7 @@ function ForgotInput({
 
 export default function ForgotPasswordScreen() {
     const router = useRouter();
+    const { showToast } = useToast();
     const { width } = useWindowDimensions();
 
     const [email, setEmail] = useState('');
@@ -98,7 +101,12 @@ export default function ForgotPasswordScreen() {
         const normalizedEmail = normalizeEmail(email);
 
         if (!normalizedEmail) {
-            Alert.alert('Required', 'Please enter your email address.');
+            showToast('Email is required', 'warning');
+            return;
+        }
+
+        if (!EMAIL_REGEX.test(normalizedEmail)) {
+            showToast('Invalid email format', 'error');
             return;
         }
 
@@ -112,8 +120,11 @@ export default function ForgotPasswordScreen() {
                     ? `Use this reset link in development:\n\n${data.resetUrl}`
                     : 'If that email exists, a reset link has been generated.'
             );
+            showToast('Reset link generated', 'success');
         } catch (error: any) {
-            Alert.alert('Error', error?.response?.data?.message ?? 'Failed to generate reset link.');
+            showToast('Reset request failed', 'error', {
+                subMessage: error?.response?.data?.message ?? 'Failed to generate reset link.',
+            });
         } finally {
             setSubmitting(false);
         }

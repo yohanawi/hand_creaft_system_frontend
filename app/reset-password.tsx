@@ -1,18 +1,21 @@
-﻿import { resetPassword } from '@/services/api';
+﻿import { useToast } from '@/context/ToastContext';
+import { getApiErrorMessage, resetPassword } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+
 export default function ResetPasswordScreen() {
   const router = useRouter();
+  const { showToast } = useToast();
   const { token: routeToken } = useLocalSearchParams<{ token?: string }>();
   const [token, setToken] = useState(routeToken || '');
   const [newPassword, setNewPassword] = useState('');
@@ -20,18 +23,28 @@ export default function ResetPasswordScreen() {
 
   const handleSubmit = async () => {
     if (!token.trim() || !newPassword.trim()) {
-      Alert.alert('Required', 'Token and new password are required.');
+      showToast('Reset details are incomplete', 'warning', {
+        subMessage: 'Token and new password are required.',
+      });
       return;
     }
 
-    setSubmitting(true); 
+    if (!PASSWORD_REGEX.test(newPassword.trim())) {
+      showToast('Password is too weak', 'error', {
+        subMessage: 'Use at least 8 characters with uppercase, lowercase, and a number.',
+      });
+      return;
+    }
+
+    setSubmitting(true);
     try {
       await resetPassword({ token: token.trim(), newPassword: newPassword.trim() });
-      Alert.alert('Success', 'Password reset successfully.', [
-        { text: 'Go to Login', onPress: () => router.replace('/login' as any) },
-      ]);
-    } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message ?? 'Failed to reset password.');
+      showToast('Password reset successfully', 'success');
+      router.replace('/login' as any);
+    } catch (error) {
+      showToast('Password reset failed', 'error', {
+        subMessage: getApiErrorMessage(error, 'Failed to reset password.'),
+      });
     } finally {
       setSubmitting(false);
     }

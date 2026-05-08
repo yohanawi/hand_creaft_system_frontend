@@ -1,0 +1,28 @@
+export const adminTheme = {
+  bg: "#F7F1E8",
+  content: "#F5EEE4",
+  surface: "#FFFDF9",
+  sidebar: "#FFF8EE",
+  sidebarBorder: "#E2D3C1",
+  header: "#FFFDF9",
+  headerBorder: "#E2D3C1",
+  card: "#FFF9F1",
+  card2: "#F7EEDF",
+  cardBorder: "#E2D3C1",
+  input: "#FFFDF9",
+  inputBorder: "#D8C3A8",
+  border: "#E2D3C1",
+  active: "#B46A2B",
+  activeBg: "#F5E2CB",
+  text: "#2F241A",
+  muted: "#7A6858",
+  green: "#2F855A",
+  yellow: "#B7791F",
+  red: "#C53030",
+  blue: "#2B6CB0",
+  purple: "#805AD5",
+  danger: "#C53030",
+  white: "#FFFFFF",
+} as const;
+
+export default adminTheme;

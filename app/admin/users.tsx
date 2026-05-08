@@ -1,8 +1,9 @@
-import AuthContext from '@/context/AuthContext';
+import { adminTheme as T } from '@/constants/adminTheme';
+import { useAuth } from '@/context/AuthContext';
 import { deleteAdminUser, getAdminUsers, updateAdminUser } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-import React, { useCallback, useContext, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -15,13 +16,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-
-const T = {
-    bg: '#1E150C', card: '#2C1810', cardBorder: '#3D2415',
-    text: '#F5EDE0', muted: '#8C7B6E', active: '#C1622F',
-    green: '#38A169', red: '#E53E3E', blue: '#3182CE',
-    input: '#241610', inputBorder: '#4A2515', white: '#FFFFFF',
-};
 
 function Field({ label, value, onChange, secureTextEntry }: any) {
     return (
@@ -39,7 +33,7 @@ function Field({ label, value, onChange, secureTextEntry }: any) {
 }
 
 export default function AdminUsers() {
-    const auth = useContext(AuthContext);
+    const auth = useAuth();
     const [users, setUsers] = useState<any[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -133,6 +127,7 @@ export default function AdminUsers() {
                 {[
                     { label: 'All', value: '' },
                     { label: 'Users', value: 'user' },
+                    { label: 'Sellers', value: 'seller' },
                     { label: 'Admins', value: 'admin' },
                 ].map(opt => (
                     <TouchableOpacity key={opt.value}
@@ -218,6 +213,7 @@ export default function AdminUsers() {
                                 <View style={{ flexDirection: 'row', gap: 8 }}>
                                     {[
                                         { label: 'User', value: 'user' },
+                                        { label: 'Seller', value: 'seller' },
                                         { label: 'Admin', value: 'admin' },
                                     ].map(opt => (
                                         <TouchableOpacity key={opt.value}

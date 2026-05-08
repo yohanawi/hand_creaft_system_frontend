@@ -3,6 +3,8 @@ export type Product = {
   name: string;
   category: string;
   categorySlug: string;
+  subcategory?: string;
+  subcategorySlug?: string;
   price: number;
   salePrice?: number;
   currency: string;
@@ -31,6 +33,7 @@ export type ApiProduct = {
   salePrice?: number;
   currency?: string;
   category?: { name: string; slug: string } | string;
+  subcategory?: { name: string; slug: string } | string;
   quantity?: number;
   description?: string;
   images?: string[];

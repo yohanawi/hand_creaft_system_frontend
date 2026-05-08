@@ -1,7 +1,20 @@
-﻿import { Feather } from '@expo/vector-icons';
-import { ArrowRightIcon } from 'lucide-react-native';
+﻿import { getAssetUrl, getCategories } from '@/services/api';
+import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, NativeScrollEvent, NativeSyntheticEvent, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Animated,
+    Dimensions,
+    Image,
+    NativeScrollEvent,
+    NativeSyntheticEvent,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -21,159 +34,231 @@ const CARD_WIDTH = (SCREEN_WIDTH - H_PADDING * 2 - CARD_GAP * (CARDS_PER_VIEW - 
 const CARD_HEIGHT = CARD_WIDTH * 1.35;
 const AUTO_SCROLL_MS = 3200;
 
-// ─── Category data with Unsplash image URIs ──────────────────────────────────
-const categories = [
-    {
-        id: 1,
-        name: 'Electronics',
-        icon: 'smartphone' as const,
-        itemCount: '2,543',
-        description: 'Latest Tech',
-        imageUri: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&q=80',
-        accentColor: '#6366F1',
-    },
-    {
-        id: 2,
-        name: 'Fashion',
-        icon: 'shopping-bag' as const,
-        itemCount: '4,231',
-        description: 'Trending Styles',
-        imageUri: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=600&q=80',
-        accentColor: '#EC4899',
-    },
-    {
-        id: 3,
-        name: 'Home & Living',
-        icon: 'home' as const,
-        itemCount: '1,876',
-        description: 'Comfort Zone',
-        imageUri: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80',
-        accentColor: '#06B6D4',
-    },
-    {
-        id: 4,
-        name: 'Sports',
-        icon: 'activity' as const,
-        itemCount: '987',
-        description: 'Stay Active',
-        imageUri: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80',
-        accentColor: '#10B981',
-    },
-    {
-        id: 5,
-        name: 'Books',
-        icon: 'book' as const,
-        itemCount: '3,456',
-        description: 'Knowledge Hub',
-        imageUri: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=600&q=80',
-        accentColor: '#F59E0B',
-    },
-    {
-        id: 6,
-        name: 'Beauty',
-        icon: 'heart' as const,
-        itemCount: '2,109',
-        description: 'Self Care',
-        imageUri: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=600&q=80',
-        accentColor: '#F43F5E',
-    },
-    {
-        id: 7,
-        name: 'Toys & Games',
-        icon: 'gift' as const,
-        itemCount: '1,543',
-        description: 'Fun Time',
-        imageUri: 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=600&q=80',
-        accentColor: '#8B5CF6',
-    },
-    {
-        id: 8,
-        name: 'Automotive',
-        icon: 'truck' as const,
-        itemCount: '765',
-        description: 'On The Road',
-        imageUri: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=600&q=80',
-        accentColor: '#EF4444',
-    },
-];
+type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
+
+type ApiCategory = {
+    _id: string;
+    name: string;
+    slug?: string;
+    description?: string;
+    image?: string;
+    parent?: { _id?: string } | string | null;
+    status?: 'active' | 'inactive';
+    productCount?: number;
+};
+
+type ShowcaseCategory = {
+    id: string;
+    name: string;
+    slug?: string;
+    description: string;
+    imageUri: string | null;
+    itemCount: number;
+    accentColor: string;
+    icon: FeatherIconName;
+};
+
+const CATEGORY_ACCENTS = ['#8B4513', '#A45A2A', '#6E3B24', '#B06A3F', '#7B4A2E', '#9A5B36'];
+
+const resolveCategoryIcon = (category: Pick<ApiCategory, 'name' | 'slug'>): FeatherIconName => {
+    const value = `${category.name} ${category.slug || ''}`.toLowerCase();
+
+    if (/(ring|jewel|necklace|bracelet|earring|gem|bead)/.test(value)) return 'disc';
+    if (/(home|decor|living)/.test(value)) return 'home';
+    if (/(gift|occasion|wedding)/.test(value)) return 'gift';
+    if (/(fashion|style|wear)/.test(value)) return 'shopping-bag';
+    if (/(book|guide|journal)/.test(value)) return 'book';
+    if (/(beauty|care|spa)/.test(value)) return 'heart';
+    return 'grid';
+};
+
+const buildCategoryCards = (apiCategories: ApiCategory[]): ShowcaseCategory[] => (
+    apiCategories
+        .filter((category) => !category.parent)
+        .filter((category) => category.status !== 'inactive')
+        .map((category, index) => ({
+            id: category._id,
+            name: category.name,
+            slug: category.slug,
+            description: category.description?.trim() || 'Discover handcrafted jewelry and artisan collections in this category.',
+            imageUri: getAssetUrl(category.image),
+            itemCount: Number(category.productCount || 0),
+            accentColor: CATEGORY_ACCENTS[index % CATEGORY_ACCENTS.length],
+            icon: resolveCategoryIcon(category),
+        }))
+);
+
+const formatItemCount = (value: number) => new Intl.NumberFormat().format(value);
 
 // ─── CategoryCard ─────────────────────────────────────────────────────────────
-const CategoryCard = ({ category, index }: { category: typeof categories[0], index: number }) => {
-    const [isVisible, setIsVisible] = useState(false);
+const CategoryCard = ({
+    category,
+    index,
+    onPress,
+}: {
+    category: ShowcaseCategory;
+    index: number;
+    onPress: (category: ShowcaseCategory) => void;
+}) => {
+    const opacityAnim = useRef(new Animated.Value(0)).current;
+    const translateAnim = useRef(new Animated.Value(28)).current;
 
-    // Entrance Animation
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsVisible(true);
-        }, index * 100 + 100);
-        return () => clearTimeout(timer);
-    }, [index]);
+        Animated.parallel([
+            Animated.timing(opacityAnim, {
+                toValue: 1,
+                duration: 450,
+                delay: Math.min(index * 90, 420),
+                useNativeDriver: true,
+            }),
+            Animated.spring(translateAnim, {
+                toValue: 0,
+                tension: 62,
+                friction: 9,
+                delay: Math.min(index * 90, 420),
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, [index, opacityAnim, translateAnim]);
 
     return (
-        <div className={`relative flex-shrink-0 w-[280px] sm:w-[320px] h-[380px] sm:h-[420px] snap-center rounded-md overflow-hidden group cursor-pointer transition-all duration-700 ease-out
-                ${isVisible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-12'}`}>
-            {/* --- Animated Background Image --- */}
-            <img
-                src={category.imageUri}
-                alt={category.name}
-                draggable={false}
-                className="absolute inset-0 w-full h-full object-cover opacity-90 transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-110"
-            />
+        <Animated.View
+            style={{
+                width: CARD_WIDTH,
+                height: CARD_HEIGHT,
+                opacity: opacityAnim,
+                transform: [{ translateY: translateAnim }],
+            }}
+        >
+            <TouchableOpacity
+                activeOpacity={0.92}
+                onPress={() => onPress(category)}
+                style={{
+                    flex: 1,
+                    borderRadius: 24,
+                    overflow: 'hidden',
+                    backgroundColor: '#2A160C',
+                }}
+            >
+                {category.imageUri ? (
+                    <Image
+                        source={{ uri: category.imageUri }}
+                        resizeMode="cover"
+                        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+                    />
+                ) : (
+                    <LinearGradient
+                        colors={[category.accentColor, '#3D2417']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+                    />
+                )}
 
-            {/* --- Ambient Gradients --- */}
-            <div className="absolute inset-0 w-full h-full">
-                <div className="absolute bottom-0 left-0 right-0 h-2/3 bg-gradient-to-t from-black/95 via-black/50 to-transparent" />
-            </div>
+                <LinearGradient
+                    colors={['rgba(20,10,2,0.08)', 'rgba(20,10,2,0.24)', 'rgba(12,7,3,0.92)']}
+                    locations={[0, 0.45, 1]}
+                    style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+                />
 
-            {/* --- Tint Overlay on Hover --- */}
-            <div className="absolute inset-0 w-full h-full transition-opacity duration-500 opacity-0 mix-blend-overlay group-hover:opacity-40"
-                style={{ backgroundColor: category.accentColor }}
-            />
+                <View
+                    style={{
+                        position: 'absolute',
+                        top: 18,
+                        left: 18,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        paddingHorizontal: 12,
+                        paddingVertical: 7,
+                        borderRadius: 999,
+                        backgroundColor: 'rgba(255,255,255,0.9)',
+                    }}
+                >
+                    <Feather name="package" size={12} color="#5C3317" />
+                    <Text style={{ color: '#5C3317', fontSize: 11, fontWeight: '800' }}>
+                        {formatItemCount(category.itemCount)} items
+                    </Text>
+                </View>
 
-            {/* --- Detached Bottom Glass Panel --- */}
-            <div className="absolute bottom-5 left-5 right-5 transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:-translate-y-2">
-                {/* Floating Pill
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full mb-3 shadow-lg border border-white/10 bg-black/60 backdrop-blur-md">
-                    <div className="w-1.5 h-1.5 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.5)]" style={{ backgroundColor: category.accentColor }} />
-                    <span className="text-[10px] font-black tracking-[0.2em] text-white/90 uppercase">
-                        {category.description}
-                    </span>
-                </div> */}
+                <View
+                    style={{
+                        position: 'absolute',
+                        top: 18,
+                        right: 18,
+                        width: 42,
+                        height: 42,
+                        borderRadius: 21,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'rgba(255,255,255,0.16)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.18)',
+                    }}
+                >
+                    <Feather name={category.icon} size={18} color="#FFF7EE" />
+                </View>
 
-                {/* Main Content Glass Box */}
-                <div className="relative p-5 rounded-[24px] overflow-hidden bg-black/40 backdrop-blur-xl transition-colors duration-500 group-hover:bg-black/50">
-                    {/* Dynamic Top Border */}
-                    <div className="absolute top-0 left-0 right-0 h-[2px] opacity-70 transition-opacity duration-500 group-hover:opacity-100"
-                        style={{ backgroundColor: category.accentColor }} />
+                <View
+                    style={{
+                        position: 'absolute',
+                        left: 18,
+                        right: 18,
+                        bottom: 18,
+                        padding: 18,
+                        borderRadius: 22,
+                        backgroundColor: 'rgba(12,7,3,0.56)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.08)',
+                    }}
+                >
+                    <View
+                        style={{
+                            height: 2,
+                            width: 54,
+                            borderRadius: 999,
+                            backgroundColor: category.accentColor,
+                            marginBottom: 14,
+                        }}
+                    />
 
-                    <h3 className="mb-1 text-2xl font-black tracking-tight text-white truncate">
+                    <Text style={{ color: '#FFF7EE', fontSize: 24, fontWeight: '900' }} numberOfLines={2}>
                         {category.name}
-                    </h3>
+                    </Text>
 
-                    <div className="flex items-center justify-between mt-3">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold tracking-wider uppercase transition-colors duration-300 text-white/60 group-hover:text-white/90">
-                                Explore
-                            </span>
-                            <span className="text-sm transition-all duration-300 text-white/40 group-hover:translate-x-1 group-hover:text-white">
-                                <ArrowRightIcon size={16} color="currentColor" className="transition-transform duration-300 group-hover:translate-x-1" />
-                            </span>
-                        </div>
+                    <Text
+                        style={{ color: 'rgba(255,247,238,0.78)', fontSize: 13, lineHeight: 20, marginTop: 8 }}
+                        numberOfLines={2}
+                    >
+                        {category.description}
+                    </Text>
 
-                        <div className="px-2.5 py-1 rounded-lg bg-white/10 transition-colors duration-300 group-hover:bg-white/20">
-                            <span className="text-[11px] font-bold text-white">
-                                {category.itemCount} items
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+                        <Text style={{ color: '#FFF7EE', fontSize: 12, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                            Explore Collection
+                        </Text>
+                        <View
+                            style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: 17,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: 'rgba(255,255,255,0.12)',
+                            }}
+                        >
+                            <Feather name="arrow-up-right" size={16} color="#FFF7EE" />
+                        </View>
+                    </View>
+                </View>
+            </TouchableOpacity>
+        </Animated.View>
     );
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function CategorySection() {
+    const router = useRouter();
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(40)).current;
@@ -184,8 +269,12 @@ export default function CategorySection() {
     const isUserDragging = useRef(false);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    const [categories, setCategories] = useState<ShowcaseCategory[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [reloadNonce, setReloadNonce] = useState(0);
     const [activeIndex, setActiveIndex] = useState(0);
-    const totalDots = Math.max(0, categories.length - CARDS_PER_VIEW + 1);
+    const totalDots = categories.length === 0 ? 0 : Math.max(1, categories.length - CARDS_PER_VIEW + 1);
 
     // Entry animation
     useEffect(() => {
@@ -193,11 +282,50 @@ export default function CategorySection() {
             Animated.timing(fadeAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
             Animated.spring(slideAnim, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true }),
         ]).start();
-    }, []);
+    }, [fadeAnim, slideAnim]);
+
+    useEffect(() => {
+        let mounted = true;
+
+        const loadCategories = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const response = await getCategories();
+                const apiCategories = Array.isArray(response.data) ? response.data : [];
+
+                if (!mounted) {
+                    return;
+                }
+
+                setCategories(buildCategoryCards(apiCategories));
+                setActiveIndex(0);
+            } catch (fetchError: any) {
+                if (!mounted) {
+                    return;
+                }
+
+                setCategories([]);
+                setError(fetchError?.response?.data?.message ?? fetchError?.message ?? 'Failed to load categories');
+            } finally {
+                if (mounted) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        loadCategories();
+
+        return () => {
+            mounted = false;
+        };
+    }, [reloadNonce]);
 
     // Auto-scroll
     const startAutoScroll = () => {
         if (timerRef.current) clearInterval(timerRef.current);
+        if (totalDots <= 1) return;
+
         timerRef.current = setInterval(() => {
             if (isUserDragging.current) return;
             const step = CARD_WIDTH + CARD_GAP;
@@ -221,7 +349,18 @@ export default function CategorySection() {
     useEffect(() => {
         startAutoScroll();
         return () => stopAutoScroll();
-    }, []);
+    }, [totalDots]);
+
+    useEffect(() => {
+        if (totalDots === 0) {
+            setActiveIndex(0);
+            return;
+        }
+
+        if (activeIndex > totalDots - 1) {
+            setActiveIndex(totalDots - 1);
+        }
+    }, [activeIndex, totalDots]);
 
     const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
         scrollX.current = e.nativeEvent.contentOffset.x;
@@ -239,7 +378,9 @@ export default function CategorySection() {
     };
 
     const goToIndex = (i: number) => {
-        const x = i * (CARD_WIDTH + CARD_GAP);
+        if (totalDots === 0) return;
+
+        const x = Math.min(i * (CARD_WIDTH + CARD_GAP), maxScroll.current);
         scrollRef.current?.scrollTo({ x, animated: true });
         scrollX.current = x;
         setActiveIndex(i);
@@ -247,6 +388,118 @@ export default function CategorySection() {
 
     const goLeft = () => goToIndex(Math.max(0, activeIndex - 1));
     const goRight = () => goToIndex(Math.min(totalDots - 1, activeIndex + 1));
+
+    const handleCategoryPress = (category: ShowcaseCategory) => {
+        router.push({
+            pathname: '/shop',
+            params: category.slug ? { category: category.slug } : { category: category.id },
+        } as any);
+    };
+
+    const renderContent = () => {
+        if (loading) {
+            return (
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
+                    <ActivityIndicator size="small" color="#8B4513" />
+                    <Text style={{ color: '#714329', marginTop: 12, fontWeight: '600' }}>
+                        Loading categories...
+                    </Text>
+                </View>
+            );
+        }
+
+        if (error) {
+            return (
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 40, paddingHorizontal: 24 }}>
+                    <Text style={{ color: '#714329', textAlign: 'center', lineHeight: 22 }}>
+                        {error}
+                    </Text>
+                    <TouchableOpacity
+                        onPress={() => {
+                            setReloadNonce((value) => value + 1);
+                        }}
+                        style={{
+                            marginTop: 16,
+                            borderRadius: 999,
+                            backgroundColor: '#8B4513',
+                            paddingHorizontal: 18,
+                            paddingVertical: 10,
+                        }}
+                    >
+                        <Text style={{ color: '#FFF', fontWeight: '800' }}>Refresh</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+
+        if (categories.length === 0) {
+            return (
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 40, paddingHorizontal: 24 }}>
+                    <Text style={{ color: '#714329', textAlign: 'center', lineHeight: 22 }}>
+                        Categories will appear here once they are published from the admin system.
+                    </Text>
+                </View>
+            );
+        }
+
+        return (
+            <>
+                <ScrollView
+                    ref={scrollRef}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    decelerationRate="fast"
+                    snapToInterval={CARD_WIDTH + CARD_GAP}
+                    snapToAlignment="start"
+                    scrollEnabled={totalDots > 1}
+                    contentContainerStyle={{ paddingHorizontal: H_PADDING }}
+                    onScroll={handleScroll}
+                    scrollEventThrottle={16}
+                    onScrollBeginDrag={handleScrollBeginDrag}
+                    onScrollEndDrag={handleScrollEndDrag}
+                    onMomentumScrollEnd={handleScrollEndDrag}
+                    onContentSizeChange={(width) => {
+                        maxScroll.current = Math.max(0, width - SCREEN_WIDTH);
+                    }}
+                >
+                    {categories.map((cat, index) => (
+                        <View key={cat.id} style={{ marginRight: index === categories.length - 1 ? 0 : CARD_GAP }}>
+                            <CategoryCard category={cat} index={index} onPress={handleCategoryPress} />
+                        </View>
+                    ))}
+                </ScrollView>
+
+                {totalDots > 1 && (
+                    <View className="flex-row items-center justify-center mt-7 px-5 gap-2.5">
+                        <TouchableOpacity
+                            onPress={goLeft}
+                            className="items-center justify-center w-10 h-10 rounded-full shadow-lg bg-amber-900 active:opacity-80"
+                        >
+                            <Feather name="chevron-left" size={18} color="rgba(255,255,255,0.8)" />
+                        </TouchableOpacity>
+
+                        <View className="flex-row items-center gap-1.5 flex-1 justify-center">
+                            {Array.from({ length: totalDots }, (_, i) => {
+                                const isActive = activeIndex === i;
+                                return (
+                                    <TouchableOpacity key={i} onPress={() => goToIndex(i)}>
+                                        <View className={`h-1.5 rounded-full ${isActive ? 'w-7 bg-amber-900' : 'w-1.5 bg-[#DDD0C4]'}`} />
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+
+                        <TouchableOpacity
+                            onPress={goRight}
+                            className="items-center justify-center w-10 h-10 rounded-full shadow-lg bg-amber-900 active:opacity-80"
+                        >
+                            <Feather name="chevron-right" size={18} color="#FFF" />
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </>
+        );
+    };
 
     return (
         <Animated.View style={{
@@ -257,75 +510,35 @@ export default function CategorySection() {
 
             <View className="px-5 py-28">
                 {/* Header */}
-                <header className={`text-center max-w-3xl transition-all duration-700 ease-out mx-auto pb-28`}>
+                <View className="items-center pb-16 mx-auto" style={{ maxWidth: 760 }}>
                     <View className="flex-row items-center justify-center gap-3 mx-auto mb-4">
-                        <div className="h-px w-8 bg-[rgba(113,67,41,0.35)]" />
-                        <span className="text-[#714329] uppercase tracking-[0.3em] text-xs font-bold flex-row items-center gap-1.5">
-                            <Feather name="grid" size={14} color="#8B4513" /> Categories
-                        </span>
-                        <div className="h-px w-8 bg-[rgba(113,67,41,0.35)]" />
-                    </View>
-
-                    <h1 className="text-4xl md:text-5xl font-serif text-[#1C1C1C] mb-4 leading-tight animate-shimmer">
-                        Shop by <em style={{ color: '#8B4513' }}>Category</em>
-                    </h1>
-
-                    <p className="max-w-[580px] mx-auto text-[#5A4A3F] leading-[1.75]">
-                        Explore our wide range of categories and find exactly what you're looking for
-                    </p>
-                </header>
-
-                {/* ── Carousel ── */}
-                <ScrollView
-                    ref={scrollRef}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    decelerationRate="fast"
-                    snapToInterval={CARD_WIDTH + CARD_GAP}
-                    snapToAlignment="start"
-                    className="px-5"
-                    onScroll={handleScroll}
-                    scrollEventThrottle={16}
-                    onScrollBeginDrag={handleScrollBeginDrag}
-                    onScrollEndDrag={handleScrollEndDrag}
-                    onMomentumScrollEnd={handleScrollEndDrag}
-                    onContentSizeChange={(w) => { maxScroll.current = w - SCREEN_WIDTH; }}
-                >
-                    {categories.map((cat, index) => (
-                        <View key={cat.id} style={{ marginRight: CARD_GAP }}>
-                            <CategoryCard category={cat} index={index} />
+                        <View className="h-px w-8 bg-[rgba(113,67,41,0.35)]" />
+                        <View className="flex-row items-center gap-1.5">
+                            <Feather name="grid" size={14} color="#8B4513" />
+                            <Text className="text-[#714329] uppercase tracking-[0.3em] text-xs font-bold">
+                                Categories
+                            </Text>
                         </View>
-                    ))}
-                </ScrollView>
-
-                {/* ── Dots + Arrows ── */}
-                <View className="flex-row items-center justify-center mt-7 px-5 gap-2.5">
-                    {/* Left arrow */}
-                    <TouchableOpacity onPress={goLeft} className="items-center justify-center w-10 h-10 rounded-full shadow-lg bg-amber-900 active:opacity-80">
-                        <Feather name="chevron-left" size={18} color="rgba(255,255,255,0.7)" />
-                    </TouchableOpacity>
-
-                    {/* Dot indicators */}
-                    <View className="flex-row items-center gap-1.5 flex-1 justify-center">
-                        {Array.from({ length: totalDots }, (_, i) => {
-                            const isActive = activeIndex === i;
-                            return (
-                                <TouchableOpacity key={i} onPress={() => goToIndex(i)}>
-                                    <View className={`h-1.5 rounded-full ${isActive ? 'w-7 bg-amber-900' : 'w-1.5 bg-[#DDD0C4]'}`} />
-                                </TouchableOpacity>
-                            );
-                        })}
+                        <View className="h-px w-8 bg-[rgba(113,67,41,0.35)]" />
                     </View>
 
-                    {/* Right arrow */}
-                    <TouchableOpacity onPress={goRight} className="items-center justify-center w-10 h-10 rounded-full shadow-lg bg-amber-900 active:opacity-80">
-                        <Feather name="chevron-right" size={18} color="#FFF" />
-                    </TouchableOpacity>
+                    <Text className="text-4xl md:text-5xl font-serif text-[#1C1C1C] mb-4 leading-tight text-center">
+                        Shop by <Text style={{ color: '#8B4513' }}>Category</Text>
+                    </Text>
+
+                    <Text className="max-w-[580px] mx-auto text-[#5A4A3F] leading-[1.75] text-center">
+                        Explore our wide range of categories and find exactly what you're looking for
+                    </Text>
                 </View>
+
+                {renderContent()}
 
                 {/* ── Browse All CTA ── */}
                 <View className="items-center px-5 mt-9">
-                    <TouchableOpacity className="flex-row items-center px-8 py-4 rounded-full bg-amber-900 active:opacity-80 active:scale-95">
+                    <TouchableOpacity
+                        className="flex-row items-center px-8 py-4 rounded-full bg-amber-900 active:opacity-80 active:scale-95"
+                        onPress={() => router.push('/categories')}
+                    >
                         <Feather name="compass" size={18} color="#FFF" />
                         <Text className="text-white font-black text-base ml-2.5 tracking-wide">
                             Browse All Categories

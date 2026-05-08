@@ -1,4 +1,6 @@
+import { adminTheme as T } from '@/constants/adminTheme';
 import {
+    bulkUpdateAdminProductStatus,
     createProduct,
     deleteProduct,
     getCategories,
@@ -21,21 +23,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-
-const T = {
-    bg: '#1E150C',
-    card: '#2C1810',
-    cardBorder: '#3D2415',
-    text: '#F5EDE0',
-    muted: '#8C7B6E',
-    active: '#C1622F',
-    green: '#38A169',
-    red: '#E53E3E',
-    input: '#241610',
-    inputBorder: '#4A2515',
-    white: '#FFFFFF',
-    yellow: '#D69E2E',
-};
 
 const EMPTY_VARIANT = {
     _id: '',
@@ -120,6 +107,8 @@ export default function AdminProducts() {
     const [form, setForm] = useState<any>(EMPTY_FORM);
     const [editId, setEditId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [bulkUpdating, setBulkUpdating] = useState(false);
 
     const loadAll = useCallback(async () => {
         setLoading(true);
@@ -127,6 +116,7 @@ export default function AdminProducts() {
             const [pRes, cRes] = await Promise.all([getProducts(), getCategories()]);
             setProducts(pRes.data?.products ?? pRes.data ?? []);
             setCategories(cRes.data ?? []);
+            setSelectedIds([]);
         } catch (e: any) {
             Alert.alert('Error', e.response?.data?.message || 'Failed to load');
         } finally {
@@ -283,25 +273,66 @@ export default function AdminProducts() {
     };
 
     const handleDelete = (id: string, name: string) => {
-        Alert.alert('Delete Product', `Delete "${name}"?`, [
+        Alert.alert('Archive Product', `Archive "${name}"? The product will be hidden from customer-facing views and kept in admin records.`, [
             { text: 'Cancel', style: 'cancel' },
             {
-                text: 'Delete', style: 'destructive', onPress: async () => {
+                text: 'Archive', style: 'destructive', onPress: async () => {
                     try {
-                        await deleteProduct(id);
+                        const { data } = await deleteProduct(id);
+                        Alert.alert('Archived', data?.message || 'Product archived');
                         loadAll();
                     } catch (e: any) {
-                        Alert.alert('Error', e.response?.data?.message || 'Delete failed');
+                        Alert.alert('Error', e.response?.data?.message || 'Archive failed');
                     }
                 }
             },
         ]);
     };
 
+    const toggleSelection = (id: string) => {
+        setSelectedIds((current) => (
+            current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]
+        ));
+    };
+
     const filtered = products.filter(p =>
         p.name?.toLowerCase().includes(search.toLowerCase()) ||
         p.sku?.toLowerCase().includes(search.toLowerCase())
     );
+    const allFilteredSelected = filtered.length > 0 && filtered.every((product) => selectedIds.includes(product._id));
+
+    const handleBulkStatusUpdate = (status: 'active' | 'inactive') => {
+        if (selectedIds.length === 0) return;
+
+        Alert.alert(
+            'Bulk Update Products',
+            `Update ${selectedIds.length} selected product${selectedIds.length === 1 ? '' : 's'} to ${status}?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Continue',
+                    onPress: async () => {
+                        setBulkUpdating(true);
+                        try {
+                            const { data } = await bulkUpdateAdminProductStatus({ ids: selectedIds, status });
+                            const summary = data?.summary ?? {};
+                            const failed = Array.isArray(summary.failed) ? summary.failed.length : 0;
+                            Alert.alert(
+                                'Bulk Update Complete',
+                                `${summary.updated ?? 0} updated, ${failed} failed.`,
+                            );
+                            setSelectedIds([]);
+                            loadAll();
+                        } catch (e: any) {
+                            Alert.alert('Error', e.response?.data?.message || 'Bulk update failed');
+                        } finally {
+                            setBulkUpdating(false);
+                        }
+                    },
+                },
+            ],
+        );
+    };
 
     return (
         <View style={s.root}>
@@ -334,6 +365,28 @@ export default function AdminProducts() {
                 ) : null}
             </View>
 
+            <View style={s.bulkToolbar}>
+                <TouchableOpacity style={s.bulkSelectBtn} onPress={() => setSelectedIds(allFilteredSelected ? [] : filtered.map((item) => item._id))}>
+                    <Feather name={allFilteredSelected ? 'check-square' : 'square'} size={16} color={T.active} />
+                    <Text style={s.bulkToolbarText}>Select all visible</Text>
+                </TouchableOpacity>
+                {selectedIds.length > 0 ? (
+                    <View style={s.bulkActionsRow}>
+                        <Text style={s.bulkCount}>{selectedIds.length} selected</Text>
+                        <TouchableOpacity style={s.bulkChip} onPress={() => handleBulkStatusUpdate('active')} disabled={bulkUpdating}>
+                            <Text style={s.bulkChipText}>Mark Active</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[s.bulkChip, s.bulkChipDanger]} onPress={() => handleBulkStatusUpdate('inactive')} disabled={bulkUpdating}>
+                            <Text style={[s.bulkChipText, s.bulkChipDangerText]}>Mark Inactive</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={s.bulkClearBtn} onPress={() => setSelectedIds([])}>
+                            <Text style={s.bulkClearText}>Clear</Text>
+                        </TouchableOpacity>
+                        {bulkUpdating ? <ActivityIndicator color={T.active} /> : null}
+                    </View>
+                ) : null}
+            </View>
+
             {/* List */}
             {loading ? (
                 <View style={s.center}>
@@ -347,13 +400,16 @@ export default function AdminProducts() {
                     ListEmptyComponent={<Text style={s.empty}>No products found</Text>}
                     renderItem={({ item }) => (
                         <View style={s.productCard}>
+                            <TouchableOpacity style={s.checkboxBtn} onPress={() => toggleSelection(item._id)}>
+                                <Feather name={selectedIds.includes(item._id) ? 'check-square' : 'square'} size={18} color={selectedIds.includes(item._id) ? T.active : T.muted} />
+                            </TouchableOpacity>
                             <View style={{ flex: 1 }}>
                                 <View style={s.cardRow}>
                                     <Text style={s.productName} numberOfLines={1}>{item.name}</Text>
                                     <View style={[s.badge,
-                                    { backgroundColor: item.status === 'active' ? T.green + '33' : T.red + '33' }]}>
+                                    { backgroundColor: item.status === 'active' ? T.green + '33' : item.status === 'archived' ? T.yellow + '22' : T.red + '33' }]}>
                                         <Text style={[s.badgeText,
-                                        { color: item.status === 'active' ? T.green : T.red }]}>
+                                        { color: item.status === 'active' ? T.green : item.status === 'archived' ? T.yellow : T.red }]}>
                                             {item.status}
                                         </Text>
                                     </View>
@@ -663,6 +719,7 @@ export default function AdminProducts() {
                                 options={[
                                     { label: 'Active', value: 'active' },
                                     { label: 'Inactive', value: 'inactive' },
+                                    { label: 'Archived', value: 'archived' },
                                 ]}
                             />
                             <SelectField
@@ -743,12 +800,24 @@ const s = StyleSheet.create({
         borderWidth: 1, borderColor: T.cardBorder,
     },
     searchInput: { flex: 1, color: T.text, fontSize: 14 },
+    bulkToolbar: { paddingHorizontal: 16, marginBottom: 8, gap: 10 },
+    bulkSelectBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' },
+    bulkToolbarText: { color: T.active, fontWeight: '700', fontSize: 12 },
+    bulkActionsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+    bulkCount: { color: T.text, fontSize: 12, fontWeight: '700' },
+    bulkChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: T.activeBg, borderWidth: 1, borderColor: T.active },
+    bulkChipText: { color: T.active, fontSize: 12, fontWeight: '700' },
+    bulkChipDanger: { backgroundColor: T.red + '11', borderColor: T.red + '55' },
+    bulkChipDangerText: { color: T.red },
+    bulkClearBtn: { paddingHorizontal: 10, paddingVertical: 8 },
+    bulkClearText: { color: T.muted, fontSize: 12, fontWeight: '700' },
 
     productCard: {
         backgroundColor: T.card, borderRadius: 12,
         padding: 14, flexDirection: 'row', alignItems: 'center',
         borderWidth: 1, borderColor: T.cardBorder, gap: 10,
     },
+    checkboxBtn: { width: 28, alignItems: 'center', justifyContent: 'center' },
     cardRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
     productName: { color: T.text, fontSize: 14, fontWeight: '600', flex: 1 },
     cardMeta: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', marginBottom: 2 },

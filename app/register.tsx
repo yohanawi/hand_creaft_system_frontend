@@ -1,11 +1,11 @@
 import PageShell from '@/components/PageShell';
 import { useAuth } from '@/context/AuthContext';
-import { API_URL, registerUser, setAuthToken } from '@/services/api';
+import { useToast } from '@/context/ToastContext';
+import { API_URL, getApiErrorMessage, registerUser, setAuthToken } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-    Alert,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -20,6 +20,22 @@ import {
 } from 'react-native';
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
+
+const getRoleHomeRoute = (role?: string) => (
+    role === 'admin'
+        ? '/admin'
+        : role === 'seller'
+            ? '/seller'
+            : '/customer-dashboard'
+);
+
+const getPostRegisterRoute = (role?: string, pendingRedirect?: string | null) => {
+    if (role === 'user' && pendingRedirect && pendingRedirect.startsWith('/') && !pendingRedirect.startsWith('/admin') && !pendingRedirect.startsWith('/seller')) {
+        return pendingRedirect;
+    }
+
+    return getRoleHomeRoute(role);
+};
 
 type RegisterInputProps = {
     icon: keyof typeof Feather.glyphMap;
@@ -129,7 +145,8 @@ function StrengthMeter({ password }: { password: string }) {
 
 export default function RegisterScreen() {
     const router = useRouter();
-    const { login, user, userToken, isLoading: authIsLoading } = useAuth();
+    const { login, user, userToken, isLoading: authIsLoading, consumePendingRedirect } = useAuth();
+    const { showToast } = useToast();
     const { width } = useWindowDimensions();
 
     const [name, setName] = useState('');
@@ -146,32 +163,45 @@ export default function RegisterScreen() {
     const isDesktop = width >= 1180;
     const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword;
     const passwordMismatch = confirmPassword.length > 0 && password !== confirmPassword;
+    const normalizedEmail = normalizeEmail(email);
+    const isEmailValid = /^\S+@\S+\.\S+$/.test(normalizedEmail);
+    const isStrongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password);
 
     useEffect(() => {
         if (authIsLoading || !userToken) return;
-        router.replace(user?.role === 'admin' ? '/admin' : '/customer-dashboard');
-    }, [authIsLoading, router, user?.role, userToken]);
+        const redirectPath = user?.role === 'user' ? consumePendingRedirect() : null;
+        router.replace(getPostRegisterRoute(user?.role, redirectPath) as any);
+    }, [authIsLoading, consumePendingRedirect, router, user?.role, userToken]);
 
     const handleRegister = async () => {
-        const normalizedEmail = normalizeEmail(email);
-
         if (!name.trim() || !normalizedEmail || !password) {
-            Alert.alert('Missing details', 'Fill in your name, email address, and password.');
+            showToast('Missing details', 'warning', {
+                subMessage: 'Fill in your name, email address, and password.',
+            });
             return;
         }
 
-        if (password.length < 6) {
-            Alert.alert('Password too short', 'Choose a password with at least 6 characters.');
+        if (!isEmailValid) {
+            showToast('Invalid email format', 'error');
+            return;
+        }
+
+        if (!isStrongPassword) {
+            showToast('Password is too weak', 'error', {
+                subMessage: 'Use at least 8 characters with uppercase, lowercase, and a number.',
+            });
             return;
         }
 
         if (password !== confirmPassword) {
-            Alert.alert('Passwords do not match', 'Re-enter the same password in both fields.');
+            showToast('Passwords do not match', 'error');
             return;
         }
 
         if (!acceptTerms) {
-            Alert.alert('Accept the terms', 'You need to accept the terms and privacy policy before creating an account.');
+            showToast('Accept the terms', 'warning', {
+                subMessage: 'You need to accept the terms and privacy policy before creating an account.',
+            });
             return;
         }
 
@@ -187,7 +217,7 @@ export default function RegisterScreen() {
             const { token, user: userData } = response.data;
             setAuthToken(token);
             login(token, userData, { persist: true });
-            router.replace(userData.role === 'admin' ? '/admin' : '/customer-dashboard');
+            router.replace(getPostRegisterRoute(userData.role, userData.role === 'user' ? consumePendingRedirect() : null) as any);
         } catch (error: any) {
             const message =
                 error.response?.data?.message ??
@@ -195,7 +225,9 @@ export default function RegisterScreen() {
                     ? `Unable to reach the backend at ${API_URL}. Make sure the Express server is running.`
                     : error.message) ??
                 'Please try again.';
-            Alert.alert('Registration failed', message);
+            showToast('Registration failed', 'error', {
+                subMessage: getApiErrorMessage(error, message),
+            });
         } finally {
             setSubmitting(false);
         }

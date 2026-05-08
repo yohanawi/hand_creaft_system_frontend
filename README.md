@@ -48,3 +48,34 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+
+Credentials
+
+Admin
+Email: admin@handcraftjewelry.local
+Password: Admin@HandCraft2026!
+Stored as:
+name: Ayesha Rahman
+role: admin
+sellerStatus: inactive
+emailVerified: true
+
+Seller
+Email: seller@handcraftjewelry.local
+Password: Seller@HandCraft2026!
+Stored as:
+name: Nabila Sultana
+role: seller
+sellerStatus: approved
+shopName: Nabila Artisan Gems
+emailVerified: true
+
+User
+Email: user@handcraftjewelry.local
+Password: User@HandCraft2026!
+Stored as:
+name: Farhan Ahmed
+role: user
+sellerStatus: inactive
+emailVerified: true

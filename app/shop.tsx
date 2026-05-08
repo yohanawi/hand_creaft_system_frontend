@@ -26,7 +26,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function ShopScreen() {
     const { scrollY, onScroll } = useHeaderScroll();
-    const { search: searchParam } = useLocalSearchParams<{ search?: string }>();
+    const { search: searchParam, category: categoryParam, subcategory: subcategoryParam } = useLocalSearchParams<{ search?: string; category?: string | string[]; subcategory?: string | string[] }>();
 
     const [categories, setCategories] = useState<ApiCategory[]>([]);
     const [apiProducts, setApiProducts] = useState<ApiProduct[]>([]);
@@ -34,6 +34,7 @@ export default function ShopScreen() {
     const [error, setError] = useState<string | null>(null);
 
     const [selectedCategorySlug, setSelectedCategorySlug] = useState('all');
+    const [selectedSubcategorySlug, setSelectedSubcategorySlug] = useState('all');
     const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const [searchQuery, setSearchQuery] = useState(searchParam ?? '');
@@ -47,6 +48,23 @@ export default function ShopScreen() {
     useEffect(() => {
         if (searchParam) setSearchQuery(searchParam);
     }, [searchParam]);
+
+    useEffect(() => {
+        const rawCategory = Array.isArray(categoryParam) ? categoryParam[0] : categoryParam;
+        const rawSubcategory = Array.isArray(subcategoryParam) ? subcategoryParam[0] : subcategoryParam;
+
+        if (!rawCategory) {
+            setSelectedCategorySlug('all');
+        } else {
+            const matchedCategory = categories.find(
+                (category) => category.slug === rawCategory || category._id === rawCategory,
+            );
+
+            setSelectedCategorySlug(matchedCategory?.slug ?? rawCategory);
+        }
+
+        setSelectedSubcategorySlug(rawSubcategory ?? 'all');
+    }, [categoryParam, categories, subcategoryParam]);
 
     // Fetch categories and products
     useEffect(() => {
@@ -79,6 +97,7 @@ export default function ShopScreen() {
 
     const clearFilters = () => {
         setSelectedCategorySlug('all');
+        setSelectedSubcategorySlug('all');
         setSelectedMaterials([]);
         setSearchQuery('');
     };
@@ -99,6 +118,8 @@ export default function ShopScreen() {
             name: p.name,
             category: categoryObj?.name ?? 'Uncategorized',
             categorySlug: categoryObj?.slug ?? '',
+            subcategory: typeof p.subcategory === 'object' ? p.subcategory?.name ?? '' : '',
+            subcategorySlug: typeof p.subcategory === 'object' ? p.subcategory?.slug ?? '' : '',
             price: p.price,
             salePrice: p.salePrice,
             currency: p.currency ?? 'USD',
@@ -118,6 +139,7 @@ export default function ShopScreen() {
 
     const filteredProducts = products.filter((p) => {
         if (selectedCategorySlug !== 'all' && p.categorySlug !== selectedCategorySlug) return false;
+        if (selectedSubcategorySlug !== 'all' && p.subcategorySlug !== selectedSubcategorySlug) return false;
         if (selectedMaterials.length && (!p.material || !selectedMaterials.includes(p.material))) return false;
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
@@ -135,7 +157,7 @@ export default function ShopScreen() {
         return 0;
     });
 
-    const activeFilterCount = selectedMaterials.length + (selectedCategorySlug !== 'all' ? 1 : 0);
+    const activeFilterCount = selectedMaterials.length + (selectedCategorySlug !== 'all' ? 1 : 0) + (selectedSubcategorySlug !== 'all' ? 1 : 0);
 
     // Shared filter panel node (reused in sidebar and modal)
     const filterPanelNode = (
@@ -144,6 +166,7 @@ export default function ShopScreen() {
             selectedCategorySlug={selectedCategorySlug}
             setSelectedCategorySlug={(slug) => {
                 setSelectedCategorySlug(slug);
+                setSelectedSubcategorySlug('all');
                 if (isMobile) setShowFilterModal(false);
             }}
             materials={materialOptions}

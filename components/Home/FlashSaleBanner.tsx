@@ -1,7 +1,8 @@
-﻿import { router } from 'expo-router';
+import { getAssetUrl, getProducts } from '@/services/api';
+import { router } from 'expo-router';
 import { Check, ShoppingCart, Zap } from 'lucide-react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 const COLORS = {
     background: '#D0B9A7',
@@ -13,6 +14,8 @@ const COLORS = {
     textSecondary: '#6B6B6B',
     border: '#E5E5E5',
 };
+
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=900&q=80';
 
 const Icons = {
     ArrowRight: ({ size = 18, className = '' }) => (
@@ -44,76 +47,36 @@ const Icons = {
     ),
 };
 
-const saleProducts = [
-    {
-        id: 1,
-        name: 'Hand-Poured Soy Candles',
-        price: 24.99,
-        originalPrice: 39.99,
-        image: 'https://images.unsplash.com/photo-1602178506049-3650c8d54985?w=600&q=80',
-        stock: 8,
-        maxStock: 20,
-        discount: 38,
-        tag: 'Bestseller',
-    },
-    {
-        id: 2,
-        name: 'Woven Basket Set',
-        price: 44.99,
-        originalPrice: 74.99,
-        image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80',
-        stock: 5,
-        maxStock: 20,
-        discount: 40,
-        tag: 'Almost Gone',
-    },
-    {
-        id: 3,
-        name: 'Ceramic Plant Pots',
-        price: 29.99,
-        originalPrice: 49.99,
-        image: 'https://images.unsplash.com/photo-1416339306562-f3d12fefd36f?w=600&q=80',
-        stock: 12,
-        maxStock: 20,
-        discount: 40,
-        tag: 'Popular',
-    },
-    {
-        id: 4,
-        name: 'Leather Card Wallet',
-        price: 19.99,
-        originalPrice: 34.99,
-        image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&q=80',
-        stock: 3,
-        maxStock: 20,
-        discount: 43,
-        tag: 'Limited Edition',
-    },
-    {
-        id: 5,
-        name: 'Macramé Wall Hanging',
-        price: 34.99,
-        originalPrice: 59.99,
-        image: 'https://images.unsplash.com/photo-1558618047-f4e80c5d22b5?w=600&q=80',
-        stock: 6,
-        maxStock: 20,
-        discount: 42,
-        tag: 'Trending',
-    },
-    {
-        id: 6,
-        name: 'Hand-thrown Mug Set',
-        price: 38.99,
-        originalPrice: 64.99,
-        image: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=600&q=80',
-        stock: 9,
-        maxStock: 20,
-        discount: 40,
-        tag: 'New Arrival',
-    },
-];
+type ApiProduct = {
+    _id: string;
+    name: string;
+    price: number;
+    salePrice?: number | null;
+    currency?: string;
+    thumbnailImage?: string;
+    images?: string[];
+    quantity?: number;
+    averageRating?: number;
+    reviewCount?: number;
+    category?: { name?: string; slug?: string } | string | null;
+    isFeatured?: boolean;
+    discountPercent?: number;
+};
 
-type SaleProduct = (typeof saleProducts)[number];
+type SaleProduct = {
+    id: string;
+    name: string;
+    price: number;
+    originalPrice: number;
+    image: string;
+    stock: number;
+    maxStock: number;
+    discount: number;
+    tag: string;
+    rating: number;
+    reviewCount: number;
+    currency: string;
+};
 
 type DigitBlockProps = {
     value: number;
@@ -131,6 +94,65 @@ type SwiperProps = {
     items: SaleProduct[];
 };
 
+const getDisplayPrice = (product: ApiProduct) => (
+    typeof product.salePrice === 'number' && product.salePrice > 0 && product.salePrice < product.price
+        ? product.salePrice
+        : product.price
+);
+
+const getDiscountPercent = (product: ApiProduct) => {
+    if (typeof product.discountPercent === 'number' && product.discountPercent > 0) {
+        return product.discountPercent;
+    }
+
+    const displayPrice = getDisplayPrice(product);
+    if (!product.price || displayPrice >= product.price) {
+        return 0;
+    }
+
+    return Math.round(((product.price - displayPrice) / product.price) * 100);
+};
+
+const getTag = (product: ApiProduct, index: number) => {
+    const stock = Number(product.quantity || 0);
+    if (index === 0) return 'Bestseller';
+    if (stock > 0 && stock <= 5) return 'Almost Gone';
+    if (product.isFeatured) return 'Limited Edition';
+    if (getDiscountPercent(product) >= 40) return 'Trending';
+    return 'Popular';
+};
+
+const toSaleProduct = (product: ApiProduct, index: number): SaleProduct => {
+    const currentPrice = getDisplayPrice(product);
+    const stock = Math.max(0, Number(product.quantity || 0));
+    return {
+        id: product._id,
+        name: product.name,
+        price: Number(currentPrice.toFixed(2)),
+        originalPrice: Number(product.price.toFixed(2)),
+        image: getAssetUrl(product.thumbnailImage || product.images?.[0]) || FALLBACK_IMAGE,
+        stock,
+        maxStock: Math.max(20, stock),
+        discount: getDiscountPercent(product),
+        tag: getTag(product, index),
+        rating: Number(product.averageRating || 4.8),
+        reviewCount: Number(product.reviewCount || 0),
+        currency: product.currency || 'USD',
+    };
+};
+
+const formatMoney = (value: number, currency = 'USD') => {
+    try {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency,
+            maximumFractionDigits: 2,
+        }).format(value);
+    } catch {
+        return `$${value.toFixed(2)}`;
+    }
+};
+
 // ─── Digit Block ─────────────────────────────────────────────────────────────
 const DigitBlock = ({ value, label }: DigitBlockProps) => {
     const [prevVal, setPrevVal] = useState(value);
@@ -142,15 +164,14 @@ const DigitBlock = ({ value, label }: DigitBlockProps) => {
             const t = setTimeout(() => { setFlipping(false); setPrevVal(value); }, 350);
             return () => clearTimeout(t);
         }
-    }, [value]);
+    }, [prevVal, value]);
 
     const str = String(value).padStart(2, '0');
 
     return (
         <div className="flex flex-col items-center">
             <div className="relative min-w-[72px] h-20 rounded-[14px] flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#B5A192] to-[#9e8473] border border-white/25 before:absolute before:inset-0 before:bg-gradient-to-b before:from-black/4 before:via-transparent before:to-black/6 before:pointer-events-none after:absolute after:top-1/2 after:left-0 after:right-0 after:h-px after:bg-black/12 after:z-[2]">
-                <span className={`text-4xl font-black tracking-tight text-[#714329] font-serif relative z-[3] 
-                                ${flipping ? 'animate-[digitFlip_0.35s_ease]' : ''}`} style={{ letterSpacing: '-0.03em' }}>
+                <span className={`text-4xl font-black tracking-tight text-[#714329] font-serif relative z-[3] ${flipping ? 'animate-[digitFlip_0.35s_ease]' : ''}`} style={{ letterSpacing: '-0.03em' }}>
                     {str}
                 </span>
             </div>
@@ -169,21 +190,18 @@ const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => 
     const isLow = item.stock <= 5;
 
     useEffect(() => {
-        // Staggered entrance animation
         const t = setTimeout(() => setVisible(true), index * 80 + 400);
         return () => clearTimeout(t);
     }, [index]);
 
     return (
-        <div className={`flex-shrink-0 flex flex-col overflow-hidden rounded-2xl bg-white border border-slate-200 transition-all duration-500 select-none
-             ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+        <div className={`flex-shrink-0 flex flex-col overflow-hidden rounded-2xl bg-white border border-slate-200 transition-all duration-500 select-none ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
             style={{
                 width: cardWidth,
                 transform: visible
                     ? `translateY(0) scale(${isActive ? 1.02 : 1})`
                     : 'translateY(32px)',
             }}>
-            {/* Image Section */}
             <div className="relative overflow-hidden h-60 bg-slate-100">
                 <img
                     src={item.image}
@@ -192,18 +210,15 @@ const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => 
                     className="object-cover w-full h-full transition-transform duration-700 ease-out hover:scale-105"
                 />
 
-                {/* Discount badge */}
                 <div className="absolute top-3.5 left-3.5 bg-[#714329] text-white px-2.5 py-1 rounded-full text-[10px] font-black tracking-widest flex items-center gap-1 transition-all duration-500"
                     style={{ transform: visible ? 'scale(1)' : 'scale(0)', opacity: visible ? 1 : 0, transitionDelay: `${index * 80 + 600}ms` }}>
                     <Zap size={10} fill="currentColor" /> -{item.discount}%
                 </div>
 
-                {/* Tag */}
                 <div className="absolute top-3.5 right-3.5 bg-white/95 backdrop-blur-lg text-[#714329] px-2.5 py-1 rounded-full text-[9px] font-black tracking-[0.12em] uppercase">
                     {item.tag}
                 </div>
 
-                {/* Creative stock badge */}
                 <div className="absolute bottom-0 left-0 right-0 flex flex-col justify-end h-24 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
                     <div className="flex items-end justify-between mb-2">
                         <div>
@@ -229,12 +244,9 @@ const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => 
                         </div>
                     </div>
 
-                    {/* Enhanced progress bar */}
                     <div className="space-y-1.5">
                         <div className="h-1.5 rounded-full bg-white/20 overflow-hidden backdrop-blur-sm border border-white/10">
-                            <div className={`h-full rounded-full transition-all duration-1000 ${isLow ? 'bg-gradient-to-r from-orange-400 via-red-500 to-red-600'
-                                : 'bg-gradient-to-r from-emerald-400 to-teal-500'
-                                }`}
+                            <div className={`h-full rounded-full transition-all duration-1000 ${isLow ? 'bg-gradient-to-r from-orange-400 via-red-500 to-red-600' : 'bg-gradient-to-r from-emerald-400 to-teal-500'}`}
                                 style={{ width: `${visible ? stockPct : 0}%`, transitionDelay: `${index * 80 + 800}ms` }} />
                         </div>
                         <p className="text-[9px] text-white/60 font-semibold uppercase tracking-wider">
@@ -244,7 +256,6 @@ const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => 
                 </div>
             </div>
 
-            {/* Content Section */}
             <div className="flex flex-col flex-1 p-5">
                 <h3 className="text-lg font-bold mb-2 leading-snug min-h-[2.8rem] text-[#1C1C1C] font-serif line-clamp-2">
                     {item.name}
@@ -253,7 +264,7 @@ const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => 
                 <div className="flex items-end gap-3 mb-6">
                     <div className="flex flex-col">
                         <span className="text-3xl font-black text-[#714329] font-serif tracking-tight leading-none">
-                            ${item.price}
+                            {formatMoney(item.price, item.currency)}
                         </span>
                         <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest mt-1">
                             Best Price
@@ -261,12 +272,12 @@ const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => 
                     </div>
 
                     <span className="text-sm line-through opacity-50 text-[#6B6B6B] font-serif mb-5">
-                        ${item.originalPrice}
+                        {formatMoney(item.originalPrice, item.currency)}
                     </span>
 
                     <div className="flex flex-col items-end ml-auto">
                         <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 py-1.5 rounded-full text-xs font-black tracking-wide">
-                            Save ${(item.originalPrice - item.price).toFixed(2)}
+                            Save {formatMoney(item.originalPrice - item.price, item.currency)}
                         </div>
                         <span className="text-[10px] font-bold text-green-700 mt-1 uppercase tracking-widest opacity-70">
                             {Math.round(((item.originalPrice - item.price) / item.originalPrice) * 100)}% off
@@ -275,29 +286,22 @@ const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => 
                 </div>
 
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    {/* Rating */}
                     <div className="flex items-center gap-2">
                         <div className="flex gap-0.5">
                             {[...Array(5)].map((_, i) => (
-                                <span key={i} className={`text-base transition-transform hover:scale-110 ${i < 4 ? 'text-amber-400' : 'text-slate-200'}`}>★</span>
+                                <span key={i} className={`text-base transition-transform hover:scale-110 ${i < Math.round(item.rating) ? 'text-amber-400' : 'text-slate-200'}`}>★</span>
                             ))}
                         </div>
-                        <span className="text-xs text-[#6B6B6B] font-semibold">(124 reviews)</span>
+                        <span className="text-xs text-[#6B6B6B] font-semibold">({item.reviewCount} reviews)</span>
                     </div>
 
-                    {/* Trending badge */}
                     <div className="flex items-center gap-1 text-[10px] font-black text-[#714329] uppercase tracking-widest bg-orange-50 px-2 py-1 rounded-md">
-                        <Zap size={10} fill="currentColor" />
-                        Trending
+                        <Zap size={10} fill="currentColor" /> Trending
                     </div>
                 </div>
 
                 <button onClick={() => setInCart(!inCart)}
-                    className={`mt-auto w-full py-3.5 px-4 rounded-xl border-2 font-black text-sm tracking-wide transition-all duration-300 flex items-center justify-center gap-2 relative overflow-hidden group 
-                        ${inCart
-                            ? 'bg-green-50 text-green-600 border-green-500/30'
-                            : 'bg-white text-[#714329] border-[#714329]/20 hover:border-[#714329]'
-                        }`}
+                    className={`mt-auto w-full py-3.5 px-4 rounded-xl border-2 font-black text-sm tracking-wide transition-all duration-300 flex items-center justify-center gap-2 relative overflow-hidden group ${inCart ? 'bg-green-50 text-green-600 border-green-500/30' : 'bg-white text-[#714329] border-[#714329]/20 hover:border-[#714329]'}`}
                 >
                     <span className="absolute inset-0 bg-gradient-to-r from-[#B08463]/0 via-[#714329]/5 to-[#714329]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                     <span className="relative flex items-center justify-center gap-2">
@@ -364,7 +368,6 @@ const Swiper = ({ items }: SwiperProps) => {
         setDragStart(null);
     };
 
-    // Arrow key support
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
             if (e.key === 'ArrowRight') goTo(current + 1);
@@ -378,7 +381,6 @@ const Swiper = ({ items }: SwiperProps) => {
 
     return (
         <div className="relative">
-            {/* Overflow container */}
             <div ref={viewportRef} className="overflow-hidden mx-[-8px] px-2 py-4 pb-6">
                 <div ref={trackRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}
                     className={`flex gap-6 transition-transform duration-550 will-change-transform ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
@@ -387,43 +389,30 @@ const Swiper = ({ items }: SwiperProps) => {
                         transition: isDragging ? 'none' : 'transform 0.55s cubic-bezier(0.23,1,0.32,1)',
                     }}
                 >
-                    {items.map((item: SaleProduct, i: number) => (
+                    {items.map((item, i) => (
                         <ProductCard key={item.id} item={item} index={i} isActive={i === current} cardWidth={cardWidth} />
                     ))}
                 </div>
             </div>
 
-            {/* Controls row */}
             <div className="flex items-center justify-between mt-2">
-                {/* Dots */}
                 <div className="flex items-center gap-2">
-                    {items.map((_: SaleProduct, i: number) => (
+                    {Array.from({ length: max + 1 }, (_, i) => (
                         <button key={i} onClick={() => goTo(i)}
-                            className={`h-2 rounded-full border-none cursor-pointer transition-all duration-400 
-                                ${i === current
-                                    ? 'w-7 bg-[#714329]'
-                                    : 'w-2 bg-[#B5A192]'
-                                }`}
+                            className={`h-2 rounded-full border-none cursor-pointer transition-all duration-400 ${i === current ? 'w-7 bg-[#714329]' : 'w-2 bg-[#B5A192]'}`}
                             style={{ transitionTimingFunction: 'cubic-bezier(0.34,1.56,0.64,1)' }}
                         />
                     ))}
                 </div>
 
-                {/* Arrow buttons */}
                 <div className="flex gap-2.5">
                     <button onClick={() => goTo(current - 1)} disabled={current === 0}
-                        className={`w-11 h-11 rounded-full border-[1.5px] flex items-center justify-center transition-all cubic-bezier(0.34,1.56,0.64,1) ${current === 0
-                            ? 'border-[#E5E5E5] bg-white/30 text-[#6B6B6B] opacity-45 cursor-not-allowed'
-                            : 'border-[#714329] bg-[#714329] text-white cursor-pointer hover:scale-110'
-                            }`}
+                        className={`w-11 h-11 rounded-full border-[1.5px] flex items-center justify-center transition-all cubic-bezier(0.34,1.56,0.64,1) ${current === 0 ? 'border-[#E5E5E5] bg-white/30 text-[#6B6B6B] opacity-45 cursor-not-allowed' : 'border-[#714329] bg-[#714329] text-white cursor-pointer hover:scale-110'}`}
                     >
                         <Icons.ArrowLeft size={16} />
                     </button>
                     <button onClick={() => goTo(current + 1)} disabled={current === max}
-                        className={`w-11 h-11 rounded-full border-[1.5px] flex items-center justify-center transition-all cubic-bezier(0.34,1.56,0.64,1) ${current === max
-                            ? 'border-[#E5E5E5] bg-white/30 text-[#6B6B6B] opacity-45 cursor-not-allowed'
-                            : 'border-[#714329] bg-[#714329] text-white cursor-pointer hover:scale-110'
-                            }`}
+                        className={`w-11 h-11 rounded-full border-[1.5px] flex items-center justify-center transition-all cubic-bezier(0.34,1.56,0.64,1) ${current === max ? 'border-[#E5E5E5] bg-white/30 text-[#6B6B6B] opacity-45 cursor-not-allowed' : 'border-[#714329] bg-[#714329] text-white cursor-pointer hover:scale-110'}`}
                     >
                         <Icons.ArrowRight size={16} />
                     </button>
@@ -435,19 +424,74 @@ const Swiper = ({ items }: SwiperProps) => {
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function FlashSaleBanner() {
-
     const [timeLeft, setTimeLeft] = useState(14 * 3600 + 37 * 60 + 52);
     const [headerVisible, setHeaderVisible] = useState(false);
+    const [saleProducts, setSaleProducts] = useState<SaleProduct[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const timer = setInterval(() => setTimeLeft(p => Math.max(0, p - 1)), 1000);
+        const timer = setInterval(() => setTimeLeft((p) => Math.max(0, p - 1)), 1000);
         const t = setTimeout(() => setHeaderVisible(true), 80);
         return () => { clearInterval(timer); clearTimeout(t); };
+    }, []);
+
+    useEffect(() => {
+        let mounted = true;
+
+        const loadFlashSaleProducts = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const response = await getProducts({
+                    onSale: 'true',
+                    inStock: 'true',
+                    sort: 'discount_desc',
+                    page: 1,
+                    limit: 6,
+                });
+
+                const list = Array.isArray(response.data?.products)
+                    ? response.data.products
+                    : Array.isArray(response.data)
+                        ? response.data
+                        : [];
+
+                if (!mounted) {
+                    return;
+                }
+
+                const connectedProducts = list
+                    .filter((product: ApiProduct) => product && product._id && Number(product.price || 0) > 0 && getDiscountPercent(product) > 0)
+                    .map((product: ApiProduct, index: number) => toSaleProduct(product, index));
+
+                setSaleProducts(connectedProducts);
+            } catch (fetchError: any) {
+                if (!mounted) {
+                    return;
+                }
+
+                setSaleProducts([]);
+                setError(fetchError?.response?.data?.message || fetchError?.message || 'Failed to load flash sale products');
+            } finally {
+                if (mounted) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        loadFlashSaleProducts();
+
+        return () => {
+            mounted = false;
+        };
     }, []);
 
     const h = Math.floor(timeLeft / 3600);
     const m = Math.floor((timeLeft % 3600) / 60);
     const s = timeLeft % 60;
+
+    const headlineImage = useMemo(() => saleProducts[0]?.image || FALLBACK_IMAGE, [saleProducts]);
 
     return (
         <div style={{
@@ -460,7 +504,6 @@ export default function FlashSaleBanner() {
 
             <div className="max-w-[1300px] mx-auto px-8 relative z-[1] pb-36">
 
-                {/* ── Header ─────────────────────────────────────── */}
                 <header style={{
                     padding: '4rem 0 3.5rem',
                     opacity: headerVisible ? 1 : 0,
@@ -469,7 +512,6 @@ export default function FlashSaleBanner() {
                 }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '3rem' }}>
 
-                        {/* Left */}
                         <div className="flex flex-col flex-1 py-10">
                             <h1 style={{
                                 fontSize: 'clamp(2.2rem, 5vw, 4rem)',
@@ -484,13 +526,13 @@ export default function FlashSaleBanner() {
                             </h1>
 
                             <p className="text-base leading-7 text-[#1C1C1C] opacity-72 mb-6 font-serif font-medium max-w-xl">
-                                Handpicked artisanal pieces, sustainably sourced and uniquely crafted. Available at special prices for a short time only.
+                                Handpicked artisanal jewelry pieces from your live catalog, available at special prices for a short time only.
                             </p>
 
                             <View className="flex-row flex-wrap gap-5">
                                 {[
                                     { icon: <Icons.Clock size={13} />, label: '24 Hours Only' },
-                                    { icon: <Icons.Truck size={13} />, label: 'Free Shipping' },
+                                    { icon: <Icons.Truck size={13} />, label: 'Live Discounted Products' },
                                 ].map((chip) => (
                                     <View key={chip.label} className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/30 border border-white">
                                         {chip.icon}
@@ -502,7 +544,6 @@ export default function FlashSaleBanner() {
                             </View>
                         </div>
 
-                        {/* Timer */}
                         <div className="flex flex-col items-center rounded-[28px] bg-white/18 backdrop-blur-[16px] border p-10 border-white/45 animate-[timerIn_0.8s_cubic-bezier(0.23,1,0.32,1)_0.3s_both]">
                             <span className="text-xs font-black tracking-widest uppercase text-[#6B6B6B] mb-6 font-serif">
                                 Sale Event Concludes In
@@ -518,7 +559,6 @@ export default function FlashSaleBanner() {
                     </div>
                 </header>
 
-                {/* ── Section heading ─────────────────────────────── */}
                 <div className="flex items-center justify-between mb-6 animate-[fadeUp_0.6s_ease_0.7s_both] ">
                     <div className="flex items-center gap-3.5">
                         <div className="w-1.5 h-11 rounded-full bg-gradient-to-b from-[#B08463] to-[#714329]" />
@@ -527,11 +567,11 @@ export default function FlashSaleBanner() {
                                 Exclusive Offers
                             </h2>
                             <p className="opacity-55 text-[#6B6B6B] font-serif">
-                                Drag or use arrows · Limited quantity per customer
+                                Drag or use arrows · Live backend discounts only
                             </p>
                         </div>
                     </div>
-                    <Pressable onPress={() => router.push('/best-sellers')} className="flex-row items-center gap-1.5">
+                    <Pressable onPress={() => router.push('/deals')} className="flex-row items-center gap-1.5">
                         {({ hovered }) => (
                             <>
                                 <Text className={`text-sm font-bold font-serif ${hovered ? 'text-black' : 'text-[#714329]'}`}>
@@ -545,9 +585,23 @@ export default function FlashSaleBanner() {
                     </Pressable>
                 </div>
 
-                {/* ── Swiper ─────────────────────────────────────── */}
                 <div style={{ animation: 'fadeUp 0.7s ease 0.9s both' }}>
-                    <Swiper items={saleProducts} />
+                    {loading ? (
+                        <div className="flex items-center justify-center rounded-[28px] bg-white/25 border border-white/45 py-20">
+                            <ActivityIndicator size="small" color={COLORS.darkColor} />
+                            <Text className="ml-3 text-sm font-bold text-[#714329]">Loading live flash sale products...</Text>
+                        </div>
+                    ) : error ? (
+                        <div className="flex flex-col items-center justify-center rounded-[28px] bg-white/25 border border-white/45 py-20 px-8">
+                            <Text className="text-sm font-bold text-[#714329] text-center">{error}</Text>
+                        </div>
+                    ) : saleProducts.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center rounded-[28px] bg-white/25 border border-white/45 py-20 px-8">
+                            <Text className="text-sm font-bold text-[#714329] text-center">No discounted products are active right now.</Text>
+                        </div>
+                    ) : (
+                        <Swiper items={saleProducts} />
+                    )}
                 </div>
             </div>
 

@@ -1,11 +1,11 @@
 import PageShell from '@/components/PageShell';
 import { useAuth } from '@/context/AuthContext';
-import { API_URL, loginUser, setAuthToken } from '@/services/api';
+import { useToast } from '@/context/ToastContext';
+import { API_URL, getApiErrorMessage, loginUser, setAuthToken } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-    Alert,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -20,6 +20,23 @@ import {
 } from 'react-native';
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
+const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
+
+const getRoleHomeRoute = (role?: string) => (
+    role === 'admin'
+        ? '/admin'
+        : role === 'seller'
+            ? '/seller'
+            : '/customer-dashboard'
+);
+
+const getPostLoginRoute = (role?: string, pendingRedirect?: string | null) => {
+    if (role === 'user' && pendingRedirect && pendingRedirect.startsWith('/') && !pendingRedirect.startsWith('/admin') && !pendingRedirect.startsWith('/seller')) {
+        return pendingRedirect;
+    }
+
+    return getRoleHomeRoute(role);
+};
 
 type LoginInputProps = {
     icon: keyof typeof Feather.glyphMap;
@@ -91,7 +108,8 @@ function LoginInput({
 export default function LoginScreen() {
 
     const router = useRouter();
-    const { login, user, userToken, isLoading: authIsLoading } = useAuth();
+    const { login, user, userToken, isLoading: authIsLoading, consumePendingRedirect } = useAuth();
+    const { showToast } = useToast();
     const { width } = useWindowDimensions();
 
     const [email, setEmail] = useState('');
@@ -106,14 +124,22 @@ export default function LoginScreen() {
 
     useEffect(() => {
         if (authIsLoading || !userToken) return;
-        router.replace(user?.role === 'admin' ? '/admin' : '/customer-dashboard');
-    }, [authIsLoading, router, user?.role, userToken]);
+        const redirectPath = user?.role === 'user' ? consumePendingRedirect() : null;
+        router.replace(getPostLoginRoute(user?.role, redirectPath) as any);
+    }, [authIsLoading, consumePendingRedirect, router, user?.role, userToken]);
 
     const handleLogin = async () => {
         const normalizedEmail = normalizeEmail(email);
 
         if (!normalizedEmail || !password) {
-            Alert.alert('Missing details', 'Enter your email address and password.');
+            showToast('Missing details', 'warning', {
+                subMessage: 'Enter your email address and password.',
+            });
+            return;
+        }
+
+        if (!EMAIL_REGEX.test(normalizedEmail)) {
+            showToast('Invalid email format', 'error');
             return;
         }
 
@@ -128,7 +154,7 @@ export default function LoginScreen() {
             const { token, user: userData } = response.data;
             setAuthToken(token);
             login(token, userData, { persist: rememberMe });
-            router.replace(userData.role === 'admin' ? '/admin' : '/customer-dashboard');
+            router.replace(getPostLoginRoute(userData.role, userData.role === 'user' ? consumePendingRedirect() : null) as any);
         } catch (error: any) {
             const message =
                 error.response?.data?.message ??
@@ -136,7 +162,9 @@ export default function LoginScreen() {
                     ? `Unable to reach the backend at ${API_URL}. Make sure the Express server is running.`
                     : error.message) ??
                 'Check your credentials and try again.';
-            Alert.alert('Login failed', message);
+            showToast('Login failed', 'error', {
+                subMessage: getApiErrorMessage(error, message),
+            });
         } finally {
             setSubmitting(false);
         }

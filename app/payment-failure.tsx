@@ -1,8 +1,9 @@
 import CustomerPageFrame, { CustomerSectionCard } from '@/components/Customer/CustomerPageFrame';
+import CustomerSidebar from '@/components/Customer/CustomerSidebar';
 import { BRAND_FONTS, BROWN } from '@/constants/brandTheme';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
 import useProtectedRoute from '@/hooks/useProtectedRoute';
-import { cancelPayHereOrder, getMyOrderById, initiatePayHerePayment } from '@/services/api';
+import { cancelPayHereOrder, getMyOrderById, getPayHereStatus, initiatePayHerePayment } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -18,6 +19,8 @@ export default function PaymentFailureScreen() {
     const [order, setOrder] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
+    const [payHereAvailable, setPayHereAvailable] = useState(false);
+    const [payHereMessage, setPayHereMessage] = useState('');
 
     useEffect(() => {
         if (!auth.isAuthorized) {
@@ -41,6 +44,33 @@ export default function PaymentFailureScreen() {
         })();
     }, [auth.isAuthorized, orderId]);
 
+    useEffect(() => {
+        let isMounted = true;
+
+        (async () => {
+            try {
+                const { data } = await getPayHereStatus();
+                if (!isMounted) {
+                    return;
+                }
+
+                setPayHereAvailable(Boolean(data?.available));
+                setPayHereMessage(String(data?.message || '').trim());
+            } catch {
+                if (!isMounted) {
+                    return;
+                }
+
+                setPayHereAvailable(false);
+                setPayHereMessage('Online payment is currently unavailable.');
+            }
+        })();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
     if (auth.shouldBlock) {
         return (
             <View className="flex-1 items-center justify-center bg-[#F7EFE7]">
@@ -51,6 +81,11 @@ export default function PaymentFailureScreen() {
 
     const retryPayment = async () => {
         if (!order?._id) return;
+        if (!payHereAvailable) {
+            Alert.alert('PayHere Unavailable', payHereMessage || 'Online payment is currently unavailable for this order.');
+            return;
+        }
+
         setBusy(true);
         try {
             const returnUrl = Linking.createURL('/payment-success', {
@@ -99,6 +134,7 @@ export default function PaymentFailureScreen() {
             eyebrow="Payment Recovery"
             title={order?.paymentStatus === 'paid' ? 'Payment already confirmed' : 'Payment not completed'}
             subtitle={loading ? 'Loading the order tied to this payment attempt.' : 'Retry the secure payment flow or cancel the order if you no longer want to continue.'}
+            sidebar={<CustomerSidebar />}
             heroAside={
                 order ? (
                     <View className="rounded-[30px] border p-5" style={{ borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.1)' }}>
@@ -141,6 +177,16 @@ export default function PaymentFailureScreen() {
                         </View>
                     </CustomerSectionCard>
 
+                    {!payHereAvailable && order?.paymentStatus !== 'paid' ? (
+                        <CustomerSectionCard title="Online payment unavailable" subtitle="This storefront cannot currently open new PayHere sessions.">
+                            <View className="rounded-[24px] px-5 py-5" style={{ backgroundColor: '#FFF4E5' }}>
+                                <Text className="font-body text-[13px] leading-6" style={{ color: '#9A5B13' }}>
+                                    {payHereMessage || 'PayHere is currently unavailable. You can cancel this order for now and place a Cash on Delivery order instead.'}
+                                </Text>
+                            </View>
+                        </CustomerSectionCard>
+                    ) : null}
+
                     {order ? (
                         <CustomerSectionCard title="Order summary" subtitle="The current state of the order connected to this payment flow.">
                             <View className="gap-3">
@@ -168,7 +214,7 @@ export default function PaymentFailureScreen() {
                         ) : (
                             <>
                                 <TouchableOpacity onPress={retryPayment} disabled={busy} className="rounded-full px-5 py-3" style={{ backgroundColor: BROWN.DarkColor, opacity: busy ? 0.7 : 1 }}>
-                                    {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text className="font-body text-[13px] font-semibold text-white">Retry PayHere payment</Text>}
+                                    {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text className="font-body text-[13px] font-semibold text-white">{payHereAvailable ? 'Retry PayHere payment' : 'PayHere unavailable'}</Text>}
                                 </TouchableOpacity>
                                 <TouchableOpacity onPress={cancelOrder} disabled={busy} className="rounded-full border px-5 py-3" style={{ borderColor: '#DC2626', backgroundColor: '#FFFFFF', opacity: busy ? 0.7 : 1 }}>
                                     <Text className="font-body text-[13px] font-semibold" style={{ color: '#DC2626' }}>Cancel order</Text>

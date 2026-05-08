@@ -1,4 +1,5 @@
 import CustomerPageFrame, { CustomerSectionCard } from '@/components/Customer/CustomerPageFrame';
+import CustomerSidebar from '@/components/Customer/CustomerSidebar';
 import { BRAND_FONTS, BROWN } from '@/constants/brandTheme';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
 import useProtectedRoute from '@/hooks/useProtectedRoute';
@@ -133,12 +134,13 @@ export default function OrdersScreen() {
             title="Every purchase, payment state, and shipment update in one place."
             subtitle="Track orders, continue payment when needed, and review what has already been delivered without leaving the customer workspace."
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BROWN.DarkColor} />}
+            sidebar={<CustomerSidebar />}
             actions={
                 <>
-                    <TouchableOpacity onPress={() => navRouter.push('/shop' as any)} className="rounded-full px-5 py-3" style={{ backgroundColor: '#FFFFFF' }}>
+                    <TouchableOpacity onPress={() => navRouter.push('/shop' as any)} className="px-5 py-3 rounded-full" style={{ backgroundColor: '#FFFFFF' }}>
                         <Text className="font-body text-[14px] font-semibold" style={{ color: BROWN.TextPrimary }}>Browse shop</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={onRefresh} className="rounded-full border px-5 py-3" style={{ borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(255,255,255,0.1)' }}>
+                    <TouchableOpacity onPress={onRefresh} className="px-5 py-3 border rounded-full" style={{ borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(255,255,255,0.1)' }}>
                         <Text className="font-body text-[14px] font-semibold text-white">Refresh</Text>
                     </TouchableOpacity>
                 </>
@@ -148,11 +150,11 @@ export default function OrdersScreen() {
                     <Text className="font-body text-[11px] uppercase tracking-[1.8px]" style={{ color: '#F1DAC5' }}>Orders snapshot</Text>
                     <Text className="mt-3 font-heading text-[24px] text-white">{orders.length}</Text>
                     <View className="gap-3 mt-5">
-                        <View className="flex-row items-center justify-between rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
+                        <View className="flex-row items-center justify-between px-4 py-3 rounded-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
                             <Text className="font-body text-[13px]" style={{ color: '#F7E7D8' }}>Current filter</Text>
                             <Text className="font-body text-[13px] font-semibold text-white">{formatStatus(filter) || 'all'}</Text>
                         </View>
-                        <View className="flex-row items-center justify-between rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
+                        <View className="flex-row items-center justify-between px-4 py-3 rounded-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
                             <Text className="font-body text-[13px]" style={{ color: '#F7E7D8' }}>More pages</Text>
                             <Text className="font-body text-[13px] font-semibold text-white">{hasMore ? 'Available' : 'Complete'}</Text>
                         </View>
@@ -160,21 +162,31 @@ export default function OrdersScreen() {
                 </View>
             }
         >
-            <CustomerSectionCard title="Filter by order state" subtitle="Jump between open, fulfilled, payment, and cancelled orders without leaving the page.">
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 8 }}>
+            <CustomerSectionCard
+                title="Filter by order state"
+                subtitle="Jump between open, fulfilled, payment, and cancelled orders without leaving the page."
+            >
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 10, paddingRight: 8 }}
+                >
                     {FILTERS.map((item) => {
                         const active = item === filter;
                         return (
                             <TouchableOpacity
                                 key={item}
                                 onPress={() => setFilter(item)}
-                                className="rounded-full border px-4 py-3"
+                                className="px-4 py-3 border rounded-full"
                                 style={{
                                     borderColor: active ? BROWN.DarkColor : '#EAD7C3',
                                     backgroundColor: active ? '#F6ECDF' : '#FFFAF5',
                                 }}
                             >
-                                <Text className="font-body text-[12px] font-semibold capitalize" style={{ color: active ? BROWN.DarkColor : BROWN.TextSecondary }}>
+                                <Text
+                                    className="font-body text-[12px] font-semibold capitalize"
+                                    style={{ color: active ? BROWN.DarkColor : BROWN.TextSecondary }}
+                                >
                                     {formatStatus(item) || 'all'}
                                 </Text>
                             </TouchableOpacity>
@@ -183,16 +195,26 @@ export default function OrdersScreen() {
                 </ScrollView>
             </CustomerSectionCard>
 
-            <CustomerSectionCard title="Order history" subtitle="Open an order to track delivery, retry payment, or cancel while it is still in the pre-shipment stage.">
+            <CustomerSectionCard
+                title="Order history"
+                subtitle="Open an order to track delivery, retry payment, or cancel while it is still in the pre-shipment stage."
+            >
                 {loading ? (
-                    <View className="items-center justify-center py-12 gap-3">
+                    <View className="items-center justify-center gap-3 py-12">
                         <ActivityIndicator color={BROWN.DarkColor} size="large" />
-                        <Text style={{ fontFamily: BRAND_FONTS.body, color: BROWN.TextSecondary }}>Loading your orders...</Text>
+                        <Text style={{ fontFamily: BRAND_FONTS.body, color: BROWN.TextSecondary }}>
+                            Loading your orders...
+                        </Text>
                     </View>
                 ) : orders.length === 0 ? (
-                    <View className="items-center justify-center rounded-[24px] px-6 py-10" style={{ backgroundColor: '#F8EFE6' }}>
+                    <View
+                        className="items-center justify-center rounded-[24px] px-6 py-10"
+                        style={{ backgroundColor: '#F8EFE6' }}
+                    >
                         <Feather name="shopping-bag" size={44} color={BROWN.lightColor} />
-                        <Text className="mt-4 text-center font-heading text-[24px]" style={{ color: BROWN.TextPrimary }}>No orders here yet</Text>
+                        <Text className="mt-4 text-center font-heading text-[24px]" style={{ color: BROWN.TextPrimary }}>
+                            No orders here yet
+                        </Text>
                         <Text className="mt-2 text-center font-body text-[13px] leading-6" style={{ color: BROWN.TextSecondary }}>
                             {filter !== 'all' ? `No ${formatStatus(filter)} orders were found.` : 'Start browsing to build your order archive.'}
                         </Text>
@@ -205,39 +227,54 @@ export default function OrdersScreen() {
                             const canRetryPayment = item.paymentMethod === 'payhere' && ['awaiting_payment', 'payment_failed'].includes(item.status);
 
                             return (
-                                <View key={item._id} className="rounded-[26px] border p-5" style={{ borderColor: '#F0DFCE', backgroundColor: '#FFFAF5' }}>
+                                <View
+                                    key={item._id}
+                                    className="rounded-[26px] border p-5"
+                                    style={{ borderColor: '#F0DFCE', backgroundColor: '#FFFAF5' }}
+                                >
                                     <View className="flex-row items-start justify-between gap-4">
                                         <View className="flex-1">
-                                            <Text className="font-body text-[12px] uppercase tracking-[1.3px]" style={{ color: '#A16D52' }}>{item.orderNumber}</Text>
-                                            <Text className="mt-2 font-heading text-[24px]" style={{ color: BROWN.TextPrimary }}>${Number(item.total || 0).toFixed(2)}</Text>
+                                            <Text className="font-body text-[12px] uppercase tracking-[1.3px]" style={{ color: '#A16D52' }}>
+                                                {item.orderNumber}
+                                            </Text>
+                                            <Text className="mt-2 font-heading text-[24px]" style={{ color: BROWN.TextPrimary }}>
+                                                ${Number(item.total || 0).toFixed(2)}
+                                            </Text>
                                             <Text className="mt-1 font-body text-[13px]" style={{ color: BROWN.TextSecondary }}>
                                                 {new Date(item.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                                             </Text>
                                         </View>
-                                        <View className="rounded-full px-3 py-2" style={{ backgroundColor: `${statusConfig.color}15` }}>
-                                            <Text className="font-body text-[12px] font-semibold" style={{ color: statusConfig.color }}>{statusConfig.label}</Text>
+                                        <View className="px-3 py-2 rounded-full" style={{ backgroundColor: `${statusConfig.color}15` }}>
+                                            <Text className="font-body text-[12px] font-semibold" style={{ color: statusConfig.color }}>
+                                                {statusConfig.label}
+                                            </Text>
                                         </View>
                                     </View>
 
                                     <View className="mt-4 gap-2 rounded-[20px] px-4 py-4" style={{ backgroundColor: '#F6ECDF' }}>
-                                        {(item.items || []).slice(0, 2).map((product: any) => (
+                                        {(item.items || []).slice(0, 2).map((product: { _id: React.Key | null | undefined; name: string | number | bigint | boolean | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | React.ReactPortal | Promise<string | number | bigint | boolean | React.ReactPortal | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined> | null | undefined; quantity: string | number | bigint | boolean | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | React.ReactPortal | Promise<string | number | bigint | boolean | React.ReactPortal | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined> | null | undefined; }) => (
                                             <Text key={product._id} className="font-body text-[13px] leading-6" style={{ color: '#6F5A4F' }}>
                                                 {product.name} x{product.quantity}
                                             </Text>
                                         ))}
                                         {item.items?.length > 2 ? (
-                                            <Text className="font-body text-[12px] italic" style={{ color: BROWN.TextSecondary }}>+{item.items.length - 2} more item(s)</Text>
+                                            <Text className="font-body text-[12px] italic" style={{ color: BROWN.TextSecondary }}>
+                                                +{item.items.length - 2} more item(s)
+                                            </Text>
                                         ) : null}
                                     </View>
 
-                                    <View className="mt-4 flex-row flex-wrap items-center justify-between gap-3">
-                                        <Text className="font-body text-[12px] capitalize" style={{ color: PAYMENT_STATUS_COLORS[item.paymentStatus] ?? BROWN.TextSecondary }}>
+                                    <View className="flex-row flex-wrap items-center justify-between gap-3 mt-4">
+                                        <Text
+                                            className="font-body text-[12px] capitalize"
+                                            style={{ color: PAYMENT_STATUS_COLORS[item.paymentStatus] ?? BROWN.TextSecondary }}
+                                        >
                                             Payment: {formatStatus(item.paymentStatus) || 'unknown'}
                                         </Text>
                                         <View className="flex-row flex-wrap gap-2">
                                             <TouchableOpacity
-                                                onPress={() => navRouter.push(`/order-tracking?orderNumber=${item.orderNumber}` as any)}
-                                                className="flex-row items-center gap-2 rounded-full px-4 py-3"
+                                                onPress={() => navRouter.push(`/order-tracking?orderNumber=${item.orderNumber}`)}
+                                                className="flex-row items-center gap-2 px-4 py-3 rounded-full"
                                                 style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EAD7C3' }}
                                             >
                                                 <Feather name="map-pin" size={14} color={BROWN.DarkColor} />
@@ -246,8 +283,8 @@ export default function OrdersScreen() {
 
                                             {canRetryPayment ? (
                                                 <TouchableOpacity
-                                                    onPress={() => navRouter.push(`/payment-failure?orderId=${item._id}` as any)}
-                                                    className="flex-row items-center gap-2 rounded-full px-4 py-3"
+                                                    onPress={() => navRouter.push(`/payment-failure?orderId=${item._id}`)}
+                                                    className="flex-row items-center gap-2 px-4 py-3 rounded-full"
                                                     style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EAD7C3' }}
                                                 >
                                                     <Feather name="refresh-cw" size={14} color={BROWN.DarkColor} />
@@ -258,7 +295,7 @@ export default function OrdersScreen() {
                                             {canCancel ? (
                                                 <TouchableOpacity
                                                     onPress={() => handleCancel(item._id, item.orderNumber)}
-                                                    className="rounded-full px-4 py-3"
+                                                    className="px-4 py-3 rounded-full"
                                                     style={{ borderWidth: 1, borderColor: '#DC2626', backgroundColor: '#FFFFFF' }}
                                                 >
                                                     <Text className="font-body text-[12px] font-semibold" style={{ color: '#DC2626' }}>Cancel</Text>
@@ -271,7 +308,7 @@ export default function OrdersScreen() {
                         })}
 
                         {hasMore ? (
-                            <TouchableOpacity onPress={loadMore} className="self-start rounded-full px-5 py-3" style={{ backgroundColor: '#F6ECDF' }}>
+                            <TouchableOpacity onPress={loadMore} className="self-start px-5 py-3 rounded-full" style={{ backgroundColor: '#F6ECDF' }}>
                                 <Text className="font-body text-[13px] font-semibold" style={{ color: BROWN.DarkColor }}>Load more orders</Text>
                             </TouchableOpacity>
                         ) : null}

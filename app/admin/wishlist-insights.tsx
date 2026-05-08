@@ -1,20 +1,8 @@
+import { adminTheme as T } from '@/constants/adminTheme';
 import { getAdminWishlistInsights } from '@/services/api';
-import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-
-const T = {
-    bg: '#1E150C',
-    card: '#2C1810',
-    cardBorder: '#3D2415',
-    text: '#F5EDE0',
-    muted: '#8C7B6E',
-    active: '#C1622F',
-    green: '#38A169',
-    yellow: '#D69E2E',
-    blue: '#3182CE',
-};
 
 export default function AdminWishlistInsightsScreen() {
     const [data, setData] = useState<any>(null);

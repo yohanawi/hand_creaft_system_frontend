@@ -1,4 +1,5 @@
-import { createCategory, deleteCategory, getCategories, updateCategory } from '@/services/api';
+import { adminTheme as T } from '@/constants/adminTheme';
+import { createCategory, deleteCategory, getCategories, reorderCategories, updateCategory } from '@/services/api';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -14,13 +15,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-
-const T = {
-    bg: '#1E150C', card: '#2C1810', cardBorder: '#3D2415',
-    text: '#F5EDE0', muted: '#8C7B6E', active: '#C1622F',
-    green: '#38A169', red: '#E53E3E', input: '#241610',
-    inputBorder: '#4A2515', white: '#FFFFFF',
-};
 
 const EMPTY_FORM = { name: '', description: '', status: 'active', isFeatured: false, parent: '' };
 
@@ -45,6 +39,7 @@ export default function AdminCategories() {
     const [form, setForm] = useState<any>(EMPTY_FORM);
     const [editId, setEditId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [reordering, setReordering] = useState(false);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -105,6 +100,29 @@ export default function AdminCategories() {
         ]);
     };
 
+    const moveCategory = async (id: string, direction: 'up' | 'down') => {
+        const currentIndex = categories.findIndex((category) => category._id === id);
+        const nextIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        if (currentIndex < 0 || nextIndex < 0 || nextIndex >= categories.length) {
+            return;
+        }
+
+        const nextCategories = [...categories];
+        const [moved] = nextCategories.splice(currentIndex, 1);
+        nextCategories.splice(nextIndex, 0, moved);
+        setCategories(nextCategories);
+        setReordering(true);
+        try {
+            await reorderCategories({ ids: nextCategories.map((category) => category._id) });
+            await loadData();
+        } catch (e: any) {
+            Alert.alert('Error', e.response?.data?.message || 'Reorder failed');
+            await loadData();
+        } finally {
+            setReordering(false);
+        }
+    };
+
     const filtered = categories.filter(c => c.name?.toLowerCase().includes(search.toLowerCase()));
 
     return (
@@ -162,8 +180,23 @@ export default function AdminCategories() {
                                 {item.parent ? (
                                     <Text style={s.catParent}>Parent: {item.parent?.name ?? '—'}</Text>
                                 ) : null}
+                                <Text style={s.catMeta}>Products: {item.productCount ?? 0} · Subcategories: {item.subcategoryCount ?? 0}</Text>
                             </View>
                             <View style={s.cardActions}>
+                                <TouchableOpacity
+                                    style={s.iconBtn}
+                                    onPress={() => moveCategory(item._id, 'up')}
+                                    disabled={reordering || categories[0]?._id === item._id}
+                                >
+                                    <Feather name="arrow-up" size={15} color={reordering || categories[0]?._id === item._id ? T.muted : T.active} />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={s.iconBtn}
+                                    onPress={() => moveCategory(item._id, 'down')}
+                                    disabled={reordering || categories[categories.length - 1]?._id === item._id}
+                                >
+                                    <Feather name="arrow-down" size={15} color={reordering || categories[categories.length - 1]?._id === item._id ? T.muted : T.active} />
+                                </TouchableOpacity>
                                 <TouchableOpacity style={s.iconBtn} onPress={() => openEdit(item)}>
                                     <Feather name="edit-2" size={15} color={T.active} />
                                 </TouchableOpacity>
@@ -295,6 +328,7 @@ const s = StyleSheet.create({
     catName: { color: T.text, fontSize: 14, fontWeight: '600' },
     catDesc: { color: T.muted, fontSize: 12, marginTop: 2 },
     catParent: { color: T.muted, fontSize: 11, marginTop: 2 },
+    catMeta: { color: T.muted, fontSize: 11, marginTop: 4 },
     featuredBadge: { backgroundColor: '#D69E2E33', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
     featuredText: { color: '#D69E2E', fontSize: 10, fontWeight: '600' },
     badge: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },

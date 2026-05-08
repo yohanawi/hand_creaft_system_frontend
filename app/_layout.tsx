@@ -50,9 +50,9 @@ export default function RootLayout() {
   }
   return (
     <AuthProvider>
-      <CartProvider>
-        <WishlistProvider>
-          <ToastProvider>
+      <ToastProvider>
+        <CartProvider>
+          <WishlistProvider>
             <SyncManager />
             <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
               <Stack screenOptions={{ headerShown: false }}>
@@ -67,13 +67,14 @@ export default function RootLayout() {
                 <Stack.Screen name="order-tracking" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="payment-success" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="payment-failure" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="seller" />
                 <Stack.Screen name="admin" />
               </Stack>
               <StatusBar style="auto" />
             </ThemeProvider>
-          </ToastProvider>
-        </WishlistProvider>
-      </CartProvider>
+          </WishlistProvider>
+        </CartProvider>
+      </ToastProvider>
     </AuthProvider>
   );
 }

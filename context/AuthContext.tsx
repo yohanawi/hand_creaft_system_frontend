@@ -1,13 +1,35 @@
-import { setAuthToken } from '@/services/api';
+import { getMyProfile, setAuthToken, setUnauthorizedHandler } from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 export type AuthUser = {
     id: string;
     name: string;
     email: string;
     phone?: string;
-    role: 'user' | 'admin';
+    role: 'user' | 'seller' | 'admin';
+    sellerStatus?: 'inactive' | 'pending' | 'approved' | 'rejected' | 'suspended';
+    sellerProfile?: {
+        shopName?: string;
+        shopSlug?: string;
+        bio?: string;
+        logo?: string;
+        banner?: string;
+        city?: string;
+        state?: string;
+        country?: string;
+        contactEmail?: string;
+        contactPhone?: string;
+        materials?: string[];
+        processingTimeLabel?: string;
+        shippingPolicy?: string;
+        returnPolicy?: string;
+        bankName?: string;
+        accountHolderName?: string;
+        accountNumberMasked?: string;
+        payoutEmail?: string;
+        defaultCurrency?: string;
+    };
     emailVerified?: boolean;
     addresses?: any[];
 };
@@ -16,34 +38,65 @@ type AuthContextValue = {
     userToken: string | null;
     user: AuthUser | null;
     isAdmin: boolean;
+    isSeller: boolean;
     isLoading: boolean;
+    isValidatingSession: boolean;
+    pendingRedirect: string | null;
     login: (token: string, user: AuthUser, options?: { persist?: boolean }) => void;
     updateUser: (user: Partial<AuthUser>) => void;
-    logout: () => void;
+    logout: (options?: { clearRedirect?: boolean }) => void;
+    setPendingRedirect: (path: string | null) => void;
+    consumePendingRedirect: () => string | null;
+    validateSession: (options?: { force?: boolean }) => Promise<boolean>;
 };
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
+const REDIRECT_KEY = 'auth_redirect';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [userToken, setUserToken] = useState<string | null>(null);
     const [user, setUser] = useState<AuthUser | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isValidatingSession, setIsValidatingSession] = useState(false);
     const [persistSession, setPersistSession] = useState(false);
+    const [pendingRedirect, setPendingRedirectState] = useState<string | null>(null);
+    const validationPromiseRef = useRef<Promise<boolean> | null>(null);
+
+    const setPendingRedirect = useCallback((path: string | null) => {
+        const normalizedPath = String(path || '').trim() || null;
+        setPendingRedirectState(normalizedPath);
+
+        if (normalizedPath) {
+            AsyncStorage.setItem(REDIRECT_KEY, normalizedPath).catch(() => { });
+            return;
+        }
+
+        AsyncStorage.removeItem(REDIRECT_KEY).catch(() => { });
+    }, []);
+
+    const consumePendingRedirect = useCallback(() => {
+        const nextRedirect = pendingRedirect;
+        setPendingRedirect(null);
+        return nextRedirect;
+    }, [pendingRedirect, setPendingRedirect]);
 
     // Restore session from AsyncStorage on first mount
     useEffect(() => {
         (async () => {
             try {
-                const [[, token], [, raw]] = await AsyncStorage.multiGet([TOKEN_KEY, USER_KEY]);
+                const [[, token], [, raw], [, storedRedirect]] = await AsyncStorage.multiGet([TOKEN_KEY, USER_KEY, REDIRECT_KEY]);
                 if (token && raw) {
                     const stored = JSON.parse(raw) as AuthUser;
                     setUserToken(token);
                     setUser(stored);
                     setPersistSession(true);
                     setAuthToken(token);
+                }
+                if (storedRedirect) {
+                    setPendingRedirectState(storedRedirect);
                 }
             } catch {
                 // Storage read failed — stay logged out
@@ -93,22 +146,82 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
     }, [persistSession]);
 
-    const logout = useCallback(() => {
+    const logout = useCallback((options?: { clearRedirect?: boolean }) => {
+        const shouldClearRedirect = options?.clearRedirect ?? true;
+
         setUserToken(null);
         setUser(null);
         setPersistSession(false);
-        AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]).catch(() => { });
-    }, []);
+        setIsValidatingSession(false);
+        validationPromiseRef.current = null;
+        if (shouldClearRedirect) {
+            setPendingRedirect(null);
+        }
+        AsyncStorage.multiRemove(
+            shouldClearRedirect ? [TOKEN_KEY, USER_KEY, REDIRECT_KEY] : [TOKEN_KEY, USER_KEY]
+        ).catch(() => { });
+    }, [setPendingRedirect]);
+
+    const validateSession = useCallback(async (options?: { force?: boolean }) => {
+        if (!userToken) {
+            return false;
+        }
+
+        if (validationPromiseRef.current && !options?.force) {
+            return validationPromiseRef.current;
+        }
+
+        const validationPromise = (async () => {
+            setIsValidatingSession(true);
+
+            try {
+                const { data } = await getMyProfile();
+                const nextUser = data as AuthUser;
+                setUser(nextUser);
+
+                if (persistSession) {
+                    AsyncStorage.setItem(USER_KEY, JSON.stringify(nextUser)).catch(() => { });
+                }
+
+                return true;
+            } catch {
+                logout({ clearRedirect: false });
+                return false;
+            } finally {
+                setIsValidatingSession(false);
+                validationPromiseRef.current = null;
+            }
+        })();
+
+        validationPromiseRef.current = validationPromise;
+        return validationPromise;
+    }, [logout, persistSession, userToken]);
+
+    useEffect(() => {
+        setUnauthorizedHandler(() => {
+            logout({ clearRedirect: false });
+        });
+
+        return () => {
+            setUnauthorizedHandler(null);
+        };
+    }, [logout]);
 
     const value = useMemo<AuthContextValue>(() => ({
         userToken,
         user,
         isAdmin: user?.role === 'admin',
+        isSeller: user?.role === 'seller',
         isLoading,
+        isValidatingSession,
+        pendingRedirect,
         login,
         updateUser,
         logout,
-    }), [isLoading, login, logout, updateUser, user, userToken]);
+        setPendingRedirect,
+        consumePendingRedirect,
+        validateSession,
+    }), [consumePendingRedirect, isLoading, isValidatingSession, login, logout, pendingRedirect, setPendingRedirect, updateUser, user, userToken, validateSession]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
