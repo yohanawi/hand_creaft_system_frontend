@@ -52,7 +52,7 @@ export default function CartSupportSections({
     return (
         <View className="gap-6">
             <View className="rounded-[30px] border border-[#E7D7C7] bg-white p-5 md:p-6" style={CARD_SHADOW}>
-                <View className="mb-4 flex-row flex-wrap items-center justify-between gap-3">
+                <View className="flex-row flex-wrap items-center justify-between gap-3 mb-4">
                     <View>
                         <Text className="text-2xl text-[#2E221B]" style={{ fontFamily: SERIF_FONT }}>
                             Promo Code
@@ -104,14 +104,14 @@ export default function CartSupportSections({
                 <Text className="text-2xl text-[#2E221B]" style={{ fontFamily: SERIF_FONT }}>
                     Customer Reviews
                 </Text>
-                <View className="mt-2 flex-row items-center gap-2">
+                <View className="flex-row items-center gap-2 mt-2">
                     <Feather name="star" size={16} color="#C49742" />
                     <Text className="text-sm text-[#5F4A3C]" style={{ fontFamily: SANS_FONT }}>
                         Rated 4.8/5 by 2,000+ customers
                     </Text>
                 </View>
 
-                <View className="mt-4 gap-4 md:flex-row">
+                <View className="gap-4 mt-4 md:flex-row">
                     {reviews.map((review) => (
                         <View key={review.name} className="flex-1 rounded-[24px] bg-[#FBF5EE] p-4">
                             <Text className="mb-4 text-sm leading-7 text-[#5F4A3C]" style={{ fontFamily: SANS_FONT }}>
@@ -126,7 +126,7 @@ export default function CartSupportSections({
             </View>
 
             <View className="rounded-[30px] border border-[#E7D7C7] bg-white p-5 md:p-6" style={CARD_SHADOW}>
-                <View className="mb-4 flex-row items-center justify-between gap-3">
+                <View className="flex-row items-center justify-between gap-3 mb-4">
                     <View>
                         <Text className="text-2xl text-[#2E221B]" style={{ fontFamily: SERIF_FONT }}>
                             You May Also Like
@@ -157,7 +157,7 @@ export default function CartSupportSections({
                             <Text className="mt-2 text-sm leading-6 text-[#6D5B4E]" style={{ fontFamily: SANS_FONT }}>
                                 {card.description}
                             </Text>
-                            <View className="mt-4 flex-row items-center gap-2">
+                            <View className="flex-row items-center gap-2 mt-4">
                                 <Text className="text-sm text-[#6B4A36]" style={{ fontFamily: SANS_FONT }}>
                                     Explore pairing
                                 </Text>
@@ -169,7 +169,7 @@ export default function CartSupportSections({
             </View>
 
             <View className="rounded-[30px] border border-[#E7D7C7] bg-white p-5 md:p-6" style={CARD_SHADOW}>
-                <View className="mb-4 flex-row flex-wrap items-center justify-between gap-3">
+                <View className="flex-row flex-wrap items-center justify-between gap-3 mb-4">
                     <View>
                         <Text className="text-2xl text-[#2E221B]" style={{ fontFamily: SERIF_FONT }}>
                             Saved Items

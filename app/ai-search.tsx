@@ -16,7 +16,7 @@ export default function AISearchScreen() {
         <View style={{ flex: 1 }}>
             <Animated.ScrollView
                 showsVerticalScrollIndicator={false}
-                onScroll={onScroll}
+                onScroll={onScroll} 
                 scrollEventThrottle={16}
                 contentContainerStyle={{ paddingBottom: 56 }}
             >

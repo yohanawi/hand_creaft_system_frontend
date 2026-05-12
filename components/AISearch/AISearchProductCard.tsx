@@ -127,7 +127,7 @@ export default function AISearchProductCard({
                         style={{ borderColor: AI_SEARCH_COLORS.line, backgroundColor: AI_SEARCH_COLORS.card }}
                     >
                         <Text style={{ color: AI_SEARCH_COLORS.espresso, fontFamily: AI_SEARCH_FONTS.body, fontSize: 13 }}>
-                            Quick view
+                            View product
                         </Text>
                     </TouchableOpacity>
                 </View>

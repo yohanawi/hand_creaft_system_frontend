@@ -17,7 +17,7 @@ import { useCart } from '@/context/CartContext';
 import { useToast } from '@/context/ToastContext';
 import { WishlistProduct, useWishlist } from '@/context/WishlistContext';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
-import { validateCoupon } from '@/services/api';
+import { validateCoupon } from '@/services/api'; 
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Animated, View, useWindowDimensions } from 'react-native';

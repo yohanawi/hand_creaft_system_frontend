@@ -25,12 +25,12 @@ export default function CartHeader({ cartCount, onNavigateHome, onNavigateShop }
             className="overflow-hidden rounded-[32px] border border-white/15 px-5 py-6 md:px-8 md:py-8"
             style={CARD_SHADOW}
         >
-            <View className="absolute -right-8 -top-12 h-36 w-36 rounded-full bg-white/10" />
+            <View className="absolute rounded-full -right-8 -top-12 h-36 w-36 bg-white/10" />
             <View className="absolute bottom-0 left-0 h-24 w-24 rounded-tr-[48px] bg-white/10" />
 
             <View className="flex-row flex-wrap items-center justify-between gap-4">
                 <View className="max-w-[720px]">
-                    <View className="mb-4 flex-row flex-wrap items-center gap-2">
+                    <View className="flex-row flex-wrap items-center gap-2 mb-4">
                         {CRUMBS.map((crumb, index) => {
                             const isCurrent = crumb.action === 'current';
                             const onPress = crumb.action === 'home' ? onNavigateHome : onNavigateShop;
@@ -64,7 +64,7 @@ export default function CartHeader({ cartCount, onNavigateHome, onNavigateShop }
 
                 <View className="min-w-[220px] rounded-[28px] border border-white/15 bg-white/12 px-5 py-4">
                     <View className="flex-row items-center gap-3">
-                        <View className="h-12 w-12 items-center justify-center rounded-full bg-white/15">
+                        <View className="items-center justify-center w-12 h-12 rounded-full bg-white/15">
                             <Feather name="shopping-bag" size={20} color={CART_COLORS.white} />
                         </View>
                         <View>

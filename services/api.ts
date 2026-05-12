@@ -491,10 +491,14 @@ export const replyMySupportTicket = (id: string, data: { message: string }) =>
 
 // ─── AI Search ───────────────────────────────────────────────────────────────
 export const getAiServiceHealth = () => api.get("/ai-search/health");
-export const searchProductsByImage = (data: FormData) =>
+export const searchProductsByImage = (
+  data: FormData,
+  config?: Parameters<typeof api.post>[2],
+) =>
   api.post("/ai-search/search", data, {
     headers: { "Content-Type": "multipart/form-data" },
     timeout: 60000,
+    ...config,
   });
 export const getAiIndexStatus = () => api.get("/ai-search/index-status");
 export const indexAiProduct = (id: string) =>

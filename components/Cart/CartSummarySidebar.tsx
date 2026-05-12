@@ -65,8 +65,8 @@ export default function CartSummarySidebar({
                 </View>
 
                 <View className="mt-5 rounded-[24px] bg-[#2E221B] px-4 py-4">
-                    <View className="mb-3 flex-row items-center gap-3">
-                        <View className="h-11 w-11 items-center justify-center rounded-full bg-white/10">
+                    <View className="flex-row items-center gap-3 mb-3">
+                        <View className="items-center justify-center rounded-full h-11 w-11 bg-white/10">
                             <Feather name="truck" size={18} color="#F6D5A7" />
                         </View>
                         <View className="flex-1">

@@ -46,9 +46,12 @@ export type AiIntent = {
 };
 
 export type AiFilterState = {
+  categories: string[];
   materials: string[];
+  colors: string[];
   styles: string[];
   occasions: string[];
+  handmadeTypes: string[];
   priceRange: string;
   onlyInStock: boolean;
   onlyDiscounted: boolean;
@@ -258,6 +261,18 @@ export function inferAiSearchOccasion(product: Partial<AiSearchProduct>) {
   return "Everyday";
 }
 
+export function inferAiSearchHandmadeType(product: Partial<AiSearchProduct>) {
+  const text =
+    `${product.name || ""} ${product.description || ""} ${product.material || ""} ${product.tags?.join(" ") || ""}`.toLowerCase();
+
+  if (/bead|seed bead|beaded/.test(text)) return "Beadwork";
+  if (/clay|ceramic|polymer/.test(text)) return "Clay craft";
+  if (/wood|timber|carved/.test(text)) return "Woodwork";
+  if (/wire|wrap|wrapped/.test(text)) return "Wire wrap";
+  if (/woven|braid|loom|thread|textile|cord/.test(text)) return "Textile craft";
+  return "Metalwork";
+}
+
 export function getAiSearchInsight(product: Partial<AiSearchProduct>) {
   if (product.isFeatured) return "Featured by stylists";
   if (getAiSearchDiscountPercent(product) > 0) return "Smart value pick";
@@ -461,13 +476,28 @@ export function filterAiSearchProducts(
   return catalog
     .filter((product) => {
       const currentPrice = getAiSearchCurrentPrice(product);
+      const categoryName = getAiSearchCategoryName(product);
+      const colorName = String(product.color || "").trim();
+      const handmadeType = inferAiSearchHandmadeType(product);
 
       if (filters.onlyInStock && !isAiSearchInStock(product)) return false;
       if (filters.onlyDiscounted && getAiSearchDiscountPercent(product) === 0)
         return false;
       if (
+        filters.categories.length &&
+        !filters.categories.some(
+          (value) => value.toLowerCase() === categoryName.toLowerCase(),
+        )
+      )
+        return false;
+      if (
         filters.materials.length &&
         (!product.material || !filters.materials.includes(product.material))
+      )
+        return false;
+      if (
+        filters.colors.length &&
+        (!colorName || !filters.colors.includes(colorName))
       )
         return false;
       if (
@@ -480,6 +510,11 @@ export function filterAiSearchProducts(
         !filters.occasions.includes(inferAiSearchOccasion(product))
       )
         return false;
+      if (
+        filters.handmadeTypes.length &&
+        !filters.handmadeTypes.includes(handmadeType)
+      )
+        return false;
       if (typeof priceOption.min === "number" && currentPrice < priceOption.min)
         return false;
       if (typeof priceOption.max === "number" && currentPrice > priceOption.max)
@@ -490,10 +525,12 @@ export function filterAiSearchProducts(
       const haystack = [
         product.name,
         product.description,
-        getAiSearchCategoryName(product),
+        categoryName,
         product.material,
+        colorName,
         inferAiSearchStyle(product),
         inferAiSearchOccasion(product),
+        handmadeType,
         product.tags?.join(" "),
         product.sku,
       ]
@@ -504,13 +541,19 @@ export function filterAiSearchProducts(
       return queryTokens.every((token) => haystack.includes(token));
     })
     .map((product) => {
+      const categoryName = getAiSearchCategoryName(product);
+      const colorName = String(product.color || "").trim();
+      const handmadeType = inferAiSearchHandmadeType(product);
+
       const haystack = [
         product.name,
         product.description,
-        getAiSearchCategoryName(product),
+        categoryName,
         product.material,
+        colorName,
         inferAiSearchStyle(product),
         inferAiSearchOccasion(product),
+        handmadeType,
         product.tags?.join(" "),
       ]
         .filter(Boolean)
