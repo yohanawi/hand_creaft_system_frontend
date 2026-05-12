@@ -3,18 +3,7 @@ import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-    ActivityIndicator,
-    Animated,
-    Dimensions,
-    Image,
-    NativeScrollEvent,
-    NativeSyntheticEvent,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Image, NativeScrollEvent, NativeSyntheticEvent, ScrollView, Text, TouchableOpacity, View, } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -54,11 +43,8 @@ type ShowcaseCategory = {
     description: string;
     imageUri: string | null;
     itemCount: number;
-    accentColor: string;
     icon: FeatherIconName;
 };
-
-const CATEGORY_ACCENTS = ['#8B4513', '#A45A2A', '#6E3B24', '#B06A3F', '#7B4A2E', '#9A5B36'];
 
 const resolveCategoryIcon = (category: Pick<ApiCategory, 'name' | 'slug'>): FeatherIconName => {
     const value = `${category.name} ${category.slug || ''}`.toLowerCase();
@@ -83,7 +69,6 @@ const buildCategoryCards = (apiCategories: ApiCategory[]): ShowcaseCategory[] =>
             description: category.description?.trim() || 'Discover handcrafted jewelry and artisan collections in this category.',
             imageUri: getAssetUrl(category.image),
             itemCount: Number(category.productCount || 0),
-            accentColor: CATEGORY_ACCENTS[index % CATEGORY_ACCENTS.length],
             icon: resolveCategoryIcon(category),
         }))
 );
@@ -148,7 +133,7 @@ const CategoryCard = ({
                     />
                 ) : (
                     <LinearGradient
-                        colors={[category.accentColor, '#3D2417']}
+                        colors={['#8B4513', '#3D2417']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
@@ -184,24 +169,6 @@ const CategoryCard = ({
                 <View
                     style={{
                         position: 'absolute',
-                        top: 18,
-                        right: 18,
-                        width: 42,
-                        height: 42,
-                        borderRadius: 21,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(255,255,255,0.16)',
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.18)',
-                    }}
-                >
-                    <Feather name={category.icon} size={18} color="#FFF7EE" />
-                </View>
-
-                <View
-                    style={{
-                        position: 'absolute',
                         left: 18,
                         right: 18,
                         bottom: 18,
@@ -217,7 +184,7 @@ const CategoryCard = ({
                             height: 2,
                             width: 54,
                             borderRadius: 999,
-                            backgroundColor: category.accentColor,
+                            backgroundColor: '#8B4513',
                             marginBottom: 14,
                         }}
                     />
@@ -226,14 +193,7 @@ const CategoryCard = ({
                         {category.name}
                     </Text>
 
-                    <Text
-                        style={{ color: 'rgba(255,247,238,0.78)', fontSize: 13, lineHeight: 20, marginTop: 8 }}
-                        numberOfLines={2}
-                    >
-                        {category.description}
-                    </Text>
-
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 5 }}>
                         <Text style={{ color: '#FFF7EE', fontSize: 12, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' }}>
                             Explore Collection
                         </Text>
@@ -258,17 +218,15 @@ const CategoryCard = ({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function CategorySection() {
-    const router = useRouter();
 
+    const router = useRouter();
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(40)).current;
-
     const scrollRef = useRef<ScrollView>(null);
     const scrollX = useRef(0);
     const maxScroll = useRef(0);
     const isUserDragging = useRef(false);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
     const [categories, setCategories] = useState<ShowcaseCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

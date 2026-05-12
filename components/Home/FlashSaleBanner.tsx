@@ -171,11 +171,11 @@ const DigitBlock = ({ value, label }: DigitBlockProps) => {
     return (
         <div className="flex flex-col items-center">
             <div className="relative min-w-[72px] h-20 rounded-[14px] flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#B5A192] to-[#9e8473] border border-white/25 before:absolute before:inset-0 before:bg-gradient-to-b before:from-black/4 before:via-transparent before:to-black/6 before:pointer-events-none after:absolute after:top-1/2 after:left-0 after:right-0 after:h-px after:bg-black/12 after:z-[2]">
-                <span className={`text-4xl font-black tracking-tight text-[#714329] font-serif relative z-[3] ${flipping ? 'animate-[digitFlip_0.35s_ease]' : ''}`} style={{ letterSpacing: '-0.03em' }}>
+                <span className={`text-4xl font-black tracking-tight text-[#714329] font-playfair relative z-[3] ${flipping ? 'animate-[digitFlip_0.35s_ease]' : ''}`} style={{ letterSpacing: '-0.03em' }}>
                     {str}
                 </span>
             </div>
-            <span className="mt-1.5 text-xs font-bold tracking-widest uppercase text-[#6B6B6B] font-serif">
+            <span className="mt-1.5 text-xs font-bold tracking-widest uppercase text-[#6B6B6B]">
                 {label}
             </span>
         </div>
@@ -195,7 +195,8 @@ const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => 
     }, [index]);
 
     return (
-        <div className={`flex-shrink-0 flex flex-col overflow-hidden rounded-2xl bg-white border border-slate-200 transition-all duration-500 select-none ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+        <div
+            className={`flex-shrink-0 flex flex-col overflow-hidden rounded-2xl bg-white border border-slate-200 transition-all duration-500 select-none ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
             style={{
                 width: cardWidth,
                 transform: visible
@@ -225,8 +226,8 @@ const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => 
                             <p className="text-[11px] font-black text-white/90 uppercase tracking-[0.15em] mb-1">
                                 Availability
                             </p>
-                            <div className="flex items-baseline gap-2">
-                                <span className={`text-2xl font-black font-serif ${isLow ? 'text-red-400' : 'text-emerald-400'}`}>
+                            <div className="flex items-center gap-2">
+                                <span className={`text-2xl font-black ${isLow ? 'text-red-400' : 'text-emerald-400'}`}>
                                     {item.stock}
                                 </span>
                                 <span className="text-xs font-semibold text-white/70">
@@ -257,13 +258,13 @@ const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => 
             </div>
 
             <div className="flex flex-col flex-1 p-5">
-                <h3 className="text-lg font-bold mb-2 leading-snug min-h-[2.8rem] text-[#1C1C1C] font-serif line-clamp-2">
+                <h3 className="text-lg font-bold mb-2 leading-snug min-h-[2.8rem] text-[#1C1C1C] font-playfair line-clamp-2">
                     {item.name}
                 </h3>
 
                 <div className="flex items-end gap-3 mb-6">
                     <div className="flex flex-col">
-                        <span className="text-3xl font-black text-[#714329] font-serif tracking-tight leading-none">
+                        <span className="text-2xl font-black text-[#714329] font-playfair tracking-tight leading-none">
                             {formatMoney(item.price, item.currency)}
                         </span>
                         <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest mt-1">
@@ -271,7 +272,7 @@ const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => 
                         </span>
                     </div>
 
-                    <span className="text-sm line-through opacity-50 text-[#6B6B6B] font-serif mb-5">
+                    <span className="text-sm line-through opacity-50 text-[#6B6B6B] font-playfair mb-5">
                         {formatMoney(item.originalPrice, item.currency)}
                     </span>
 
@@ -293,10 +294,6 @@ const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => 
                             ))}
                         </div>
                         <span className="text-xs text-[#6B6B6B] font-semibold">({item.reviewCount} reviews)</span>
-                    </div>
-
-                    <div className="flex items-center gap-1 text-[10px] font-black text-[#714329] uppercase tracking-widest bg-orange-50 px-2 py-1 rounded-md">
-                        <Zap size={10} fill="currentColor" /> Trending
                     </div>
                 </div>
 
@@ -424,6 +421,7 @@ const Swiper = ({ items }: SwiperProps) => {
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function FlashSaleBanner() {
+
     const [timeLeft, setTimeLeft] = useState(14 * 3600 + 37 * 60 + 52);
     const [headerVisible, setHeaderVisible] = useState(false);
     const [saleProducts, setSaleProducts] = useState<SaleProduct[]>([]);
@@ -494,35 +492,13 @@ export default function FlashSaleBanner() {
     const headlineImage = useMemo(() => saleProducts[0]?.image || FALLBACK_IMAGE, [saleProducts]);
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            background: `linear-gradient(148deg, #dbc6b6 0%, ${COLORS.background} 45%, #c4a48f 100%)`,
-            fontFamily: "'Cormorant Garamond', serif",
-            color: COLORS.textPrimary,
-            position: 'relative', overflow: 'hidden',
-        }}>
-
-            <div className="max-w-[1300px] mx-auto px-8 relative z-[1] pb-36">
-
-                <header style={{
-                    padding: '4rem 0 3.5rem',
-                    opacity: headerVisible ? 1 : 0,
-                    transform: headerVisible ? 'translateY(0)' : 'translateY(-20px)',
-                    transition: 'all 0.9s cubic-bezier(0.23,1,0.32,1)',
-                }}>
+        <div className="relative bg-[#fbf7f3] rounded-[32px] overflow-hidden">
+            <div className="max-w-[1300px] mx-auto px-8 relative z-[1] pb-10">
+                <header className={`pt-16 pb-10 transition-all duration-700 ${headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '3rem' }}>
-
                         <div className="flex flex-col flex-1 py-10">
-                            <h1 style={{
-                                fontSize: 'clamp(2.2rem, 5vw, 4rem)',
-                                fontFamily: "'Playfair Display', serif",
-                                fontWeight: 700, lineHeight: 1.12,
-                                color: COLORS.textPrimary, marginBottom: '1rem',
-                                letterSpacing: '-0.02em',
-                            }}>
-                                Weekend{' '}
-                                <em style={{ color: COLORS.darkColor, fontStyle: 'italic' }}>Craft</em>
-                                <br />Curated Flash Sale
+                            <h1 className="text-5xl font-black tracking-tight text-[#1C1C1C] mb-6 font-serif leading-snug animate-[fadeUp_0.6s_ease_0.3s_both]">
+                                Weekend{' '} <em style={{ color: COLORS.darkColor, fontStyle: 'italic' }}>Craft</em> <br />Curated Flash Sale
                             </h1>
 
                             <p className="text-base leading-7 text-[#1C1C1C] opacity-72 mb-6 font-serif font-medium max-w-xl">
@@ -534,7 +510,7 @@ export default function FlashSaleBanner() {
                                     { icon: <Icons.Clock size={13} />, label: '24 Hours Only' },
                                     { icon: <Icons.Truck size={13} />, label: 'Live Discounted Products' },
                                 ].map((chip) => (
-                                    <View key={chip.label} className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/30 border border-white">
+                                    <View key={chip.label} className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/30 border border-[#E5E5E5]">
                                         {chip.icon}
                                         <Text className="text-xs font-bold text-[#714329]">
                                             {chip.label}
@@ -545,45 +521,32 @@ export default function FlashSaleBanner() {
                         </div>
 
                         <div className="flex flex-col items-center rounded-[28px] bg-white/18 backdrop-blur-[16px] border p-10 border-white/45 animate-[timerIn_0.8s_cubic-bezier(0.23,1,0.32,1)_0.3s_both]">
-                            <span className="text-xs font-black tracking-widest uppercase text-[#6B6B6B] mb-6 font-serif">
+                            <span className="text-xs font-black tracking-widest uppercase text-[#6B6B6B] mb-6">
                                 Sale Event Concludes In
                             </span>
                             <div className="flex items-center gap-3">
                                 <DigitBlock value={h} label="Hours" />
-                                <span className="text-4xl font-black text-[#714329] mb-4.5 animate-[blink_1s_step-end_infinite] font-serif">:</span>
+                                <span className="text-4xl font-black text-[#714329] mb-6 animate-[blink_1s_step-end_infinite] font-serif">:</span>
                                 <DigitBlock value={m} label="Minutes" />
-                                <span className="text-4xl font-black text-[#714329] mb-4.5 animate-[blink_1s_step-end_infinite] font-serif">:</span>
+                                <span className="text-4xl font-black text-[#714329] mb-6 animate-[blink_1s_step-end_infinite] font-serif">:</span>
                                 <DigitBlock value={s} label="Seconds" />
                             </div>
+
+                            <Pressable onPress={() => router.push('/deals')} className="flex-row items-center gap-1.5 mt-16">
+                                {({ hovered }) => (
+                                    <>
+                                        <Text className={`text-sm font-bold font-serif ${hovered ? 'text-black' : 'text-[#714329]'}`}>
+                                            View Full Collection
+                                        </Text>
+                                        <div style={{ color: hovered ? '#000' : '#714329' }}>
+                                            <Icons.ChevronRight size={16} />
+                                        </div>
+                                    </>
+                                )}
+                            </Pressable>
                         </div>
                     </div>
                 </header>
-
-                <div className="flex items-center justify-between mb-6 animate-[fadeUp_0.6s_ease_0.7s_both] ">
-                    <div className="flex items-center gap-3.5">
-                        <div className="w-1.5 h-11 rounded-full bg-gradient-to-b from-[#B08463] to-[#714329]" />
-                        <div>
-                            <h2 className="text-3xl font-bold tracking-tight text-[#1C1C1C] font-serif">
-                                Exclusive Offers
-                            </h2>
-                            <p className="opacity-55 text-[#6B6B6B] font-serif">
-                                Drag or use arrows · Live backend discounts only
-                            </p>
-                        </div>
-                    </div>
-                    <Pressable onPress={() => router.push('/deals')} className="flex-row items-center gap-1.5">
-                        {({ hovered }) => (
-                            <>
-                                <Text className={`text-sm font-bold font-serif ${hovered ? 'text-black' : 'text-[#714329]'}`}>
-                                    View Full Collection
-                                </Text>
-                                <div style={{ color: hovered ? '#000' : '#714329' }}>
-                                    <Icons.ChevronRight size={16} />
-                                </div>
-                            </>
-                        )}
-                    </Pressable>
-                </div>
 
                 <div style={{ animation: 'fadeUp 0.7s ease 0.9s both' }}>
                     {loading ? (

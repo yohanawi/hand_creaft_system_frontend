@@ -128,177 +128,147 @@ function JewelryCard({
     const discountPercent = getDiscountPercent(item);
 
     return (
-        <View
-            style={{
-                width: CARD_WIDTH,
-                backgroundColor: '#FFFFFF',
-                borderRadius: 28,
-                overflow: 'hidden',
-                borderWidth: 1,
-                borderColor: '#F0E7DE',
-                elevation: 5,
-            }}
-        >
-            <View style={{ position: 'relative', padding: 8, paddingBottom: 0, backgroundColor: '#FAFAFA' }}>
-                <View
-                    style={{
-                        height: CARD_WIDTH,
-                        borderRadius: 22,
-                        overflow: 'hidden',
-                        backgroundColor: '#F4F1ED',
-                    }}
-                >
-                    {imageUri ? (
-                        <Image
-                            source={{ uri: imageUri }}
-                            resizeMode="cover"
-                            style={{ width: '50%', height: '50%' }}
-                        />
-                    ) : (
-                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                            <Feather name="image" size={28} color="#8C7A6B" />
-                        </View>
-                    )}
-
+        <TouchableOpacity onPress={() => onOpenProduct(item._id)}>
+            <View
+                style={{
+                    width: CARD_WIDTH,
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: 28,
+                    overflow: 'hidden',
+                    borderWidth: 1,
+                    borderColor: '#F0E7DE',
+                    elevation: 5,
+                }}
+            >
+                <View style={{ position: 'relative', padding: 8, paddingBottom: 0, backgroundColor: '#FAFAFA' }}>
                     <View
                         style={{
-                            position: 'absolute',
-                            top: 14,
-                            left: 14,
-                            paddingHorizontal: 12,
-                            paddingVertical: 6,
-                            borderRadius: 999,
-                            backgroundColor: 'rgba(255,255,255,0.95)',
-                            borderWidth: 1,
-                            borderColor: 'rgba(255,255,255,0.7)',
+                            height: 250,
+                            borderRadius: 22,
+                            overflow: 'hidden',
+                            backgroundColor: '#F4F1ED',
                         }}
                     >
-                        <Text style={{ color: '#8C7A6B', fontSize: 9, fontWeight: '800', letterSpacing: 1.4, textTransform: 'uppercase' }}>
-                            {getCategoryName(item)}
-                        </Text>
-                    </View>
+                        {imageUri ? (
+                            <Image
+                                source={{ uri: imageUri }}
+                                resizeMode="cover"
+                                style={{ width: '50%', height: '50%' }}
+                            />
+                        ) : (
+                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                <Feather name="image" size={28} color="#8C7A6B" />
+                            </View>
+                        )}
 
-                    <TouchableOpacity
-                        onPress={() => setLiked((value) => !value)}
-                        style={{
-                            position: 'absolute',
-                            top: 14,
-                            right: 14,
-                            width: 36,
-                            height: 36,
-                            borderRadius: 18,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: liked ? 'rgba(212,175,55,0.14)' : 'rgba(255,255,255,0.92)',
-                            borderWidth: 1,
-                            borderColor: liked ? 'rgba(212,175,55,0.3)' : 'rgba(255,255,255,0.6)',
-                        }}
-                    >
-                        <Feather name="heart" size={16} color={liked ? '#D4AF37' : '#5A4A3F'} />
-                    </TouchableOpacity>
-
-                    <View
-                        style={{
-                            position: 'absolute',
-                            bottom: 14,
-                            left: 14,
-                            paddingHorizontal: 12,
-                            paddingVertical: 7,
-                            borderRadius: 999,
-                            backgroundColor: badge.color,
-                            shadowColor: badge.color,
-                            shadowOffset: { width: 0, height: 6 },
-                            shadowOpacity: 0.18,
-                            shadowRadius: 12,
-                            elevation: 3,
-                        }}
-                    >
-                        <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' }}>
-                            {badge.label}
-                        </Text>
-                    </View>
-                </View>
-            </View>
-
-            <View style={{ padding: 22 }}>
-                <View style={{ marginBottom: 14 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                        <StarRow rating={rating} />
-                        <Text style={{ color: '#A69B91', fontSize: 10 }}>
-                            ({reviewCount.toLocaleString()})
-                        </Text>
-                    </View>
-
-                    <Text
-                        numberOfLines={2}
-                        style={{
-                            color: '#1A1A1A',
-                            fontSize: 17,
-                            fontWeight: '600',
-                            lineHeight: 24,
-                        }}
-                    >
-                        {item.name}
-                    </Text>
-
-                    <Text style={{ color: '#8C7A6B', fontSize: 11, marginTop: 7 }}>
-                        {soldCount > 0 ? `${formatCompactCount(soldCount)} sold` : 'Freshly featured'}
-                    </Text>
-                </View>
-
-                <View style={{ paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F5F2ED' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
-                        <View style={{ flex: 1 }}>
-                            {discountPercent > 0 ? (
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                                    <Text style={{ color: '#A69B91', fontSize: 11, textDecorationLine: 'line-through' }}>
-                                        {item.currency === 'USD' || !item.currency ? `$${item.price.toFixed(2)}` : `${item.currency} ${item.price.toFixed(2)}`}
-                                    </Text>
-                                    <Text style={{ color: '#D4AF37', fontSize: 9, fontWeight: '800', letterSpacing: 1.1, textTransform: 'uppercase' }}>
-                                        Save {discountPercent}%
-                                    </Text>
-                                </View>
-                            ) : null}
-                            <Text style={{ color: '#1A1A1A', fontSize: 19, fontWeight: '600' }}>
-                                {formatPrice(item)}
+                        <View
+                            style={{
+                                position: 'absolute',
+                                top: 14,
+                                left: 14,
+                                paddingHorizontal: 12,
+                                paddingVertical: 6,
+                                borderRadius: 999,
+                                backgroundColor: 'rgba(255,255,255,0.95)',
+                                borderWidth: 1,
+                                borderColor: 'rgba(255,255,255,0.7)',
+                            }}
+                        >
+                            <Text style={{ color: '#8C7A6B', fontSize: 9, fontWeight: '800', letterSpacing: 1.4, textTransform: 'uppercase' }}>
+                                {getCategoryName(item)}
                             </Text>
                         </View>
 
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                            <TouchableOpacity
-                                onPress={() => onOpenProduct(item._id)}
-                                style={{
-                                    paddingHorizontal: 14,
-                                    paddingVertical: 10,
-                                    borderRadius: 999,
-                                    backgroundColor: '#F8F5F1',
-                                    borderWidth: 1,
-                                    borderColor: '#E8DFD0',
-                                }}
-                            >
-                                <Text style={{ color: '#1A1A1A', fontSize: 12, fontWeight: '700' }}>
-                                    View
-                                </Text>
-                            </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => setLiked((value) => !value)}
+                            style={{
+                                position: 'absolute',
+                                top: 14,
+                                right: 14,
+                                width: 36,
+                                height: 36,
+                                borderRadius: 18,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: liked ? 'rgba(212,175,55,0.14)' : 'rgba(255,255,255,0.92)',
+                                borderWidth: 1,
+                                borderColor: liked ? 'rgba(212,175,55,0.3)' : 'rgba(255,255,255,0.6)',
+                            }}
+                        >
+                            <Feather name="heart" size={16} color={liked ? '#D4AF37' : '#5A4A3F'} />
+                        </TouchableOpacity>
 
-                            <TouchableOpacity
-                                onPress={() => onOpenProduct(item._id)}
-                                style={{
-                                    width: 42,
-                                    height: 42,
-                                    borderRadius: 21,
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    backgroundColor: RANK_ACCENTS[index % RANK_ACCENTS.length],
-                                }}
-                            >
-                                <Feather name="shopping-bag" size={16} color="#FFFFFF" />
-                            </TouchableOpacity>
+                        <View
+                            style={{
+                                position: 'absolute',
+                                bottom: 14,
+                                left: 14,
+                                paddingHorizontal: 12,
+                                paddingVertical: 7,
+                                borderRadius: 999,
+                                backgroundColor: badge.color,
+                                shadowColor: badge.color,
+                                shadowOffset: { width: 0, height: 6 },
+                                shadowOpacity: 0.18,
+                                shadowRadius: 12,
+                                elevation: 3,
+                            }}
+                        >
+                            <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' }}>
+                                {badge.label}
+                            </Text>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={{ padding: 22 }}>
+                    <View style={{ marginBottom: 14 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                            <StarRow rating={rating} />
+                            <Text style={{ color: '#A69B91', fontSize: 10 }}>
+                                ({reviewCount.toLocaleString()})
+                            </Text>
+                        </View>
+
+                        <Text
+                            numberOfLines={2}
+                            style={{
+                                color: '#1A1A1A',
+                                fontSize: 17,
+                                fontWeight: '600',
+                                lineHeight: 24,
+                            }}
+                        >
+                            {item.name}
+                        </Text>
+
+                        <Text style={{ color: '#8C7A6B', fontSize: 11, marginTop: 7 }}>
+                            {soldCount > 0 ? `${formatCompactCount(soldCount)} sold` : 'Freshly featured'}
+                        </Text>
+                    </View>
+
+                    <View style={{ paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F5F2ED' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+                            <Text style={{ color: '#1A1A1A', fontSize: 19, fontWeight: '600' }}>
+                                {formatPrice(item)}
+                            </Text>
+                            <View className="flex-row">
+                                {discountPercent > 0 ? (
+                                    <View className="flex-row items-center gap-2 mb-1">
+                                        <Text style={{ color: '#A69B91', fontSize: 11, textDecorationLine: 'line-through' }}>
+                                            {item.currency === 'USD' || !item.currency ? `$${item.price.toFixed(2)}` : `${item.currency} ${item.price.toFixed(2)}`}
+                                        </Text>
+                                        <Text style={{ color: '#D4AF37', fontSize: 9, fontWeight: '800', letterSpacing: 1.1, textTransform: 'uppercase' }}>
+                                            Save {discountPercent}%
+                                        </Text>
+                                    </View>
+                                ) : null}
+                            </View>
                         </View>
                     </View>
                 </View>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 }
 

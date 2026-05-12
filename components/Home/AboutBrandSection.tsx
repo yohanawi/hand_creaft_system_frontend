@@ -1,5 +1,5 @@
 ﻿import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Dimensions, Image, Text, TouchableOpacity, View, } from 'react-native';
 
@@ -111,6 +111,7 @@ export default function AboutBrandSection() {
     const imgScaleAnim = useRef(new Animated.Value(0.92)).current;
     const statAnims = useRef(stats.map(() => new Animated.Value(0))).current;
     const stripAnim = useRef(new Animated.Value(0)).current;
+    const router = useRouter();
 
     useEffect(() => {
         Animated.parallel([
@@ -256,9 +257,13 @@ export default function AboutBrandSection() {
 
                             {/* Buttons */}
                             <View className="flex-row flex-wrap gap-3">
-                                <TouchableOpacity className="flex-row items-center gap-2 bg-[#8B4513] px-6 py-3.5 rounded-full" >
+                                <TouchableOpacity
+                                    onPress={() => router.push('/shop')}
+                                    activeOpacity={0.9}
+                                    className="flex-row items-center gap-2 bg-[#8B4513] px-6 py-3.5 rounded-full"
+                                >
                                     <Text className="text-sm font-extrabold text-white">
-                                        Meet Our Artisans
+                                        Shop Now
                                     </Text>
                                     <Feather name="arrow-right" size={16} color="#fff" />
                                 </TouchableOpacity>
@@ -296,42 +301,6 @@ export default function AboutBrandSection() {
                             ))}
                         </View>
                     </View>
-
-                    {/* ═══════════════════════════════════════════
-                        BOTTOM TRUST BANNER
-                    ═══════════════════════════════════════════ */}
-                    <Animated.View style={{ opacity: fadeAnim, marginTop: isMobile ? 20 : 40 }} className="overflow-hidden rounded-3xl">
-                        <LinearGradient colors={['#8B4513', '#A0522D', '#CD853F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 24 }}>
-                            <View className="flex-row items-center justify-between py-7"
-                                style={{
-                                    paddingHorizontal: isMobile ? 20 : 40,
-                                    flexDirection: isMobile ? 'column' : 'row',
-                                    gap: isMobile ? 16 : 0,
-                                }}>
-                                {/* Text block */}
-                                <View className="items-center md:items-start" style={{ alignItems: isMobile ? 'center' : 'flex-start' }}>
-                                    <Text className="text-white/75 text-[11px] font-bold tracking-[1.5px] uppercase mb-1">
-                                        Start Supporting Artisans
-                                    </Text>
-                                    <Text className="text-white font-black tracking-[-0.5px]"
-                                        style={{
-                                            fontSize: isMobile ? 18 : 22,
-                                            textAlign: isMobile ? 'center' : 'left',
-                                        }}>
-                                        Every purchase tells a human story ✦
-                                    </Text>
-                                </View>
-
-                                {/* Button */}
-                                <TouchableOpacity className="flex-row items-center gap-2 bg-white px-6 py-3.5 rounded-full" >
-                                    <Text className="text-[#8B4513] font-extrabold text-sm">
-                                        Shop Handmade
-                                    </Text>
-                                    <Feather name="arrow-right" size={16} color="#8B4513" />
-                                </TouchableOpacity>
-                            </View>
-                        </LinearGradient>
-                    </Animated.View>
 
                 </View>
             </View>

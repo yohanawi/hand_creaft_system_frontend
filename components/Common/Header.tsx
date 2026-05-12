@@ -325,14 +325,7 @@ export default function Header({ scrollY }: HeaderProps) {
 
     const activeMegaCategory = visualMenuCategories[activeMegaCat] ?? null;
 
-    const openMegaMenu = () => {
-        if (visualMenuCategories.length === 0) return;
-        if (megaCloseTimer.current) clearTimeout(megaCloseTimer.current);
-        setShowMegaMenu(true);
-    };
-    const closeMegaMenu = () => {
-        megaCloseTimer.current = setTimeout(() => setShowMegaMenu(false), 150);
-    };
+
 
     const navigateToCategory = (categorySlug?: string) => {
         router.push(buildShopRoute({ categorySlug }) as any);
@@ -742,14 +735,11 @@ export default function Header({ scrollY }: HeaderProps) {
                                 {NAV_LINKS.map((link) => {
                                     if (link.label === 'Categories') {
                                         return (
-                                            <View
-                                                key="Categories"
-                                                {...{ onMouseEnter: openMegaMenu, onMouseLeave: closeMegaMenu } as any}
-                                            >
+                                            <View key="Categories"  >
                                                 <NavLink
                                                     label="Categories"
                                                     active={activeNav === 'Categories' || showMegaMenu}
-                                                    onPress={() => router.push('/categories' as any)}
+                                                    onPress={() => setShowMegaMenu((prev) => !prev)}
                                                 />
                                             </View>
                                         );
@@ -861,7 +851,6 @@ export default function Header({ scrollY }: HeaderProps) {
                 ══════════════════════════════════════════ */}
                 {showMegaMenu && activeMegaCategory && !isMobile && !isTablet && Platform.OS === 'web' && (
                     <Animated.View
-                        {...{ onMouseEnter: openMegaMenu, onMouseLeave: closeMegaMenu } as any}
                         style={{
                             position: 'absolute',
                             top: animatedMegaMenuTop,
@@ -875,16 +864,9 @@ export default function Header({ scrollY }: HeaderProps) {
                             backgroundColor: '#fff',
                             borderRadius: 16,
                             overflow: 'hidden',
-                            ...getShadowStyle('0 12px 24px rgba(0, 0, 0, 0.15)', {
-                                shadowColor: '#000',
-                                shadowOffset: { width: 0, height: 12 },
-                                shadowOpacity: 0.15,
-                                shadowRadius: 24,
-                                elevation: 20,
-                            }),
                             borderTopWidth: 3,
                             borderTopColor: '#8B4513',
-                            maxWidth: 1280,
+                            maxWidth: 800,
                             alignSelf: 'center',
                             width: '100%',
                         }}>
@@ -906,7 +888,7 @@ export default function Header({ scrollY }: HeaderProps) {
                                         marginBottom: 12, marginLeft: 4,
                                     }}>All Categories</Text>
 
-                                    {visualMenuCategories.map((cat, i) => (
+                                    {visualMenuCategories.slice(0, 5).map((cat, i) => (
                                         <Pressable
                                             key={cat._id}
                                             onHoverIn={() => setActiveMegaCat(i)}
@@ -946,6 +928,65 @@ export default function Header({ scrollY }: HeaderProps) {
                                             />
                                         </Pressable>
                                     ))}
+
+                                    {/* View All Button */}
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            router.push('/categories' as any);
+                                            setShowMegaMenu(false);
+                                        }}
+                                        activeOpacity={0.9}
+                                        style={{
+                                            marginTop: 14,
+                                            borderRadius: 14,
+                                            overflow: 'hidden',
+                                        }}
+                                    >
+                                        <Pressable
+                                            onPress={() => {
+                                                setShowMegaMenu(false);
+                                                router.push('/categories' as any);
+                                            }}
+                                            style={({ hovered, pressed }) => ({
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: 8,
+
+                                                marginTop: 14,
+                                                paddingVertical: 13,
+                                                borderRadius: 14,
+
+                                                backgroundColor: pressed
+                                                    ? '#6F3417'
+                                                    : hovered
+                                                        ? '#9C5A38'
+                                                        : '#8B4513',
+
+                                                borderWidth: 1,
+                                                borderColor: hovered ? '#CD853F' : '#8B4513',
+
+                                                transform: [
+                                                    {
+                                                        scale: pressed ? 0.98 : hovered ? 1.02 : 1,
+                                                    },
+                                                ],
+                                            })}
+                                        >
+                                            <Text
+                                                style={{
+                                                    color: '#fff',
+                                                    fontSize: 13,
+                                                    fontWeight: '700',
+                                                    letterSpacing: 0.3,
+                                                }}
+                                            >
+                                                View All Categories
+                                            </Text>
+
+                                            <Feather name="arrow-right" size={15} color="#fff" />
+                                        </Pressable>
+                                    </TouchableOpacity>
                                 </View>
 
                                 {/* ── RIGHT COLUMNS: subcategories (flex 2) ── */}
