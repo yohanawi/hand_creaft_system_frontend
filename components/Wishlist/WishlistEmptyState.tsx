@@ -9,7 +9,7 @@ type Props = {
 
 export default function WishlistEmptyState({ onExplore }: Props) {
     return (
-        <View className="overflow-hidden rounded-[32px] border border-[#EADBCB] bg-white px-6 py-12 md:px-10 md:py-16" style={WISHLIST_CARD_SHADOW}>
+        <View className="overflow-hidden rounded-[32px] border border-[#EADBCB] bg-white px-6 py-12 md:px-10 md:py-20 my-32" style={WISHLIST_CARD_SHADOW}>
             <View className="items-center">
                 <View className="relative mb-7">
                     <View className="h-28 w-28 items-center justify-center rounded-full bg-[#FAF1E7] md:h-36 md:w-36">
@@ -27,15 +27,11 @@ export default function WishlistEmptyState({ onExplore }: Props) {
                     Discover rings, necklaces, earrings, and bracelets crafted to feel gift-worthy from the very first glance.
                 </Text>
 
-                <TouchableOpacity
-                    onPress={onExplore}
-                    activeOpacity={0.85}
-                    className="flex-row items-center gap-3 rounded-full bg-[#4A2E24] px-7 py-4"
-                >
-                    <Feather name="arrow-right" size={18} color="#FFFFFF" />
+                <TouchableOpacity onPress={onExplore} activeOpacity={0.85} className="flex-row items-center gap-3 rounded-full bg-[#4A2E24] px-7 py-4">
                     <Text className="text-sm uppercase tracking-[1.8px] text-white" style={{ fontFamily: WISHLIST_SANS }}>
                         Explore Collection
                     </Text>
+                    <Feather name="arrow-right" size={18} color="#FFFFFF" />
                 </TouchableOpacity>
             </View>
         </View>

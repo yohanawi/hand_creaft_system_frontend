@@ -29,19 +29,19 @@ export type WishlistDetailProduct = WishlistProduct & {
 export const TRUST_SIGNALS = [
   {
     icon: "shield",
-    title: "Authentic handcrafted pieces",
+    title: "Authentic Handcrafted Pieces",
     description:
       "Small-batch jewelry finished with artisan detail and verified materials.",
   },
   {
     icon: "lock",
-    title: "Secure checkout",
+    title: "Secure Checkout",
     description:
       "Protected payment flow for high-value purchases and gift orders.",
   },
   {
     icon: "refresh-ccw",
-    title: "Easy returns",
+    title: "Easy Returns",
     description:
       "A friendly return window if the piece needs a different fit or feel.",
   },
@@ -346,7 +346,7 @@ export const normalizeWishlistCatalog = (
       createdAt: item?.createdAt,
       isFeatured: Boolean(item?.isFeatured),
     }))
-    .filter((item) => item._id);
+    .filter((item: { _id: any; }) => item._id);
 };
 
 const productScore = (
