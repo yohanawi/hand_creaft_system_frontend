@@ -17,10 +17,12 @@ import {
     WishlistDetailProduct,
 } from '@/components/Wishlist/wishlistUtils';
 import { useCart } from '@/context/CartContext';
+import { useCurrency } from '@/context/CurrencyContext';
 import { useToast } from '@/context/ToastContext';
 import { useWishlist } from '@/context/WishlistContext';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
 import { getProductById } from '@/services/api';
+import { formatConvertedPrice } from '@/utils/currency';
 import { Feather } from '@expo/vector-icons';
 import * as ExpoLinking from 'expo-linking';
 import { useRouter } from 'expo-router';
@@ -50,6 +52,7 @@ export default function WishlistScreen() {
 
     const { items, removeItem, clearItems } = useWishlist();
     const { addToCart } = useCart();
+    const { currency } = useCurrency();
     const { showToast } = useToast();
 
     const [addingId, setAddingId] = useState<string | null>(null);
@@ -229,7 +232,7 @@ export default function WishlistScreen() {
                                                 </Text>
 
                                                 <Text className="mt-2 text-[32px] text-white font-body">
-                                                    ${totalSavings.toFixed(2)}
+                                                    {formatConvertedPrice(totalSavings, currency)}
                                                 </Text>
                                             </View>
                                         </View>

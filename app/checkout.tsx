@@ -11,6 +11,7 @@ import ReviewStep from '@/components/Checkout/ReviewStep';
 import ShippingStep from '@/components/Checkout/ShippingStep';
 import PageShell from '@/components/PageShell';
 import { useCart } from '@/context/CartContext';
+import { useCurrency } from '@/context/CurrencyContext';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
 import useProtectedRoute from '@/hooks/useProtectedRoute';
 import {
@@ -20,6 +21,7 @@ import {
     placeOrder,
     validateCoupon,
 } from '@/services/api';
+import { formatConvertedPrice } from '@/utils/currency';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -41,6 +43,7 @@ export default function CheckoutScreen() {
     const router = useRouter();
     const auth = useProtectedRoute();
     const { items, subtotal, shippingCost, clearCart } = useCart();
+    const { currency } = useCurrency();
 
     const [step, setStep] = useState<CheckoutStep>(1);
     const [form, setForm] = useState<ShippingForm>(EMPTY_FORM);
@@ -181,7 +184,7 @@ export default function CheckoutScreen() {
 
             Alert.alert(
                 'Coupon Applied',
-                `Discount applied: $${Number(data.discount || 0).toFixed(2)}`
+                `Discount applied: ${formatConvertedPrice(Number(data.discount || 0), currency)}`
             );
         } catch (err: any) {
             setCouponDiscount(0);

@@ -1,11 +1,13 @@
 import { CartItem } from '@/context/CartContext';
+import { useCurrency } from '@/context/CurrencyContext';
 import { WishlistProduct } from '@/context/WishlistContext';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { formatConvertedPrice } from '@/utils/currency';
 import { CARD_SHADOW, SANS_FONT, SERIF_FONT } from './cartTheme';
-import { CartRecommendation, formatCurrency, getCartItemImageUri } from './cartUtils';
+import { CartRecommendation, getCartItemImageUri } from './cartUtils';
 
 type Props = {
     couponCode: string;
@@ -49,6 +51,8 @@ export default function CartSupportSections({
     onBrowseWishlist,
     cartItems,
 }: Props) {
+    const { currency } = useCurrency();
+
     return (
         <View className="gap-6">
             <View className="rounded-[30px] border border-[#E7D7C7] bg-white p-5 md:p-6" style={CARD_SHADOW}>
@@ -94,7 +98,7 @@ export default function CartSupportSections({
                     <View className="mt-4 flex-row items-center gap-3 rounded-[20px] bg-[#F3FBF5] px-4 py-3">
                         <Feather name="tag" size={16} color="#317159" />
                         <Text className="flex-1 text-sm text-[#317159]" style={{ fontFamily: SANS_FONT }}>
-                            Discount preview applied: {formatCurrency(couponDiscount)}.
+                            Discount preview applied: {formatConvertedPrice(couponDiscount, currency)}.
                         </Text>
                     </View>
                 ) : null}
@@ -213,7 +217,7 @@ export default function CartSupportSections({
                                                 {item.name}
                                             </Text>
                                             <Text className="mt-1 text-sm text-[#6D5B4E]" style={{ fontFamily: SANS_FONT }}>
-                                                {formatCurrency(displayPrice)}
+                                                {formatConvertedPrice(displayPrice, currency)}
                                             </Text>
                                         </View>
                                     </View>

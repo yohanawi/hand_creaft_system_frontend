@@ -2,7 +2,7 @@ export const AI_SEARCH_COLORS = {
   background: "#f7f1eb",
   panel: "#fffaf6",
   panelStrong: "#f1e5d8",
-  card: "#fffdfb",
+  card: "#fffdfb", 
   ink: "#24170f",
   muted: "#7c6757",
   line: "#eadccd",

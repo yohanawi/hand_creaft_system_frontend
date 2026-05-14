@@ -1,7 +1,9 @@
 import { useCart } from '@/context/CartContext';
+import { useCurrency } from '@/context/CurrencyContext';
 import { useToast } from '@/context/ToastContext';
 import { useWishlist } from '@/context/WishlistContext';
 import type { Product, ViewMode } from '@/types/shop';
+import { formatConvertedPrice } from '@/utils/currency';
 import { badgeColor, discount } from '@/utils/shopHelpers';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -19,6 +21,7 @@ export default function ProductCard({ product, viewMode, index, isMobile }: Prop
 
     const router = useRouter();
     const { addToCart } = useCart();
+    const { currency } = useCurrency();
     const { isInWishlist, toggleItem } = useWishlist();
     const { showToast } = useToast();
     const [addingToCart, setAddingToCart] = useState(false);
@@ -101,13 +104,13 @@ export default function ProductCard({ product, viewMode, index, isMobile }: Prop
         <View className="flex-row flex-wrap items-center gap-2">
             {/* Current Price */}
             <Text className="text-[17px] font-bold text-[#6B4226] tracking-tight">
-                ${curr.toFixed(2)}
+                {formatConvertedPrice(curr, currency)}
             </Text>
 
             {/* Original Price */}
             {hasSale && (
                 <Text className="text-[13px] text-[#A08B7D] line-through">
-                    ${orig.toFixed(2)}
+                    {formatConvertedPrice(orig, currency)}
                 </Text>
             )}
 

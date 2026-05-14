@@ -10,6 +10,7 @@ import { LogBox, Platform } from 'react-native';
 import 'react-native-reanimated';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { CartProvider, useCart } from '../context/CartContext';
+import { CurrencyProvider } from '../context/CurrencyContext';
 import { ToastProvider } from '../context/ToastContext';
 import { WishlistProvider, useWishlist } from '../context/WishlistContext';
 import '../global.css';
@@ -49,33 +50,35 @@ export default function RootLayout() {
     return null;
   }
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <CartProvider>
-          <WishlistProvider>
-            <SyncManager />
-            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="login" />
-                <Stack.Screen name="register" />
-                <Stack.Screen name="customer-dashboard" options={{ animation: 'fade_from_bottom' }} />
-                <Stack.Screen name="profile" />
-                <Stack.Screen name="support-tickets" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="ai-search" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="orders" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="order-tracking" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="payment-success" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="payment-failure" options={{ animation: 'slide_from_right' }} />
-                <Stack.Screen name="seller" />
-                <Stack.Screen name="admin" />
-              </Stack>
-              <StatusBar style="auto" />
-            </ThemeProvider>
-          </WishlistProvider>
-        </CartProvider>
-      </ToastProvider>
-    </AuthProvider>
+    <CurrencyProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <SyncManager />
+              <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="index" />
+                  <Stack.Screen name="login" />
+                  <Stack.Screen name="register" />
+                  <Stack.Screen name="customer-dashboard" options={{ animation: 'fade_from_bottom' }} />
+                  <Stack.Screen name="profile" />
+                  <Stack.Screen name="support-tickets" options={{ animation: 'slide_from_right' }} />
+                  <Stack.Screen name="ai-search" options={{ animation: 'slide_from_right' }} />
+                  <Stack.Screen name="orders" options={{ animation: 'slide_from_right' }} />
+                  <Stack.Screen name="order-tracking" options={{ animation: 'slide_from_right' }} />
+                  <Stack.Screen name="payment-success" options={{ animation: 'slide_from_right' }} />
+                  <Stack.Screen name="payment-failure" options={{ animation: 'slide_from_right' }} />
+                  <Stack.Screen name="seller" />
+                  <Stack.Screen name="admin" />
+                </Stack>
+                <StatusBar style="auto" />
+              </ThemeProvider>
+            </WishlistProvider>
+          </CartProvider>
+        </ToastProvider>
+      </AuthProvider>
+    </CurrencyProvider>
   );
 }
 

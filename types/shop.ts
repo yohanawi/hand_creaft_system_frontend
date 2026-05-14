@@ -9,6 +9,9 @@ export type Product = {
   salePrice?: number;
   currency: string;
   quantity: number;
+  status?: "active" | "inactive" | "archived";
+  isArchived?: boolean;
+  archivedAt?: string | null;
   availabilityStatus: "in_stock" | "out_of_stock" | "pre_order";
   material?: string;
   sku?: string;
@@ -32,6 +35,9 @@ export type ApiProduct = {
   price: number;
   salePrice?: number;
   currency?: string;
+  status?: "active" | "inactive" | "archived";
+  isArchived?: boolean;
+  archivedAt?: string | null;
   category?: { name: string; slug: string } | string;
   subcategory?: { name: string; slug: string } | string;
   quantity?: number;

@@ -1,7 +1,11 @@
+import { FREE_SHIPPING_THRESHOLD } from '@/components/Cart/cartTheme';
+import HeaderCurrencyDropdown from '@/components/HeaderCurrencyDropdown';
 import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
+import { useCurrency } from '@/context/CurrencyContext';
 import { useWishlist } from '@/context/WishlistContext';
 import api, { getApiErrorMessage, getAssetUrl } from '@/services/api';
+import { formatConvertedPrice } from '@/utils/currency';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { usePathname, useRouter } from 'expo-router';
@@ -290,6 +294,7 @@ export default function Header({ scrollY }: HeaderProps) {
     const pathname = usePathname() ?? '/';
     const { userToken, logout } = useContext(AuthContext)!;
     const { cartCount } = useCart();
+    const { currency } = useCurrency();
     const { wishlistCount } = useWishlist();
 
     const [showMenu, setShowMenu] = useState(false);
@@ -533,10 +538,12 @@ export default function Header({ scrollY }: HeaderProps) {
                     style={{
                         height: animatedTopBarHeight,
                         opacity: animatedOpacity,
-                        overflow: 'hidden',
+                        overflow: showTopBar ? 'visible' : 'hidden',
+                        position: 'relative',
+                        zIndex: 40,
                     }}
                 >
-                    <View className="bg-[#714329] py-[7px]" style={{ paddingHorizontal: isMobile ? 16 : 32 }}>
+                    <View className="bg-[#714329] py-[7px]" style={{ paddingHorizontal: isMobile ? 16 : 32, position: 'relative', zIndex: 40 }}>
                         <View className="flex-row items-center self-center justify-between w-full max-w-7xl">
                             {/* Left — contact info */}
                             <View className="flex-row items-center gap-4">
@@ -627,9 +634,10 @@ export default function Header({ scrollY }: HeaderProps) {
                                 {!isMobile && (
                                     <Text className="text-white text-sm tracking-[0.5px] gap-3 flex-row items-center hidden md:flex">
                                         <Feather name="truck" size={16} color="#fff" />
-                                        Free shipping on orders over LKR 50
+                                        Free shipping on orders over {formatConvertedPrice(FREE_SHIPPING_THRESHOLD, currency)}
                                     </Text>
                                 )}
+                                <HeaderCurrencyDropdown />
                                 <View className="w-[1px] h-[12px] bg-white/20" />
                                 <View className="flex-row items-center gap-1.5">
                                     {/* Social links: use <a> for web, Pressable for native */}
@@ -705,6 +713,7 @@ export default function Header({ scrollY }: HeaderProps) {
                         shadowRadius: 10,
                         elevation: 8,
                     })}
+                    
                 >
                     <View className="flex-row items-center justify-between w-full max-w-[1280px] self-center">
                         {/* ── LOGO ── */}

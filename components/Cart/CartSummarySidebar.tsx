@@ -1,9 +1,11 @@
+import { useCurrency } from '@/context/CurrencyContext';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Platform, Text, TouchableOpacity, View } from 'react-native';
+import { formatConvertedPrice } from '@/utils/currency';
 import { CARD_SHADOW, FREE_SHIPPING_THRESHOLD, SANS_FONT, SERIF_FONT } from './cartTheme';
-import { estimateDeliveryLabel, formatCurrency, freeShippingRemainder } from './cartUtils';
+import { estimateDeliveryLabel, freeShippingRemainder } from './cartUtils';
 
 type Props = {
     subtotal: number;
@@ -39,6 +41,7 @@ export default function CartSummarySidebar({
     onCheckout,
     onContinueShopping,
 }: Props) {
+    const { currency } = useCurrency();
     const remainder = freeShippingRemainder(subtotal);
     const stickyStyle = Platform.OS === 'web' && isDesktop ? ({ position: 'sticky', top: 24 } as any) : null;
 
@@ -56,12 +59,12 @@ export default function CartSummarySidebar({
                 </Text>
 
                 <View className="rounded-[24px] bg-white/90 px-4 py-3">
-                    <SummaryRow label="Subtotal" value={formatCurrency(subtotal)} />
-                    <SummaryRow label="Discount" value={discount > 0 ? `-${formatCurrency(discount)}` : formatCurrency(0)} />
-                    <SummaryRow label="Shipping" value={shippingCost === 0 ? 'FREE' : formatCurrency(shippingCost)} />
-                    <SummaryRow label="Tax" value={formatCurrency(tax)} />
+                    <SummaryRow label="Subtotal" value={formatConvertedPrice(subtotal, currency)} />
+                    <SummaryRow label="Discount" value={discount > 0 ? `-${formatConvertedPrice(discount, currency)}` : formatConvertedPrice(0, currency)} />
+                    <SummaryRow label="Shipping" value={shippingCost === 0 ? 'FREE' : formatConvertedPrice(shippingCost, currency)} />
+                    <SummaryRow label="Tax" value={formatConvertedPrice(tax, currency)} />
                     <View className="my-2 h-px bg-[#E7D7C7]" />
-                    <SummaryRow label="Total" value={formatCurrency(total)} highlight />
+                    <SummaryRow label="Total" value={formatConvertedPrice(total, currency)} highlight />
                 </View>
 
                 <View className="mt-5 rounded-[24px] bg-[#2E221B] px-4 py-4">
@@ -79,8 +82,8 @@ export default function CartSummarySidebar({
                         </View>
                     </View>
                     <Text className="text-sm leading-6 text-white/80" style={{ fontFamily: SANS_FONT }}>
-                        Free shipping on orders over {formatCurrency(FREE_SHIPPING_THRESHOLD)}.
-                        {remainder > 0 ? ` Add ${formatCurrency(remainder)} more to unlock it.` : ' You have already unlocked complimentary delivery.'}
+                        Free shipping on orders over {formatConvertedPrice(FREE_SHIPPING_THRESHOLD, currency)}.
+                        {remainder > 0 ? ` Add ${formatConvertedPrice(remainder, currency)} more to unlock it.` : ' You have already unlocked complimentary delivery.'}
                     </Text>
                 </View>
 

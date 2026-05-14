@@ -1,4 +1,6 @@
+import { useCurrency } from '@/context/CurrencyContext';
 import { getAssetUrl, getProducts } from '@/services/api';
+import { formatConvertedPrice } from '@/utils/currency';
 import { router } from 'expo-router';
 import { Check, ShoppingCart, Zap } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -141,18 +143,6 @@ const toSaleProduct = (product: ApiProduct, index: number): SaleProduct => {
     };
 };
 
-const formatMoney = (value: number, currency = 'USD') => {
-    try {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency,
-            maximumFractionDigits: 2,
-        }).format(value);
-    } catch {
-        return `$${value.toFixed(2)}`;
-    }
-};
-
 // ─── Digit Block ─────────────────────────────────────────────────────────────
 const DigitBlock = ({ value, label }: DigitBlockProps) => {
     const [prevVal, setPrevVal] = useState(value);
@@ -184,6 +174,7 @@ const DigitBlock = ({ value, label }: DigitBlockProps) => {
 
 // ─── Product Card ─────────────────────────────────────────────────────────────
 const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => {
+    const { currency } = useCurrency();
     const [inCart, setInCart] = useState(false);
     const [visible, setVisible] = useState(false);
     const stockPct = Math.max(8, (item.stock / item.maxStock) * 100);
@@ -265,7 +256,7 @@ const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => 
                 <div className="flex items-end gap-3 mb-6">
                     <div className="flex flex-col">
                         <span className="text-2xl font-black text-[#714329] font-playfair tracking-tight leading-none">
-                            {formatMoney(item.price, item.currency)}
+                            {formatConvertedPrice(item.price, currency)}
                         </span>
                         <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest mt-1">
                             Best Price
@@ -273,12 +264,12 @@ const ProductCard = ({ item, index, isActive, cardWidth }: ProductCardProps) => 
                     </div>
 
                     <span className="text-sm line-through opacity-50 text-[#6B6B6B] font-playfair mb-5">
-                        {formatMoney(item.originalPrice, item.currency)}
+                        {formatConvertedPrice(item.originalPrice, currency)}
                     </span>
 
                     <div className="flex flex-col items-end ml-auto">
                         <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 py-1.5 rounded-full text-xs font-black tracking-wide">
-                            Save {formatMoney(item.originalPrice - item.price, item.currency)}
+                            Save {formatConvertedPrice(item.originalPrice - item.price, currency)}
                         </div>
                         <span className="text-[10px] font-bold text-green-700 mt-1 uppercase tracking-widest opacity-70">
                             {Math.round(((item.originalPrice - item.price) / item.originalPrice) * 100)}% off

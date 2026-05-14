@@ -1,12 +1,13 @@
 import { CartItem } from '@/context/CartContext';
+import { useCurrency } from '@/context/CurrencyContext';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useMemo } from 'react';
 import { Pressable, Text, TouchableOpacity, View } from 'react-native';
+import { formatConvertedPrice } from '@/utils/currency';
 import { CART_COLORS, SANS_FONT, SERIF_FONT } from './cartTheme';
 import {
     CartCustomization,
-    formatCurrency,
     getCartItemImageUri,
     getMaterialLabel,
     getSizeLabel,
@@ -40,6 +41,7 @@ export default function CartItemCard({
     onMoveToWishlist,
     onOpenProduct,
 }: Props) {
+    const { currency } = useCurrency();
     const unitPrice = useMemo(() => getUnitPrice(item), [item]);
     const discounted = hasDiscount(item);
     const lineTotal = unitPrice * item.quantity;
@@ -110,18 +112,18 @@ export default function CartItemCard({
                         <View>
                             <View className="flex-row items-center gap-2">
                                 <Text className="text-[19px] text-[#2E221B]" style={{ fontFamily: SERIF_FONT }}>
-                                    {formatCurrency(unitPrice)}
+                                    {formatConvertedPrice(unitPrice, currency)}
                                 </Text>
 
                                 {discounted ? (
                                     <Text className="text-xs text-[#A89686] line-through" style={{ fontFamily: SANS_FONT }}>
-                                        {formatCurrency(item.price)}
+                                        {formatConvertedPrice(item.price, currency)}
                                     </Text>
                                 ) : null}
                             </View>
 
                             <Text className="mt-0.5 text-[12px] text-[#9A7A62]" style={{ fontFamily: SANS_FONT }}>
-                                Total: {formatCurrency(lineTotal)}
+                                Total: {formatConvertedPrice(lineTotal, currency)}
                             </Text>
                         </View>
 

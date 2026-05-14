@@ -1,4 +1,6 @@
+import { useCurrency } from '@/context/CurrencyContext';
 import { getAssetUrl, getProducts } from '@/services/api';
+import { formatConvertedPrice } from '@/utils/currency';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -58,18 +60,6 @@ const getDisplayPrice = (product: ApiProduct) => (
         : product.price
 );
 
-const formatPrice = (product: ApiProduct) => {
-    try {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: product.currency || 'USD',
-            maximumFractionDigits: 2,
-        }).format(getDisplayPrice(product));
-    } catch {
-        return `$${getDisplayPrice(product).toFixed(2)}`;
-    }
-};
-
 const formatCompactCount = (value: number) => {
     if (value >= 1000) {
         return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1).replace(/\.0$/, '')}k`;
@@ -119,6 +109,7 @@ function JewelryCard({
     index: number;
     onOpenProduct: (productId: string) => void;
 }) {
+    const { currency } = useCurrency();
     const [liked, setLiked] = useState(false);
     const imageUri = getProductImage(item);
     const badge = getBadge(item, index);
@@ -250,13 +241,13 @@ function JewelryCard({
                     <View style={{ paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F5F2ED' }}>
                         <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
                             <Text style={{ color: '#1A1A1A', fontSize: 19, fontWeight: '600' }}>
-                                {formatPrice(item)}
+                                {formatConvertedPrice(getDisplayPrice(item), currency)}
                             </Text>
                             <View className="flex-row">
                                 {discountPercent > 0 ? (
                                     <View className="flex-row items-center gap-2 mb-1">
                                         <Text style={{ color: '#A69B91', fontSize: 11, textDecorationLine: 'line-through' }}>
-                                            {item.currency === 'USD' || !item.currency ? `$${item.price.toFixed(2)}` : `${item.currency} ${item.price.toFixed(2)}`}
+                                            {formatConvertedPrice(item.price, currency)}
                                         </Text>
                                         <Text style={{ color: '#D4AF37', fontSize: 9, fontWeight: '800', letterSpacing: 1.1, textTransform: 'uppercase' }}>
                                             Save {discountPercent}%

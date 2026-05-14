@@ -189,7 +189,7 @@ export const getSellerProducts = (params?: {
   page?: number;
   limit?: number;
   search?: string;
-  status?: string;
+  status?: "active" | "inactive" | "archived";
 }) => api.get("/seller/products", { params });
 export const createSellerProduct = (data: any) =>
   api.post("/seller/products", data);
@@ -496,8 +496,13 @@ export const searchProductsByImage = (
   config?: Parameters<typeof api.post>[2],
 ) =>
   api.post("/ai-search/search", data, {
-    headers: { "Content-Type": "multipart/form-data" },
     timeout: 60000,
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "multipart/form-data",
+      ...(config?.headers || {}),
+    },
+    transformRequest: () => data,
     ...config,
   });
 export const getAiIndexStatus = () => api.get("/ai-search/index-status");

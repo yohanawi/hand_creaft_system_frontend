@@ -1,4 +1,6 @@
 import { Feather } from '@expo/vector-icons';
+import { useCurrency } from '@/context/CurrencyContext';
+import { formatConvertedPrice } from '@/utils/currency';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { products } from '../../Data/product-data';
@@ -62,6 +64,7 @@ const Icons = {
 };
 
 export default function PopularProducts() {
+    const { currency } = useCurrency();
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideUpAnim = useRef(new Animated.Value(50)).current;
@@ -223,15 +226,15 @@ export default function PopularProducts() {
                             {discount > 0 ? (
                                 <>
                                     <span className="text-xs text-stone-400 line-through mb-0.5 decoration-stone-300">
-                                        LKR.{product.originalPrice.toFixed(2)}
+                                        {formatConvertedPrice(product.originalPrice, currency)}
                                     </span>
                                     <span className="text-xl font-serif font-semibold text-[#8C5A41]">
-                                        LKR.{product.price.toFixed(2)}
+                                        {formatConvertedPrice(product.price, currency)}
                                     </span>
                                 </>
                             ) : (
                                 <span className="text-xl font-serif font-semibold text-[#2C2420]">
-                                    LKR.{product.price.toFixed(2)}
+                                    {formatConvertedPrice(product.price, currency)}
                                 </span>
                             )}
                         </div>

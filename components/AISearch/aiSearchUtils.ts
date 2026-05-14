@@ -16,7 +16,7 @@ export type AiSearchProduct = {
   quantity?: number;
   isFeatured?: boolean;
   sku?: string;
-  tags?: string[];
+  tags?: string[]; 
   averageRating?: number;
   reviewCount?: number;
 };

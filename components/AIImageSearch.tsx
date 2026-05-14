@@ -138,6 +138,7 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 }
 
 export default function AIImageSearch() {
+
     const auth = useContext(AuthContext);
     const router = useRouter();
     const { width } = useWindowDimensions();

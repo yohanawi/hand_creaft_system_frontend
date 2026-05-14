@@ -1,7 +1,9 @@
+import { useCurrency } from '@/context/CurrencyContext';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import { formatConvertedPrice } from '@/utils/currency';
 import { WISHLIST_SANS, WISHLIST_SERIF } from './wishlistTheme';
 import {
     getWishlistBadge,
@@ -40,6 +42,7 @@ export default function WishlistItemCard({
     onTogglePriceDrop,
     onToggleBackInStock,
 }: Props) {
+    const { currency } = useCurrency();
     const imageUri = getWishlistImageUri(product);
     const discounted = hasWishlistDiscount(product);
     const inStock = isWishlistItemInStock(product);
@@ -127,12 +130,12 @@ export default function WishlistItemCard({
                 <View className="flex-row items-end justify-between gap-3 mb-5">
                     <View>
                         <Text className="text-[20px] text-[#4A2E24] font-body">
-                            ${getWishlistDisplayPrice(product).toFixed(2)}
+                            {formatConvertedPrice(getWishlistDisplayPrice(product), currency)}
                         </Text>
 
                         {discounted ? (
                             <Text className="text-[13px] text-[#9F8D7E] line-through" style={{ fontFamily: WISHLIST_SANS }} >
-                                ${Number(product.price || 0).toFixed(2)}
+                                {formatConvertedPrice(Number(product.price || 0), currency)}
                             </Text>
                         ) : null}
                     </View>

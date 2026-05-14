@@ -1,3 +1,5 @@
+import { useCurrency } from '@/context/CurrencyContext';
+import { formatConvertedPrice } from '@/utils/currency';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
@@ -6,7 +8,7 @@ import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { StarRow } from '@/components/Single-Product/RatingStars';
 import { PRODUCT_PAGE_COLORS, PRODUCT_PAGE_FONTS, PRODUCT_PAGE_SHADOW, PRODUCT_PAGE_SOFT_SHADOW } from '@/components/Single-Product/theme';
 import { Product, VariantAttribute, VariantChoice } from '@/components/Single-Product/types';
-import { formatCurrency, isLikelyColorValue } from '@/components/Single-Product/utils';
+import { isLikelyColorValue } from '@/components/Single-Product/utils';
 
 type Props = {
     product: Product;
@@ -17,7 +19,6 @@ type Props = {
     currentPrice: number;
     originalPrice: number;
     discountPct: number;
-    currency: string;
     averageRating: number;
     reviewCount: number;
     inStock: boolean;
@@ -108,7 +109,6 @@ export default function ProductPurchasePanel({
     currentPrice,
     originalPrice,
     discountPct,
-    currency,
     averageRating,
     reviewCount,
     inStock,
@@ -130,6 +130,8 @@ export default function ProductPurchasePanel({
     wished,
     onToggleWishlist,
 }: Props) {
+    const { currency } = useCurrency();
+
     return (
         <View style={{ flex: isMobile ? undefined : 0.96, width: isMobile ? '100%' : undefined }}>
             <View style={{ borderRadius: 32, overflow: 'hidden', backgroundColor: PRODUCT_PAGE_COLORS.surface, ...PRODUCT_PAGE_SHADOW }}>
@@ -176,11 +178,11 @@ export default function ProductPurchasePanel({
                                     </Text>
                                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: 10, marginTop: 6 }}>
                                         <Text style={{ color: PRODUCT_PAGE_COLORS.white, fontFamily: PRODUCT_PAGE_FONTS.heading, fontSize: 34 }}>
-                                            {formatCurrency(currentPrice, currency)}
+                                            {formatConvertedPrice(currentPrice, currency)}
                                         </Text>
                                         {discountPct > 0 ? (
                                             <Text style={{ color: 'rgba(255,255,255,0.7)', fontFamily: PRODUCT_PAGE_FONTS.body, fontSize: 15, textDecorationLine: 'line-through', marginBottom: 4 }}>
-                                                {formatCurrency(originalPrice, currency)}
+                                                {formatConvertedPrice(originalPrice, currency)}
                                             </Text>
                                         ) : null}
                                     </View>

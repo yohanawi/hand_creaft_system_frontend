@@ -22,6 +22,9 @@ export type Product = {
   salePrice?: number | null;
   currency?: string;
   sku?: string;
+  status?: "active" | "inactive" | "archived";
+  isArchived?: boolean;
+  archivedAt?: string | null;
   quantity?: number;
   availabilityStatus?: string;
   description?: string;

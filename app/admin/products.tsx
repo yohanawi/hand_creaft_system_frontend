@@ -113,7 +113,7 @@ export default function AdminProducts() {
     const loadAll = useCallback(async () => {
         setLoading(true);
         try {
-            const [pRes, cRes] = await Promise.all([getProducts(), getCategories()]);
+            const [pRes, cRes] = await Promise.all([getProducts({ archived: 'include' }), getCategories()]);
             setProducts(pRes.data?.products ?? pRes.data ?? []);
             setCategories(cRes.data ?? []);
             setSelectedIds([]);

@@ -1,3 +1,5 @@
+import { useCurrency } from '@/context/CurrencyContext';
+import { formatConvertedPrice } from '@/utils/currency';
 import React from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import CheckoutCard from './CheckoutCard';
@@ -23,6 +25,7 @@ export default function OrderSummary({
     couponLoading,
     handleApplyCoupon,
 }: Props) {
+    const { currency } = useCurrency();
     const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
     const tax = parseFloat((discountedSubtotal * 0.1).toFixed(2));
     const total = parseFloat((discountedSubtotal + shippingCost + tax).toFixed(2));
@@ -61,7 +64,7 @@ export default function OrderSummary({
                         </View>
 
                         <Text className="font-extrabold text-[#2E1B12]">
-                            ${(unitPrice(item) * item.quantity).toFixed(2)}
+                            {formatConvertedPrice(unitPrice(item) * item.quantity, currency)}
                         </Text>
                     </View>
                 </View>
@@ -95,14 +98,14 @@ export default function OrderSummary({
             </View>
 
             <View className="gap-3">
-                <Row label="Subtotal" value={`$${subtotal.toFixed(2)}`} />
+                <Row label="Subtotal" value={formatConvertedPrice(subtotal, currency)} />
 
                 {couponDiscount > 0 && (
-                    <Row label="Discount" value={`-$${couponDiscount.toFixed(2)}`} green />
+                    <Row label="Discount" value={`-${formatConvertedPrice(couponDiscount, currency)}`} green />
                 )}
 
-                <Row label="Shipping" value={shippingCost === 0 ? 'FREE' : `$${shippingCost.toFixed(2)}`} />
-                <Row label="Tax 10%" value={`$${tax.toFixed(2)}`} />
+                <Row label="Shipping" value={shippingCost === 0 ? 'FREE' : formatConvertedPrice(shippingCost, currency)} />
+                <Row label="Tax 10%" value={formatConvertedPrice(tax, currency)} />
 
                 <View className="mt-2 border-t border-[#F0E1D2] pt-4">
                     <View className="flex-row items-center justify-between">
@@ -110,7 +113,7 @@ export default function OrderSummary({
                             Total
                         </Text>
                         <Text className="text-2xl font-black text-[#7A3E1D]">
-                            ${total.toFixed(2)}
+                            {formatConvertedPrice(total, currency)}
                         </Text>
                     </View>
                 </View>

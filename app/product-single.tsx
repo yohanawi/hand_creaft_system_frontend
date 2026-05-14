@@ -460,8 +460,6 @@ export default function ProductSingleScreen() {
     const shipsFrom = product?.deliveryEstimate?.shipsFrom || '';
     const selectedVariantLabel = normalizeVariantLabel(selectedVariant);
     const displaySku = selectedVariant?.sku || product?.sku || '';
-    const displayCurrency = product?.currency || 'USD';
-
     if (loading) {
         return (
             <View style={{ flex: 1, backgroundColor: PRODUCT_PAGE_COLORS.page, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -571,7 +569,6 @@ export default function ProductSingleScreen() {
                                                 currentPrice={currentPrice}
                                                 originalPrice={basePrice}
                                                 discountPct={discountPct}
-                                                currency={displayCurrency}
                                                 averageRating={reviewStats.average}
                                                 reviewCount={reviewStats.count}
                                                 inStock={inStock}

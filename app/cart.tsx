@@ -14,10 +14,12 @@ import {
 } from '@/components/Cart/cartUtils';
 import PageShell from '@/components/PageShell';
 import { useCart } from '@/context/CartContext';
+import { useCurrency } from '@/context/CurrencyContext';
 import { useToast } from '@/context/ToastContext';
 import { WishlistProduct, useWishlist } from '@/context/WishlistContext';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
 import { validateCoupon } from '@/services/api'; 
+import { formatConvertedPrice } from '@/utils/currency';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Animated, View, useWindowDimensions } from 'react-native';
@@ -33,6 +35,7 @@ export default function CartScreen() {
     const router = useRouter();
     const { showToast } = useToast();
     const { items, cartCount, subtotal, shippingCost, total, removeFromCart, updateQty, addToCart } = useCart();
+    const { currency } = useCurrency();
     const { items: wishlistItems, isInWishlist, toggleItem, removeItem } = useWishlist();
     const { width } = useWindowDimensions();
 
@@ -84,7 +87,7 @@ export default function CartScreen() {
             const discount = Number(data.discount || 0);
             setCouponDiscount(discount);
             setCouponCode(String(data.coupon?.code || couponCode).trim());
-            showToast('Coupon applied to cart preview', 'success', { subMessage: `${formatCurrency(discount)} discount ready` });
+            showToast('Coupon applied to cart preview', 'success', { subMessage: `${formatConvertedPrice(discount, currency)} discount ready` });
         } catch (error: any) {
             setCouponDiscount(0);
             Alert.alert('Coupon Error', error?.response?.data?.message ?? 'Failed to validate coupon.');

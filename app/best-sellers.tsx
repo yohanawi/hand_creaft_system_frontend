@@ -1,6 +1,8 @@
 ﻿import PageShell from '@/components/PageShell';
+import { useCurrency } from '@/context/CurrencyContext';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
 import { getAssetUrl, getProducts } from '@/services/api';
+import { formatConvertedPrice } from '@/utils/currency';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -34,6 +36,7 @@ const RANK_COLORS: [string, string][] = [
 export default function BestSellersScreen() {
     const { scrollY, onScroll } = useHeaderScroll();
     const router = useRouter();
+    const { currency } = useCurrency();
     const [selectedFilter, setSelectedFilter] = useState('weekly');
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [products, setProducts] = useState<Product[]>([]);
@@ -221,9 +224,9 @@ export default function BestSellersScreen() {
                                                                         </Text>
                                                                     </View>
                                                                     <View className="flex-row items-baseline mb-4">
-                                                                        <Text className="mr-3 text-4xl font-bold text-brown-primary">${displayPrice.toFixed(2)}</Text>
+                                                                        <Text className="mr-3 text-4xl font-bold text-brown-primary">{formatConvertedPrice(displayPrice, currency)}</Text>
                                                                         {product.salePrice && product.salePrice < product.price && (
-                                                                            <Text className="text-xl text-gray-400 line-through">${product.price.toFixed(2)}</Text>
+                                                                            <Text className="text-xl text-gray-400 line-through">{formatConvertedPrice(product.price, currency)}</Text>
                                                                         )}
                                                                     </View>
                                                                     <View className="flex-row gap-3">
@@ -285,9 +288,9 @@ export default function BestSellersScreen() {
                                                                         <Text className="ml-2 text-sm text-gray-600">({product.reviewCount ?? 0})</Text>
                                                                     </View>
                                                                     <View className="flex-row items-baseline mb-3">
-                                                                        <Text className="mr-2 text-2xl font-bold text-brown-primary">${displayPrice.toFixed(2)}</Text>
+                                                                        <Text className="mr-2 text-2xl font-bold text-brown-primary">{formatConvertedPrice(displayPrice, currency)}</Text>
                                                                         {product.salePrice && product.salePrice < product.price && (
-                                                                            <Text className="text-sm text-gray-400 line-through">${product.price.toFixed(2)}</Text>
+                                                                            <Text className="text-sm text-gray-400 line-through">{formatConvertedPrice(product.price, currency)}</Text>
                                                                         )}
                                                                     </View>
                                                                     <TouchableOpacity className="flex-row items-center justify-center py-3 bg-brown-primary rounded-xl">

@@ -1,6 +1,8 @@
+import { useCurrency } from '@/context/CurrencyContext';
 import { Feather } from '@expo/vector-icons';
 import React from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { formatConvertedPrice } from '@/utils/currency';
 import CheckoutCard from './CheckoutCard';
 import { PaymentMethod, ShippingForm } from './checkout.types';
 
@@ -29,6 +31,8 @@ export default function ReviewStep({
     onBack,
     onPlaceOrder,
 }: Props) {
+    const { currency } = useCurrency();
+
     return (
         <CheckoutCard>
             <Text className="mb-1 text-xl font-extrabold text-[#2E1B12]">
@@ -86,7 +90,7 @@ export default function ReviewStep({
                         {couponCode.toUpperCase()}
                     </Text>
                     <Text className="font-extrabold text-green-800">
-                        -${couponDiscount.toFixed(2)}
+                        -{formatConvertedPrice(couponDiscount, currency)}
                     </Text>
                 </View>
             ) : null}
