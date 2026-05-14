@@ -1,6 +1,6 @@
 import CustomerPageFrame, { CustomerSectionCard } from '@/components/Customer/CustomerPageFrame';
 import CustomerSidebar from '@/components/Customer/CustomerSidebar';
-import { BROWN } from '@/constants/brandTheme';
+import { BRAND_FONTS, BROWN } from '@/constants/brandTheme';
 import { useToast } from '@/context/ToastContext';
 import useHeaderScroll from '@/hooks/useHeaderScroll';
 import useProtectedRoute from '@/hooks/useProtectedRoute';
@@ -21,11 +21,12 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   RefreshControl,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 
 type AddressForm = {
@@ -50,7 +51,7 @@ const EMPTY_ADDRESS: AddressForm = {
   city: '',
   state: '',
   zipCode: '',
-  country: 'US',
+  country: 'Sri Lanka',
   isDefault: false,
 };
 
@@ -58,42 +59,136 @@ const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
 const PHONE_REGEX = /^[+]?[0-9()\-\s]{7,20}$/;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
+function Field({
+  label,
+  icon,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType,
+  secureTextEntry,
+}: {
+  label: string;
+  icon: keyof typeof Feather.glyphMap;
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder?: string;
+  keyboardType?: any;
+  secureTextEntry?: boolean;
+}) {
+  return (
+    <View className="gap-2">
+      <Text
+        className="text-[12px] uppercase tracking-[1.8px] text-[#8A6A56]"
+        style={{ fontFamily: BRAND_FONTS.body }}
+      >
+        {label}
+      </Text>
+
+      <View className="flex-row items-center gap-3 rounded-2xl border border-[#EAD7C3] bg-[#FFFAF5] px-4 py-1">
+        <Feather name={icon} size={16} color={BROWN.DarkColor} />
+
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor="#A58B78"
+          keyboardType={keyboardType}
+          secureTextEntry={secureTextEntry}
+          className="min-h-[48px] flex-1 text-[14px] text-[#2B1E16] outline-none"
+          style={{ fontFamily: BRAND_FONTS.body }}
+        />
+      </View>
+    </View>
+  );
+}
+
+function PrimaryButton({
+  label,
+  onPress,
+  loading,
+  variant = 'dark',
+}: {
+  label: string;
+  onPress: () => void;
+  loading?: boolean;
+  variant?: 'dark' | 'light' | 'danger';
+}) {
+  const bg =
+    variant === 'danger' ? '#FFF4F4' : variant === 'light' ? '#F6ECDF' : '#2B1E16';
+  const color =
+    variant === 'danger' ? '#B91C1C' : variant === 'light' ? BROWN.DarkColor : '#FFFFFF';
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={loading}
+      className="items-center rounded-full px-5 py-3.5"
+      style={({ pressed }) => ({
+        backgroundColor: bg,
+        opacity: pressed || loading ? 0.78 : 1,
+      })}
+    >
+      {loading ? (
+        <ActivityIndicator color={color} />
+      ) : (
+        <Text className="text-[13px] font-bold" style={{ color, fontFamily: BRAND_FONTS.body }}>
+          {label}
+        </Text>
+      )}
+    </Pressable>
+  );
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const { scrollY, onScroll } = useHeaderScroll();
   const auth = useProtectedRoute();
   const { logout, updateUser, userToken } = auth;
   const { showToast } = useToast();
+
+  const isWide = width >= 1050;
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
+
   const [profile, setProfile] = useState({ name: '', email: '', phone: '' });
   const [addresses, setAddresses] = useState<any[]>([]);
   const [addressForm, setAddressForm] = useState<AddressForm>(EMPTY_ADDRESS);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
 
+  const defaultAddress = useMemo(
+    () => addresses.find((address) => address.isDefault) || addresses[0],
+    [addresses],
+  );
+
   const loadProfile = useCallback(async () => {
-    if (!userToken) {
-      return;
-    }
+    if (!userToken) return;
 
     try {
       const [profileRes, addressesRes] = await Promise.all([getMyProfile(), getAddresses()]);
       const user = profileRes.data;
+      const nextAddresses = addressesRes.data || [];
+
       setProfile({
         name: user?.name || '',
         email: user?.email || '',
         phone: user?.phone || '',
       });
-      setAddresses(addressesRes.data || []);
+
+      setAddresses(nextAddresses);
+
       updateUser({
         name: user?.name,
         email: user?.email,
         phone: user?.phone,
-        addresses: addressesRes.data || [],
+        addresses: nextAddresses,
       });
     } catch (error) {
       showToast('Profile load failed', 'error', {
@@ -107,23 +202,11 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!auth.isAuthorized) {
-        return;
-      }
+      if (!auth.isAuthorized) return;
 
       setLoading(true);
       loadProfile();
-    }, [auth.isAuthorized, loadProfile])
-  );
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadProfile();
-  };
-
-  const defaultAddressId = useMemo(
-    () => addresses.find((address) => address.isDefault)?._id ?? null,
-    [addresses]
+    }, [auth.isAuthorized, loadProfile]),
   );
 
   const handleSaveProfile = async () => {
@@ -145,14 +228,18 @@ export default function ProfileScreen() {
     }
 
     setSavingProfile(true);
+
     try {
       const { data } = await updateMyProfile(profile);
+
       setProfile({
         name: data.user.name,
         email: data.user.email,
         phone: data.user.phone || '',
       });
+
       updateUser(data.user);
+
       showToast('Profile updated', 'success', {
         subMessage: 'Your account details were saved successfully.',
       });
@@ -181,6 +268,7 @@ export default function ProfileScreen() {
     }
 
     setSavingPassword(true);
+
     try {
       await changeMyPassword(passwordForm);
       setPasswordForm({ currentPassword: '', newPassword: '' });
@@ -195,7 +283,15 @@ export default function ProfileScreen() {
   };
 
   const handleSaveAddress = async () => {
-    if (!addressForm.fullName || !addressForm.phone || !addressForm.addressLine1 || !addressForm.city || !addressForm.state || !addressForm.zipCode || !addressForm.country) {
+    if (
+      !addressForm.fullName ||
+      !addressForm.phone ||
+      !addressForm.addressLine1 ||
+      !addressForm.city ||
+      !addressForm.state ||
+      !addressForm.zipCode ||
+      !addressForm.country
+    ) {
       showToast('Address details are incomplete', 'warning', {
         subMessage: 'Street, city, state, postal code, country, and phone are required.',
       });
@@ -208,15 +304,19 @@ export default function ProfileScreen() {
     }
 
     setSavingAddress(true);
+
     try {
       const request = editingAddressId
         ? updateAddress(editingAddressId, addressForm)
         : addAddress(addressForm);
+
       const { data } = await request;
+
       setAddresses(data.addresses || []);
       setAddressForm(EMPTY_ADDRESS);
       setEditingAddressId(null);
       updateUser({ addresses: data.addresses || [] });
+
       showToast(editingAddressId ? 'Address updated' : 'Address added', 'success');
     } catch (error) {
       showToast('Address save failed', 'error', {
@@ -238,7 +338,7 @@ export default function ProfileScreen() {
       city: address.city || '',
       state: address.state || '',
       zipCode: address.zipCode || '',
-      country: address.country || 'US',
+      country: address.country || 'Sri Lanka',
       isDefault: !!address.isDefault,
     });
   };
@@ -283,18 +383,13 @@ export default function ProfileScreen() {
     router.replace('/login' as any);
   };
 
-  if (auth.shouldBlock) {
+  if (auth.shouldBlock || loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-[#F8F2EA]">
-        <ActivityIndicator size="large" color="#8B4513" />
-      </View>
-    );
-  }
-
-  if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-[#F8F2EA]">
-        <ActivityIndicator size="large" color="#8B4513" />
+      <View className="flex-1 items-center justify-center bg-[#F7EFE7]">
+        <ActivityIndicator size="large" color={BROWN.DarkColor} />
+        <Text className="mt-4 text-[#765F50]" style={{ fontFamily: BRAND_FONTS.body }}>
+          Loading profile...
+        </Text>
       </View>
     );
   }
@@ -304,187 +399,382 @@ export default function ProfileScreen() {
       scrollY={scrollY}
       onScroll={onScroll}
       eyebrow="Customer Profile"
-      title="Your account, delivery details, and support tools in one place."
-      subtitle="Update personal details, manage saved addresses, change your password, and open support conversations without leaving the customer area."
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BROWN.DarkColor} />}
+      title="Your personal atelier profile."
+      subtitle="Manage account details, delivery addresses, password security, and support access for your handmade jewellery purchases."
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => {
+            setRefreshing(true);
+            loadProfile();
+          }}
+          tintColor={BROWN.DarkColor}
+        />
+      }
       sidebar={<CustomerSidebar />}
       actions={
         <>
-          <TouchableOpacity onPress={() => router.push('/support-tickets' as any)} className="px-5 py-3 rounded-full" style={{ backgroundColor: '#FFFFFF' }}>
-            <Text className="font-body text-[14px] font-semibold" style={{ color: BROWN.TextPrimary }}>My Tickets</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleLogout} className="px-5 py-3 border rounded-full" style={{ borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(255,255,255,0.1)' }}>
-            <Text className="font-body text-[14px] font-semibold text-white">Logout</Text>
-          </TouchableOpacity>
+          <Pressable
+            onPress={() => router.push('/support-tickets' as any)}
+            className="px-5 py-3 bg-white rounded-full"
+          >
+            <Text className="text-[14px] font-bold text-[#2B1E16]" style={{ fontFamily: BRAND_FONTS.body }}>
+              My Tickets
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleLogout}
+            className="px-5 py-3 border rounded-full border-white/25 bg-white/10"
+          >
+            <Text className="text-[14px] font-bold text-white" style={{ fontFamily: BRAND_FONTS.body }}>
+              Logout
+            </Text>
+          </Pressable>
         </>
       }
       heroAside={
-        <View className="rounded-[30px] border p-5" style={{ borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.1)' }}>
-          <Text className="font-body text-[11px] uppercase tracking-[1.8px]" style={{ color: '#F1DAC5' }}>Account snapshot</Text>
-          <Text className="mt-3 font-heading text-[24px] text-white">{profile.email || auth.user?.email || 'Customer account'}</Text>
-          <View className="gap-3 mt-5">
-            <View className="flex-row items-center justify-between px-4 py-3 rounded-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
-              <Text className="font-body text-[13px]" style={{ color: '#F7E7D8' }}>Saved addresses</Text>
-              <Text className="font-body text-[13px] font-semibold text-white">{addresses.length}</Text>
-            </View>
-            <View className="flex-row items-center justify-between px-4 py-3 rounded-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
-              <Text className="font-body text-[13px]" style={{ color: '#F7E7D8' }}>Default address</Text>
-              <Text className="font-body text-[13px] font-semibold text-white">{defaultAddressId ? 'Selected' : 'None'}</Text>
-            </View>
-            <View className="flex-row items-center justify-between px-4 py-3 rounded-2xl" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
-              <Text className="font-body text-[13px]" style={{ color: '#F7E7D8' }}>Phone</Text>
-              <Text className="font-body text-[13px] font-semibold text-white">{profile.phone || 'Add to profile'}</Text>
-            </View>
+        <View className="overflow-hidden rounded-[32px] border border-white/15 bg-white/10 p-5">
+          <View className="absolute rounded-full -right-8 -top-8 h-28 w-28 bg-white/10" />
+
+          <Text className="text-[11px] uppercase tracking-[2.4px] text-[#F1DAC5]" style={{ fontFamily: BRAND_FONTS.body }}>
+            Account Snapshot
+          </Text>
+
+          <Text className="mt-3 text-[27px] leading-[34px] text-white" style={{ fontFamily: BRAND_FONTS.heading }}>
+            {profile.name || 'Customer'}
+          </Text>
+
+          <Text className="mt-1 text-[13px] text-white/65" style={{ fontFamily: BRAND_FONTS.body }}>
+            {profile.email}
+          </Text>
+
+          <View className="gap-3 mt-6">
+            {[
+              { label: 'Saved Addresses', value: String(addresses.length), icon: 'map-pin' as const },
+              { label: 'Default Address', value: defaultAddress ? 'Ready' : 'None', icon: 'check-circle' as const },
+              { label: 'Phone', value: profile.phone ? 'Added' : 'Missing', icon: 'phone' as const },
+            ].map((item) => (
+              <View key={item.label} className="flex-row items-center justify-between px-4 py-3 rounded-2xl bg-black/10">
+                <View className="flex-row items-center gap-3">
+                  <Feather name={item.icon} size={15} color="#F1DAC5" />
+                  <Text className="text-[13px] text-[#F7E7D8]" style={{ fontFamily: BRAND_FONTS.body }}>
+                    {item.label}
+                  </Text>
+                </View>
+
+                <Text className="text-[13px] font-bold text-white" style={{ fontFamily: BRAND_FONTS.body }}>
+                  {item.value}
+                </Text>
+              </View>
+            ))}
           </View>
         </View>
       }
     >
-      <View className="grid gap-6">
-        <CustomerSectionCard title="Profile details" subtitle="Keep your name, email, and phone details current for support, checkout, and delivery communication.">
-          <Text className="text-[#2C1810] text-xl font-bold">Profile Details</Text>
+      <View className={isWide ? 'flex-row items-start gap-6' : 'gap-6'}>
+        <View className="flex-1 gap-6">
+          <CustomerSectionCard
+            title="Profile details"
+            subtitle="Keep your account details updated for checkout, delivery updates, and order support."
+          >
+            <View className="gap-4">
+              <Field
+                label="Full Name"
+                icon="user"
+                value={profile.name}
+                onChangeText={(value) => setProfile((prev) => ({ ...prev, name: value }))}
+                placeholder="Your full name"
+              />
 
-          <View>
-            <Text className="text-[#6B7280] mb-2">Full Name</Text>
-            <TextInput value={profile.name} onChangeText={(value) => setProfile((prev) => ({ ...prev, name: value }))} className="bg-[#F8F2EA] rounded-xl px-4 py-3" />
-          </View>
-          <View>
-            <Text className="text-[#6B7280] mb-2">Email</Text>
-            <TextInput value={profile.email} onChangeText={(value) => setProfile((prev) => ({ ...prev, email: value }))} autoCapitalize="none" keyboardType="email-address" className="bg-[#F8F2EA] rounded-xl px-4 py-3" />
-          </View>
-          <View>
-            <Text className="text-[#6B7280] mb-2">Phone</Text>
-            <TextInput value={profile.phone} onChangeText={(value) => setProfile((prev) => ({ ...prev, phone: value }))} keyboardType="phone-pad" className="bg-[#F8F2EA] rounded-xl px-4 py-3" />
-          </View>
+              <Field
+                label="Email"
+                icon="mail"
+                value={profile.email}
+                onChangeText={(value) => setProfile((prev) => ({ ...prev, email: value }))}
+                placeholder="your@email.com"
+                keyboardType="email-address"
+              />
 
-          <TouchableOpacity onPress={handleSaveProfile} disabled={savingProfile} className="bg-[#8B4513] rounded-xl py-4 items-center">
-            {savingProfile ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold">Save Profile</Text>}
-          </TouchableOpacity>
-        </CustomerSectionCard>
+              <Field
+                label="Phone"
+                icon="phone"
+                value={profile.phone}
+                onChangeText={(value) => setProfile((prev) => ({ ...prev, phone: value }))}
+                placeholder="+94..."
+                keyboardType="phone-pad"
+              />
 
-        <CustomerSectionCard title="Support access" subtitle="Create a ticket or revisit existing conversations whenever an order, payment, or product needs attention.">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-[#2C1810] text-xl font-bold">Support</Text>
-            <TouchableOpacity onPress={() => router.push('/support-tickets' as any)} className="bg-[#F8F2EA] rounded-xl px-4 py-2 flex-row items-center">
-              <Feather name="message-square" size={16} color="#8B4513" />
-              <Text className="ml-2 text-[#8B4513] font-semibold">My Tickets</Text>
-            </TouchableOpacity>
-          </View>
-          <Text className="text-[#6B7280]">Need help with an order, payment, or product issue? Create and track support tickets here.</Text>
-          <TouchableOpacity onPress={() => router.push('/contact' as any)} className="bg-[#2C1810] rounded-xl py-4 items-center">
-            <Text className="text-white font-bold">Create Support Ticket</Text>
-          </TouchableOpacity>
-        </CustomerSectionCard>
+              <PrimaryButton label="Save Profile" onPress={handleSaveProfile} loading={savingProfile} />
+            </View>
+          </CustomerSectionCard>
 
-        <CustomerSectionCard title="Password security" subtitle="Refresh your password whenever you want a new sign-in credential for this account.">
-          <Text className="text-[#2C1810] text-xl font-bold">Change Password</Text>
-
-          <TextInput
-            value={passwordForm.currentPassword}
-            onChangeText={(value) => setPasswordForm((prev) => ({ ...prev, currentPassword: value }))}
-            placeholder="Current password"
-            secureTextEntry
-            className="bg-[#F8F2EA] rounded-xl px-4 py-3"
-          />
-          <TextInput
-            value={passwordForm.newPassword}
-            onChangeText={(value) => setPasswordForm((prev) => ({ ...prev, newPassword: value }))}
-            placeholder="New password"
-            secureTextEntry
-            className="bg-[#F8F2EA] rounded-xl px-4 py-3"
-          />
-
-          <TouchableOpacity onPress={handleChangePassword} disabled={savingPassword} className="bg-[#2C1810] rounded-xl py-4 items-center">
-            {savingPassword ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold">Update Password</Text>}
-          </TouchableOpacity>
-        </CustomerSectionCard>
-
-        <CustomerSectionCard title="Saved addresses" subtitle="Manage delivery destinations and keep one default address ready for faster checkout.">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-[#2C1810] text-xl font-bold">Saved Addresses</Text>
-            <Text className="text-[#8B4513] font-semibold">Default: {defaultAddressId ? 'Selected' : 'None'}</Text>
-          </View>
-
-          {addresses.length === 0 ? (
-            <Text className="text-[#6B7280]">No saved addresses yet.</Text>
-          ) : (
-            addresses.map((address) => (
-              <View key={address._id} className="bg-[#F8F2EA] rounded-2xl p-4 gap-3">
-                <View className="flex-row items-center justify-between">
-                  <View>
-                    <Text className="text-[#2C1810] font-bold">{address.label || 'Address'}</Text>
-                    <Text className="text-[#6B7280]">{address.fullName}</Text>
-                  </View>
-                  {address.isDefault ? (
-                    <View className="bg-[#D6F5DF] rounded-full px-3 py-1">
-                      <Text className="text-[#166534] text-xs font-bold">Default</Text>
-                    </View>
-                  ) : null}
+          <CustomerSectionCard
+            title={editingAddressId ? 'Edit delivery address' : 'Add delivery address'}
+            subtitle="Save a delivery location to make your jewellery checkout faster and smoother."
+          >
+            <View className="gap-4">
+              <View className={isWide ? 'flex-row gap-4' : 'gap-4'}>
+                <View className="flex-1">
+                  <Field
+                    label="Label"
+                    icon="tag"
+                    value={addressForm.label}
+                    onChangeText={(value) => setAddressForm((prev) => ({ ...prev, label: value }))}
+                    placeholder="Home, Office"
+                  />
                 </View>
 
-                <Text className="text-[#374151]">{address.addressLine1}</Text>
-                {address.addressLine2 ? <Text className="text-[#374151]">{address.addressLine2}</Text> : null}
-                <Text className="text-[#374151]">{address.city}, {address.state} {address.zipCode}</Text>
-                <Text className="text-[#374151]">{address.country}</Text>
-                <Text className="text-[#374151]">{address.phone}</Text>
-
-                <View className="flex-row flex-wrap gap-3">
-                  <TouchableOpacity onPress={() => handleEditAddress(address)} className="bg-white rounded-xl px-4 py-3 flex-row items-center">
-                    <Feather name="edit-2" size={16} color="#8B4513" />
-                    <Text className="ml-2 text-[#8B4513] font-semibold">Edit</Text>
-                  </TouchableOpacity>
-                  {!address.isDefault ? (
-                    <TouchableOpacity onPress={() => handleDefaultAddress(address._id)} className="bg-white rounded-xl px-4 py-3 flex-row items-center">
-                      <Feather name="check-circle" size={16} color="#166534" />
-                      <Text className="ml-2 text-[#166534] font-semibold">Set Default</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                  <TouchableOpacity onPress={() => handleDeleteAddress(address._id)} className="bg-white rounded-xl px-4 py-3 flex-row items-center">
-                    <Feather name="trash-2" size={16} color="#DC2626" />
-                    <Text className="ml-2 text-[#DC2626] font-semibold">Delete</Text>
-                  </TouchableOpacity>
+                <View className="flex-1">
+                  <Field
+                    label="Receiver Name"
+                    icon="user"
+                    value={addressForm.fullName}
+                    onChangeText={(value) => setAddressForm((prev) => ({ ...prev, fullName: value }))}
+                    placeholder="Receiver full name"
+                  />
                 </View>
               </View>
-            ))
-          )}
 
-          <View className="border-t border-[#EADCCB] pt-4 gap-3">
-            <Text className="text-[#2C1810] text-lg font-bold">{editingAddressId ? 'Edit Address' : 'Add Address'}</Text>
-            <TextInput value={addressForm.label} onChangeText={(value) => setAddressForm((prev) => ({ ...prev, label: value }))} placeholder="Label" className="bg-[#F8F2EA] rounded-xl px-4 py-3" />
-            <TextInput value={addressForm.fullName} onChangeText={(value) => setAddressForm((prev) => ({ ...prev, fullName: value }))} placeholder="Full name" className="bg-[#F8F2EA] rounded-xl px-4 py-3" />
-            <TextInput value={addressForm.phone} onChangeText={(value) => setAddressForm((prev) => ({ ...prev, phone: value }))} placeholder="Phone" keyboardType="phone-pad" className="bg-[#F8F2EA] rounded-xl px-4 py-3" />
-            <TextInput value={addressForm.addressLine1} onChangeText={(value) => setAddressForm((prev) => ({ ...prev, addressLine1: value }))} placeholder="Address line 1" className="bg-[#F8F2EA] rounded-xl px-4 py-3" />
-            <TextInput value={addressForm.addressLine2} onChangeText={(value) => setAddressForm((prev) => ({ ...prev, addressLine2: value }))} placeholder="Address line 2" className="bg-[#F8F2EA] rounded-xl px-4 py-3" />
-            <TextInput value={addressForm.city} onChangeText={(value) => setAddressForm((prev) => ({ ...prev, city: value }))} placeholder="City" className="bg-[#F8F2EA] rounded-xl px-4 py-3" />
-            <TextInput value={addressForm.state} onChangeText={(value) => setAddressForm((prev) => ({ ...prev, state: value }))} placeholder="State" className="bg-[#F8F2EA] rounded-xl px-4 py-3" />
-            <TextInput value={addressForm.zipCode} onChangeText={(value) => setAddressForm((prev) => ({ ...prev, zipCode: value }))} placeholder="ZIP code" className="bg-[#F8F2EA] rounded-xl px-4 py-3" />
-            <TextInput value={addressForm.country} onChangeText={(value) => setAddressForm((prev) => ({ ...prev, country: value }))} placeholder="Country" className="bg-[#F8F2EA] rounded-xl px-4 py-3" />
+              <Field
+                label="Phone"
+                icon="phone"
+                value={addressForm.phone}
+                onChangeText={(value) => setAddressForm((prev) => ({ ...prev, phone: value }))}
+                placeholder="Delivery phone number"
+                keyboardType="phone-pad"
+              />
 
-            <TouchableOpacity
-              onPress={() => setAddressForm((prev) => ({ ...prev, isDefault: !prev.isDefault }))}
-              className="flex-row items-center"
-            >
-              <Feather name={addressForm.isDefault ? 'check-square' : 'square'} size={18} color="#8B4513" />
-              <Text className="ml-2 text-[#8B4513] font-semibold">Set as default address</Text>
-            </TouchableOpacity>
+              <Field
+                label="Address Line 1"
+                icon="home"
+                value={addressForm.addressLine1}
+                onChangeText={(value) => setAddressForm((prev) => ({ ...prev, addressLine1: value }))}
+                placeholder="Street address"
+              />
 
-            <View className="flex-row gap-3">
-              <TouchableOpacity onPress={handleSaveAddress} disabled={savingAddress} className="flex-1 bg-[#8B4513] rounded-xl py-4 items-center">
-                {savingAddress ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold">{editingAddressId ? 'Update Address' : 'Add Address'}</Text>}
-              </TouchableOpacity>
-              {editingAddressId ? (
-                <TouchableOpacity
-                  onPress={() => {
-                    setEditingAddressId(null);
-                    setAddressForm(EMPTY_ADDRESS);
-                  }}
-                  className="flex-1 bg-[#EDE4D9] rounded-xl py-4 items-center"
-                >
-                  <Text className="text-[#2C1810] font-bold">Cancel</Text>
-                </TouchableOpacity>
-              ) : null}
+              <Field
+                label="Address Line 2"
+                icon="map"
+                value={addressForm.addressLine2}
+                onChangeText={(value) => setAddressForm((prev) => ({ ...prev, addressLine2: value }))}
+                placeholder="Apartment, suite, landmark"
+              />
+
+              <View className={isWide ? 'flex-row gap-4' : 'gap-4'}>
+                <View className="flex-1">
+                  <Field
+                    label="City"
+                    icon="map-pin"
+                    value={addressForm.city}
+                    onChangeText={(value) => setAddressForm((prev) => ({ ...prev, city: value }))}
+                    placeholder="City"
+                  />
+                </View>
+
+                <View className="flex-1">
+                  <Field
+                    label="State / Province"
+                    icon="navigation"
+                    value={addressForm.state}
+                    onChangeText={(value) => setAddressForm((prev) => ({ ...prev, state: value }))}
+                    placeholder="State"
+                  />
+                </View>
+              </View>
+
+              <View className={isWide ? 'flex-row gap-4' : 'gap-4'}>
+                <View className="flex-1">
+                  <Field
+                    label="Postal Code"
+                    icon="hash"
+                    value={addressForm.zipCode}
+                    onChangeText={(value) => setAddressForm((prev) => ({ ...prev, zipCode: value }))}
+                    placeholder="Postal code"
+                  />
+                </View>
+
+                <View className="flex-1">
+                  <Field
+                    label="Country"
+                    icon="globe"
+                    value={addressForm.country}
+                    onChangeText={(value) => setAddressForm((prev) => ({ ...prev, country: value }))}
+                    placeholder="Country"
+                  />
+                </View>
+              </View>
+
+              <Pressable
+                onPress={() => setAddressForm((prev) => ({ ...prev, isDefault: !prev.isDefault }))}
+                className="flex-row items-center gap-3 rounded-2xl bg-[#F6ECDF] px-4 py-4"
+              >
+                <Feather
+                  name={addressForm.isDefault ? 'check-square' : 'square'}
+                  size={18}
+                  color={BROWN.DarkColor}
+                />
+                <Text className="text-[13px] font-bold text-[#714329]" style={{ fontFamily: BRAND_FONTS.body }}>
+                  Set as default delivery address
+                </Text>
+              </Pressable>
+
+              <View className="flex-row flex-wrap gap-3">
+                <View className="flex-1">
+                  <PrimaryButton
+                    label={editingAddressId ? 'Update Address' : 'Add Address'}
+                    onPress={handleSaveAddress}
+                    loading={savingAddress}
+                  />
+                </View>
+
+                {editingAddressId ? (
+                  <View className="flex-1">
+                    <PrimaryButton
+                      label="Cancel Edit"
+                      variant="light"
+                      onPress={() => {
+                        setEditingAddressId(null);
+                        setAddressForm(EMPTY_ADDRESS);
+                      }}
+                    />
+                  </View>
+                ) : null}
+              </View>
             </View>
-          </View>
-        </CustomerSectionCard>
+          </CustomerSectionCard>
+        </View>
+
+        <View className={`${isWide ? 'w-[390px]' : 'w-full'} gap-6`}>
+          <CustomerSectionCard
+            title="Password security"
+            subtitle="Use a strong password with uppercase, lowercase, and a number."
+          >
+            <View className="gap-4">
+              <Field
+                label="Current Password"
+                icon="lock"
+                value={passwordForm.currentPassword}
+                onChangeText={(value) =>
+                  setPasswordForm((prev) => ({ ...prev, currentPassword: value }))
+                }
+                placeholder="Current password"
+                secureTextEntry
+              />
+
+              <Field
+                label="New Password"
+                icon="shield"
+                value={passwordForm.newPassword}
+                onChangeText={(value) =>
+                  setPasswordForm((prev) => ({ ...prev, newPassword: value }))
+                }
+                placeholder="New password"
+                secureTextEntry
+              />
+
+              <PrimaryButton
+                label="Update Password"
+                onPress={handleChangePassword}
+                loading={savingPassword}
+              />
+            </View>
+          </CustomerSectionCard>
+
+          <CustomerSectionCard
+            title="Saved addresses"
+            subtitle="Choose, edit, or remove your delivery destinations."
+          >
+            {addresses.length === 0 ? (
+              <View className="items-center rounded-[28px] bg-[#F8EFE6] px-6 py-10">
+                <View className="items-center justify-center w-16 h-16 bg-white rounded-full">
+                  <Feather name="map-pin" size={26} color={BROWN.lightColor} />
+                </View>
+
+                <Text className="mt-4 text-center text-[22px] text-[#2B1E16]" style={{ fontFamily: BRAND_FONTS.heading }}>
+                  No address saved
+                </Text>
+
+                <Text className="mt-2 text-center text-[13px] leading-6 text-[#765F50]" style={{ fontFamily: BRAND_FONTS.body }}>
+                  Add your first delivery address for faster jewellery checkout.
+                </Text>
+              </View>
+            ) : (
+              <View className="gap-3">
+                {addresses.map((address) => (
+                  <View key={address._id} className="rounded-[26px] border border-[#EAD7C3] bg-[#FFFAF5] p-4">
+                    <View className="flex-row items-start justify-between gap-3">
+                      <View className="flex-1">
+                        <Text className="text-[20px] text-[#2B1E16]" style={{ fontFamily: BRAND_FONTS.heading }}>
+                          {address.label || 'Address'}
+                        </Text>
+
+                        <Text className="mt-1 text-[13px] font-bold text-[#714329]" style={{ fontFamily: BRAND_FONTS.body }}>
+                          {address.fullName}
+                        </Text>
+
+                        <Text className="mt-2 text-[13px] leading-6 text-[#765F50]" style={{ fontFamily: BRAND_FONTS.body }}>
+                          {address.addressLine1}
+                          {address.addressLine2 ? `, ${address.addressLine2}` : ''}
+                          {'\n'}
+                          {[address.city, address.state, address.zipCode].filter(Boolean).join(', ')}
+                          {'\n'}
+                          {address.country}
+                        </Text>
+
+                        <Text className="mt-2 text-[13px] text-[#765F50]" style={{ fontFamily: BRAND_FONTS.body }}>
+                          {address.phone}
+                        </Text>
+                      </View>
+
+                      {address.isDefault ? (
+                        <View className="rounded-full bg-[#E9F8EE] px-3 py-1.5">
+                          <Text className="text-[10px] font-bold text-[#15803D]" style={{ fontFamily: BRAND_FONTS.body }}>
+                            DEFAULT
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    <View className="flex-row flex-wrap gap-2 mt-4">
+                      <Pressable
+                        onPress={() => handleEditAddress(address)}
+                        className="flex-row items-center gap-2 rounded-full bg-[#F6ECDF] px-4 py-2.5"
+                      >
+                        <Feather name="edit-2" size={14} color={BROWN.DarkColor} />
+                        <Text className="text-[12px] font-bold text-[#714329]" style={{ fontFamily: BRAND_FONTS.body }}>
+                          Edit
+                        </Text>
+                      </Pressable>
+
+                      {!address.isDefault ? (
+                        <Pressable
+                          onPress={() => handleDefaultAddress(address._id)}
+                          className="flex-row items-center gap-2 rounded-full bg-[#E9F8EE] px-4 py-2.5"
+                        >
+                          <Feather name="check-circle" size={14} color="#15803D" />
+                          <Text className="text-[12px] font-bold text-[#15803D]" style={{ fontFamily: BRAND_FONTS.body }}>
+                            Default
+                          </Text>
+                        </Pressable>
+                      ) : null}
+
+                      <Pressable
+                        onPress={() => handleDeleteAddress(address._id)}
+                        className="flex-row items-center gap-2 rounded-full bg-[#FFF4F4] px-4 py-2.5"
+                      >
+                        <Feather name="trash-2" size={14} color="#B91C1C" />
+                        <Text className="text-[12px] font-bold text-[#B91C1C]" style={{ fontFamily: BRAND_FONTS.body }}>
+                          Delete
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </CustomerSectionCard>
+        </View>
       </View>
     </CustomerPageFrame>
   );

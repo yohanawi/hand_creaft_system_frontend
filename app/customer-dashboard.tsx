@@ -110,7 +110,13 @@ function formatStatusLabel(value?: string) {
   return String(value || 'ready').replace(/_/g, ' ');
 }
 
-function MetricCard({ icon, label, value, accent, sub, }: {
+function MetricCard({
+  icon,
+  label,
+  value,
+  accent,
+  sub,
+}: {
   icon: keyof typeof Feather.glyphMap;
   label: string;
   value: string;
@@ -118,16 +124,46 @@ function MetricCard({ icon, label, value, accent, sub, }: {
   sub?: string;
 }) {
   return (
-    <View className="min-w-[150px] flex-1 rounded-[28px] bg-white border border-stone-100 p-6 gap-5">
-      <View className="flex-row items-center justify-between">
-        <View className="items-center justify-center w-11 h-11 rounded-2xl" style={{ backgroundColor: `${accent}15` }}>
+    <View className="min-w-[160px] flex-1 overflow-hidden rounded-[30px] border border-[#E9D9C9] bg-[#FFF9F3] p-5">
+      <View
+        className="absolute w-20 h-20 rounded-full -right-6 -top-6"
+        style={{ backgroundColor: `${accent}12` }}
+      />
+
+      <View className="flex-row items-start justify-between">
+        <View
+          className="items-center justify-center w-12 h-12 rounded-2xl"
+          style={{ backgroundColor: `${accent}18` }}
+        >
           <Feather name={icon} size={19} color={accent} />
         </View>
-        <Text className="text-[38px] leading-none text-stone-900" style={{ color: accent, fontWeight: '700', fontFamily: 'Playfair Display' }}>{value}</Text>
+
+        <Text
+          className="text-[36px] leading-[42px]"
+          style={{
+            color: accent,
+
+          }}
+        >
+          {value}
+        </Text>
       </View>
-      <View>
-        <Text className="font-body text-[12px] text-stone-400 mt-1.5 uppercase tracking-widest">{label}</Text>
-      </View>
+
+      <Text
+        className="mt-5 text-[12px] uppercase tracking-[2px] text-[#8A6A56]"
+
+      >
+        {label}
+      </Text>
+
+      {sub ? (
+        <Text
+          className="mt-1 text-[13px] text-[#5D4A3F]"
+
+        >
+          {sub}
+        </Text>
+      ) : null}
     </View>
   );
 }

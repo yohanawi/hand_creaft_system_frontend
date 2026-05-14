@@ -5,9 +5,10 @@ import React, { type ReactNode } from 'react';
 import {
     Animated,
     Pressable,
+    RefreshControlProps,
     Text,
     View,
-    useWindowDimensions
+    useWindowDimensions,
 } from 'react-native';
 
 type CustomerPageFrameProps = {
@@ -19,7 +20,7 @@ type CustomerPageFrameProps = {
     actions?: ReactNode;
     heroAside?: ReactNode;
     sidebar?: ReactNode;
-    refreshControl?: ReactNode;
+    refreshControl?: React.ReactElement<RefreshControlProps>;
     children: ReactNode;
 };
 
@@ -39,29 +40,29 @@ export function CustomerSectionCard({
     children,
 }: CustomerSectionCardProps) {
     return (
-        <View className="bg-white p-6 rounded-[30px] border border-[#EAD7C3]">
+        <View className="overflow-hidden rounded-[32px] border border-[#E9D9C9] bg-[#FFF9F3] p-5 md:p-6">
+            <View className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[#EED8C4]" />
+
             <View className="flex-row items-start justify-between gap-4">
                 <View className="flex-1">
-                    <Text style={{ fontFamily: BRAND_FONTS.heading }} className="text-[28px] text-[#2B1E16]">
+                    <Text className="text-[24px] leading-[31px] text-[#2B1E16]" style={{ fontFamily: BRAND_FONTS.heading }}>
                         {title}
                     </Text>
 
-                    {subtitle && (
-                        <Text style={{ fontFamily: BRAND_FONTS.body }} className="mt-2 text-[13px] leading-6 text-[#6B5A4E]">
+                    {subtitle ? (
+                        <Text className="mt-2 text-[13px] leading-6 text-[#765F50]" style={{ fontFamily: BRAND_FONTS.body }}>
                             {subtitle}
                         </Text>
-                    )}
+                    ) : null}
                 </View>
 
-                {actionLabel && onAction && (
-                    <Pressable onPress={onAction} className="px-4 py-2 rounded-full bg-[#F6ECDF]">
-                        {({ pressed }) => (
-                            <Text style={{ fontFamily: BRAND_FONTS.body }} className={`text-[12px] font-semibold text-[#2B1E16] ${pressed ? 'opacity-80' : 'opacity-100'}`}>
-                                {actionLabel}
-                            </Text>
-                        )}
+                {actionLabel && onAction ? (
+                    <Pressable onPress={onAction} className="rounded-full bg-[#2B1E16] px-4 py-2" style={({ pressed }) => ({ opacity: pressed ? 0.82 : 1 })}>
+                        <Text className="text-[12px] font-semibold text-white" style={{ fontFamily: BRAND_FONTS.body }}>
+                            {actionLabel}
+                        </Text>
                     </Pressable>
-                )}
+                ) : null}
             </View>
 
             <View className="mt-5">{children}</View>
@@ -78,6 +79,7 @@ export default function CustomerPageFrame({
     actions,
     heroAside,
     sidebar,
+    refreshControl,
     children,
 }: CustomerPageFrameProps) {
     const { width } = useWindowDimensions();
@@ -89,72 +91,55 @@ export default function CustomerPageFrame({
                 showsVerticalScrollIndicator={false}
                 onScroll={onScroll}
                 scrollEventThrottle={16}
+                refreshControl={refreshControl}
             >
                 <PageShell scrollY={scrollY}>
-                    <LinearGradient
-                        colors={[
-                            BROWN.DarkColor,
-                            BROWN.SecondaryBackground,
-                            BROWN.lightColor,
-                        ]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                    >
+                    <LinearGradient colors={['#2B1E16', BROWN.DarkColor, BROWN.SecondaryBackground]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                         <View className="relative px-4 pb-10 overflow-hidden pt-14">
-                            {/* decorative blobs */}
-                            <View className="absolute rounded-full -left-12 top-10 h-44 w-44 bg-white/10" />
-                            <View className="absolute top-0 right-0 w-56 h-56 rounded-full bg-[#F0D6BB]/20" />
+                            <View className="absolute rounded-full -left-16 top-8 h-52 w-52 bg-white/10" />
+                            <View className="absolute -right-20 -top-16 h-72 w-72 rounded-full bg-[#E8C7A8]/20" />
+                            <View className="absolute bottom-0 rounded-full right-10 h-28 w-28 bg-black/10" />
 
-                            <View className="mx-auto w-full max-w-[1240px]">
+                            <View className="w-full mx-auto max-w-[90rem]">
                                 <View className={`gap-6 ${stacked ? '' : 'flex-row items-end justify-between'}`}>
-                                    <View className="flex-1 max-w-[760px]">
-                                        {/* eyebrow */}
+                                    <View className="flex-1">
                                         <View className="self-start px-4 py-2 border rounded-full border-white/20 bg-white/10">
-                                            <Text style={{ fontFamily: BRAND_FONTS.body, color: '#FFF' }} className="text-[11px] uppercase tracking-[2px]">
+                                            <Text className="text-[11px] uppercase tracking-[2.4px] text-white" style={{ fontFamily: BRAND_FONTS.body }}>
                                                 {eyebrow}
                                             </Text>
                                         </View>
 
-                                        {/* title */}
-                                        <Text style={{ fontFamily: BRAND_FONTS.heading, fontSize: 40 }} className="mt-4 text-white leading-[46px]">
+                                        <Text className="mt-4 max-w-[760px] text-[38px] leading-[46px] text-white md:text-[46px] md:leading-[54px]" style={{ fontFamily: BRAND_FONTS.heading }}>
                                             {title}
                                         </Text>
 
-                                        {/* subtitle */}
-                                        <Text style={{ fontFamily: BRAND_FONTS.body, fontSize: 15, color: '#FFF' }} className="mt-4 max-w-[660px] leading-7">
+                                        <Text className="mt-4 max-w-[680px] text-[15px] leading-7 text-white/80" style={{ fontFamily: BRAND_FONTS.body }}>
                                             {subtitle}
                                         </Text>
 
-                                        {actions && (
-                                            <View className="flex-row flex-wrap gap-3 mt-6">
-                                                {actions}
-                                            </View>
-                                        )}
+                                        {actions ? <View className="flex-row flex-wrap gap-3 mt-6">{actions}</View> : null}
                                     </View>
 
-                                    {heroAside && (
-                                        <View className={stacked ? 'w-full' : 'max-w-[360px]'}>
+                                    {heroAside ? (
+                                        <View className={stacked ? 'w-full' : 'w-[360px]'}>
                                             {heroAside}
                                         </View>
-                                    )}
+                                    ) : null}
                                 </View>
                             </View>
                         </View>
                     </LinearGradient>
 
-                    {/* body */}
                     <View className="px-4 pt-6 pb-28">
-                        <View className="mx-auto w-full max-w-[1240px]">
+                        <View className="mx-auto w-full max-w-[90rem]">
                             <View className={`gap-6 ${sidebar && !stacked ? 'flex-row items-start' : ''}`}>
-                                {sidebar && (
-                                    <View className={stacked ? 'mb-6' : 'w-[290px] shrink-0'}>
+                                {sidebar ? (
+                                    <View className={stacked ? 'w-full' : 'w-[290px]'}>
                                         {sidebar}
                                     </View>
-                                )}
+                                ) : null}
 
-                                <View className="flex-1 min-w-0 gap-6">
-                                    {children}
-                                </View>
+                                <View className="flex-1 min-w-0 gap-6">{children}</View>
                             </View>
                         </View>
                     </View>
