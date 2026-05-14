@@ -33,6 +33,30 @@ function SyncManager() {
   return null;
 }
 
+function TawkChat() {
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    if (document.getElementById('tawk-chat-script')) return;
+
+    const script = document.createElement('script');
+    script.id = 'tawk-chat-script';
+    script.async = true;
+    script.src = 'https://embed.tawk.to/6a062f3471b8c51c34c0cba6/1jok2gps6';
+    script.charset = 'UTF-8';
+    script.setAttribute('crossorigin', '*');
+
+    document.body.appendChild(script);
+
+    return () => {
+      // Do not remove script on route changes
+    };
+  }, []);
+
+  return null;
+}
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
@@ -73,6 +97,7 @@ export default function RootLayout() {
                   <Stack.Screen name="admin" />
                 </Stack>
                 <StatusBar style="auto" />
+              <TawkChat />
               </ThemeProvider>
             </WishlistProvider>
           </CartProvider>
