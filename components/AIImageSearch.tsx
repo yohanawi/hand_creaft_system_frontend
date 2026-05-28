@@ -84,6 +84,16 @@ type AiSearchHealthResponse = {
     };
 };
 
+type AiPrediction = {
+    category: string;
+    confidence: number;
+    top_categories?: { name?: string; category?: string; confidence: number }[];
+};
+
+function getPredictionCandidateName(item: { name?: string; category?: string }) {
+    return item.name || item.category || "unknown";
+}
+
 function toggleValue(values: string[], next: string) {
     return values.includes(next) ? values.filter((value) => value !== next) : [...values, next];
 }
@@ -96,7 +106,12 @@ function formatFileSize(bytes?: number | null) {
 
 function normalizeProductPayload(payload: any): AiSearchProduct {
     const raw = payload?.product || payload?.data || payload;
-    return normalizeAiSearchCatalog([raw])[0] || raw;
+    const normalizedRaw = {
+        ...raw,
+        thumbnailImage: raw?.thumbnailImage || raw?.image,
+        category: raw?.category || null,
+    };
+    return normalizeAiSearchCatalog([normalizedRaw])[0] || normalizedRaw;
 }
 
 async function fetchAiSearchHealth() {
@@ -167,6 +182,7 @@ export default function AIImageSearch() {
     const [visualLoading, setVisualLoading] = useState(false);
     const [visualError, setVisualError] = useState<string | null>(null);
     const [visualSearchTime, setVisualSearchTime] = useState<number | null>(null);
+    const [aiPrediction, setAiPrediction] = useState<AiPrediction | null>(null);
 
     const [customSubmitting, setCustomSubmitting] = useState(false);
 
@@ -245,6 +261,7 @@ export default function AIImageSearch() {
         setVisualMatches([]);
         setVisualError(null);
         setVisualSearchTime(null);
+        setAiPrediction(null);
     };
 
     const openWebPicker = (source: "gallery" | "camera") => {
@@ -380,22 +397,36 @@ export default function AIImageSearch() {
             await appendUploadToFormData(formData, selectedUpload);
 
             const response = await searchProductsByImage(formData);
+            const prediction = response.data?.prediction;
             const results = Array.isArray(response.data?.results) ? response.data.results : [];
+            const productSummaries = Array.isArray(response.data?.products) ? response.data.products : [];
 
-            const normalized = results
+            const normalized = (results.length ? results : productSummaries)
                 .map((entry: any) => ({
-                    product: normalizeProductPayload(entry.product),
-                    score: typeof entry.score === "number" ? entry.score : 0,
+                    product: normalizeProductPayload(entry.product || entry),
+                    score: typeof entry.score === "number"
+                        ? entry.score
+                        : typeof entry.similarity === "number"
+                            ? entry.similarity
+                            : 0,
                 }))
                 .filter((entry: AiSearchVisualMatch) => entry.product?._id);
 
             setVisualMatches(normalized);
+            setAiPrediction(prediction?.category ? prediction : null);
             setVisualSearchTime(Number(((Date.now() - startedAt) / 1000).toFixed(1)));
 
-            showToast(normalized.length ? "AI matches found" : "No exact match found", normalized.length ? "success" : "info");
+            showToast(
+                normalized.length ? "AI matches found" : "No exact match found",
+                normalized.length ? "success" : "info",
+                prediction?.category
+                    ? { subMessage: `Predicted ${prediction.category} with ${Math.round((prediction.confidence || 0) * 100)}% confidence.` }
+                    : undefined,
+            );
         } catch (error: any) {
             setVisualError(error?.response?.data?.message || error?.message || "AI image search failed.");
             setVisualMatches([]);
+            setAiPrediction(null);
         } finally {
             setVisualLoading(false);
         }
@@ -720,28 +751,42 @@ export default function AIImageSearch() {
                 </LinearGradient>
             </View>
 
-            {bestMatch ? (
+            {bestMatch || aiPrediction ? (
                 <View className="mt-7 rounded-[30px] border px-5 py-5" style={{ borderColor: AI_SEARCH_COLORS.line, backgroundColor: "#fffdfb" }}>
                     <SectionTitle
                         eyebrow="AI result"
-                        title="Best visual match found"
+                        title={bestMatch ? "Best visual match found" : "Category prediction ready"}
                         description={`The uploaded image was compared with indexed catalog products${visualSearchTime ? ` in ${visualSearchTime}s` : ""}.`}
                     />
 
                     <View className="flex-row flex-wrap gap-3">
                         {[
-                            ["Match", `${Math.round(bestMatch.score * 100)}%`],
-                            ["Quality", getAiVisualMatchLabel(bestMatch.score)],
-                            ["Style", inferAiSearchStyle(bestMatch.product)],
-                            ["Occasion", inferAiSearchOccasion(bestMatch.product)],
-                            ["Craft", inferAiSearchHandmadeType(bestMatch.product)],
-                        ].map(([label, value]) => (
+                            aiPrediction ? ["Predicted type", aiPrediction.category] : null,
+                            aiPrediction ? ["Confidence", `${Math.round((aiPrediction.confidence || 0) * 100)}%`] : null,
+                            bestMatch ? ["Match", `${Math.round(bestMatch.score * 100)}%`] : null,
+                            bestMatch ? ["Quality", getAiVisualMatchLabel(bestMatch.score)] : null,
+                            bestMatch ? ["Style", inferAiSearchStyle(bestMatch.product)] : null,
+                            bestMatch ? ["Occasion", inferAiSearchOccasion(bestMatch.product)] : null,
+                            bestMatch ? ["Craft", inferAiSearchHandmadeType(bestMatch.product)] : null,
+                        ].filter((item): item is [string, string] => Boolean(item)).map(([label, value]) => (
                             <View key={label} className="rounded-[20px] border px-4 py-4" style={{ borderColor: AI_SEARCH_COLORS.line, backgroundColor: "#fffaf6" }}>
                                 <Text style={{ color: AI_SEARCH_COLORS.muted, fontSize: 11, fontFamily: AI_SEARCH_FONTS.body }}>{label}</Text>
-                                <Text className="mt-1" style={{ color: AI_SEARCH_COLORS.espresso, fontSize: 15, fontFamily: AI_SEARCH_FONTS.heading }}>{value}</Text>
+                                <Text className="mt-1 capitalize" style={{ color: AI_SEARCH_COLORS.espresso, fontSize: 15, fontFamily: AI_SEARCH_FONTS.heading }}>{value}</Text>
                             </View>
                         ))}
                     </View>
+
+                    {aiPrediction?.top_categories?.length ? (
+                        <View className="flex-row flex-wrap gap-2 mt-4">
+                            {aiPrediction.top_categories.slice(0, 4).map((item) => (
+                                <View key={`${getPredictionCandidateName(item)}-${item.confidence}`} className="px-3 py-2 rounded-full" style={{ backgroundColor: "#f4e7db" }}>
+                                    <Text style={{ color: AI_SEARCH_COLORS.espresso, fontSize: 12, fontFamily: AI_SEARCH_FONTS.body }}>
+                                        {getPredictionCandidateName(item)} {Math.round((item.confidence || 0) * 100)}%
+                                    </Text>
+                                </View>
+                            ))}
+                        </View>
+                    ) : null}
                 </View>
             ) : null}
 

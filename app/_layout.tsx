@@ -97,7 +97,7 @@ export default function RootLayout() {
                   <Stack.Screen name="admin" />
                 </Stack>
                 <StatusBar style="auto" />
-              <TawkChat />
+                <TawkChat />
               </ThemeProvider>
             </WishlistProvider>
           </CartProvider>

@@ -1,0 +1,61 @@
+export const nativeTheme = {
+  colors: {
+    background: "#f8f2ec",
+    backgroundAlt: "#f3e6d9",
+    surface: "#fffaf6",
+    surfaceMuted: "#efe3d8",
+    card: "#fffdfb",
+    cardStrong: "#fff7ef",
+    border: "#e8d8c9",
+    text: "#1c140f",
+    textMuted: "#735d4f",
+    primary: "#714329",
+    primaryDark: "#3d2417",
+    accent: "#d4af37",
+    accentSoft: "#f1df9a",
+    success: "#28745a",
+    danger: "#b93e33",
+    warning: "#c77b2b",
+    info: "#2f6da3",
+    white: "#ffffff",
+    shadow: "rgba(61, 36, 23, 0.14)",
+    shadowStrong: "rgba(61, 36, 23, 0.22)",
+  },
+  radius: {
+    sm: 12,
+    md: 16,
+    lg: 22,
+    xl: 28,
+    pill: 999,
+  },
+  spacing: {
+    xs: 8,
+    sm: 12,
+    md: 16,
+    lg: 20,
+    xl: 24,
+    xxl: 32,
+  },
+  fonts: {
+    heading: "PlayfairDisplay",
+    body: "Inter",
+  },
+  shadows: {
+    soft: {
+      shadowColor: "rgba(61, 36, 23, 0.14)",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 1,
+      shadowRadius: 18,
+      elevation: 5,
+    },
+    strong: {
+      shadowColor: "rgba(61, 36, 23, 0.22)",
+      shadowOffset: { width: 0, height: 14 },
+      shadowOpacity: 1,
+      shadowRadius: 24,
+      elevation: 8,
+    },
+  },
+};
+
+export const screenPadding = 20;
